@@ -1,0 +1,367 @@
+{
+  "note": "The mockup's own chrome is neutralised in both pages: the iPad bezel, the rotating platter-display gap, and the study tool's control selection and hotspots. Remaining differences are the mockup's demo data the app cannot show (deck B's +1 key shift, the static tempo faders, the CUE markers, 71% master) and corner anti-aliasing a few levels apart. The screens beyond the console are the mockup's Screen picker against ?demo=mockup&screen=<name>.",
+  "out": "out/mockup-diff",
+  "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+  "pairs": [
+    {
+      "name": "home",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": ""
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "library",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.zart').click();await new Promise(r=>setTimeout(r,400));[...document.querySelectorAll('.lib-row')].find(e => e.textContent.includes('Move On Up')).click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "document.querySelector('.zart').click();await new Promise(r=>setTimeout(r,400));[...document.querySelectorAll('.lib-row')].find(e => e.textContent.includes('Move On Up')).click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      }
+    },
+    {
+      "name": "volume",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.vol-btn').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "document.querySelector('.vol-btn').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      }
+    },
+    {
+      "name": "trim",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.trimchip').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "document.querySelector('.trimchip').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      }
+    },
+    {
+      "name": "band-low",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "[...document.querySelectorAll('.bandval')].find(e => e.textContent.includes('LOW')).click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "[...document.querySelectorAll('.bandval')].find(e => e.textContent.includes('LOW')).click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      }
+    },
+    {
+      "name": "hotcue",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "[...document.querySelectorAll('.pill')].find(e => e.textContent.includes('HOT CUE')).click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "[...document.querySelectorAll('.pill')].find(e => e.textContent.includes('HOT CUE')).click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      }
+    },
+    {
+      "name": "grid",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.gridkey').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "document.querySelector('.gridkey').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      }
+    },
+    {
+      "name": "firstrun",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('firstrun');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=firstrun",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "analysing",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('analysing');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=analysing",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "error",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('error');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=error",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "drop",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('drop');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=drop",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "dropblocked",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('dropblocked');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=dropblocked",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "shortcuts",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('shortcuts');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=shortcuts",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "tap",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('tap');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=tap",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "playlistmenu",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('playlistmenu');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=playlistmenu",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "rename",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('rename');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=rename",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "delete",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('delete');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=delete",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "firstrun-library",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('firstrun');toggleLib();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=firstrun",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "document.querySelector('.zart').click()"
+      }
+    },
+    {
+      "name": "gridunsure",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('gridunsure');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=gridunsure",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "gridalts",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('gridalts');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=gridalts",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "gridunsure-library",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('gridunsure');document.querySelector('.gsheet-head .btn.done').click();await new Promise(r=>setTimeout(r,400));document.querySelector('.zart').click();await new Promise(r=>setTimeout(r,400));const list=document.querySelector('.lib-list');list.scrollTop=list.scrollHeight;if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=gridunsure",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "document.querySelector('.gsheet-head .btn.done').click();await new Promise(r=>setTimeout(r,400));document.querySelector('.zart').click();await new Promise(r=>setTimeout(r,400));const list=document.querySelector('.lib-list');list.scrollTop=list.scrollHeight;"
+      }
+    },
+    {
+      "name": "gridhelp",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('gridhelp');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=gridhelp",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": ""
+      }
+    },
+    {
+      "name": "taphelp",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('tap');document.querySelector('.sheet-layer .btn.info').click();await new Promise(r=>setTimeout(r,300));if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup&screen=tap",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "document.querySelector('.sheet-layer .btn.info').click();await new Promise(r=>setTimeout(r,300));"
+      }
+    },
+    {
+      "name": "volumehelp",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.vol-btn').click();await new Promise(r=>setTimeout(r,300));document.querySelector('.volpop .btn.info').click();await new Promise(r=>setTimeout(r,300));if (typeof paintSelection === 'function') { selected = null; paintSelection(); }"
+      },
+      "b": {
+        "url": "http://localhost:5299/?demo=mockup",
+        "window": [
+          1174,
+          814
+        ],
+        "setup": "document.querySelector('.vol-btn').click();await new Promise(r=>setTimeout(r,300));document.querySelector('.volpop .btn.info').click();await new Promise(r=>setTimeout(r,300));"
+      }
+    }
+  ]
+}

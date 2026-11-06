@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mockup",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765",
+        "--directory",
+        "mockup"
+      ],
+      "port": 8765
+    },
+    {
+      "name": "renderer",
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": [
+        "-c",
+        "export PATH=\"/opt/homebrew/bin:$PATH\"; command -v node >/dev/null || eval \"$(fnm env --shell zsh)\"; exec node node_modules/vite/bin/vite.js --config vite.renderer.config.ts"
+      ],
+      "port": 5299
+    }
+  ]
+}

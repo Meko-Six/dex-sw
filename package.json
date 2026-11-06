@@ -1,0 +1,75 @@
+{
+  "name": "dex",
+  "version": "0.1.0",
+  "description": "Dex — a bare-bones two-deck DJ mixer for macOS",
+  "main": "./out/main/index.js",
+  "author": "Dex",
+  "license": "GPL-3.0-only",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "dev:renderer": "vite --config vite.renderer.config.ts",
+    "build": "npm run typecheck && electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "diff:mockup": "electron scripts/pixel-diff.mjs scripts/mockup-diff.json",
+    "diff:native": "electron scripts/pixel-diff.mjs scripts/native-diff.json",
+    "fixtures": "node scripts/make-fixtures.mjs",
+    "accuracy": "esbuild scripts/accuracy.ts --bundle --format=esm --platform=node --log-level=warning --outfile=out/accuracy.mjs && node out/accuracy.mjs",
+    "accuracy:manifest": "esbuild scripts/accuracy-manifest.ts --bundle --format=esm --platform=node --log-level=warning --outfile=out/accuracy-manifest.mjs && node out/accuracy-manifest.mjs",
+    "accuracy:labels": "esbuild scripts/accuracy-labels.ts --bundle --format=esm --platform=node --log-level=warning --outfile=out/accuracy-labels.mjs && node out/accuracy-labels.mjs",
+    "accuracy:beat-this": "esbuild scripts/beat-this-compare.ts --bundle --format=esm --platform=node --log-level=warning --outfile=out/beat-this-compare.mjs && node out/beat-this-compare.mjs",
+    "import:crate": "esbuild scripts/import-crate.ts --bundle --format=esm --platform=node --log-level=warning --outfile=out/import-crate.mjs && node out/import-crate.mjs",
+    "dist": "npm run build && electron-builder --mac --arm64",
+    "postinstall": "electron-builder install-app-deps",
+    "check:runtime": "node scripts/build-runtime-check.mjs && electron scripts/check-runtime.mjs",
+    "check:resources": "node scripts/build-runtime-check.mjs && electron scripts/check-runtime.mjs --long"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "signalsmith-stretch": "^1.3.2",
+    "zustand": "^5.0.3"
+  },
+  "build": {
+    "appId": "com.dex.app",
+    "productName": "Dex",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/main/**/*",
+      "out/preload/**/*",
+      "out/renderer/**/*",
+      "!out/renderer/runtime-test.js",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.music",
+      "artifactName": "Dex-${version}-${arch}.${ext}",
+      "identity": null,
+      "minimumSystemVersion": "13.0.0"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^4.0.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.7.3",
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  # Pull requests run on their own trigger; a push runs only on main, so no change runs twice.
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # CI bundles the app, it never launches it: skipping the ~100 MB Electron
+      # binary keeps the run short and removes a download that can fail.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Fixtures
+        run: npm run fixtures
+
+      # The bench decodes through ffmpeg, as the app's last-resort decoder does; the runner has none.
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+
+      - name: Accuracy bench (self-check)
+        run: npm run accuracy -- --self
+
+      - name: Build
+        run: npm run build
+
+  desktop:
+    name: production Electron integration
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run fixtures
+      - run: npm run build
+      - name: Sandboxed IPC, worklet, waveform and persistence checks
+        run: npm run check:runtime
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: desktop-check
+          path: |
+            out/runtime-check/report.json
+            out/runtime-check/production.png
+
+  native:
+    name: native audio regressions · Mac · iPad build
+    runs-on: macos-latest
+    # The engine's own gate tests run here too: about 22 minutes in all on GitHub's runners.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - name: Native core, detection and recorded-audio regressions
+        # Live output and private music exports are opt-in local checks.
+        run: swift test --package-path native
+      - name: Native Mac app
+        run: xcodebuild -quiet -project native/DexNative.xcodeproj -scheme DexNative -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build
+      - name: Native iPad app
+        run: xcodebuild -quiet -project native/DexNative.xcodeproj -scheme DexNative -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

@@ -1,0 +1,3610 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dex · mixer alt</title>
+    <link rel="stylesheet" href="console.css" />
+    <style>
+      /* ---------- study chrome (not part of the app; the console's own styles are in console.css) ---------- */
+      .study {
+        position: fixed; inset: 0 0 auto 0; z-index: 50;
+        display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+        padding: 8px 14px; background: rgba(7, 7, 8, .94);
+        border-bottom: 1px solid #242427; backdrop-filter: blur(8px);
+      }
+      .study h1 { font: 700 11px/1 var(--font-cond); margin: 0 14px 0 2px; letter-spacing: .18em; text-transform: uppercase; }
+      .study h1 span { color: var(--dim); font-weight: 400; letter-spacing: .08em; }
+      .tgl {
+        appearance: none; border: 1px solid #2e2e32; background: #17171a;
+        color: var(--muted); font: inherit; font-size: 11px; padding: 7px 11px;
+        border-radius: 3px; cursor: pointer; min-height: 32px;
+      }
+      .tgl.on { color: var(--text); border-color: #57401f; background: #1d1812; }
+      .study .spacer { flex: 1; }
+      .screen-pick { display: flex; align-items: center; gap: 7px; }
+      .screen-pick select { appearance: none; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 11px; cursor: pointer; }
+      .study .note { font-size: 11px; color: var(--dim); }
+
+      .stage { display: grid; place-items: center; padding: calc(var(--bar, 62px) + 16px) 20px 28px; }
+      .frame { position: relative; flex: none; }
+      .study .tgl.audio.on { color: #7ee0a2; border-color: #22402d; background: #0f1611; }
+      /* ---------- touch-target overlay ---------- */
+      .show-hit .pad, .show-hit .big, .show-hit .mini, .show-hit .pill, .show-hit .btn, .show-hit .chan-btn,
+      .show-hit .lib-load button, .show-hit .zoom-stack span, .show-hit .lib-pill, .show-hit .bank-tabs button,
+      .show-hit .fader-v, .show-hit .fader-h, .show-hit .platter, .show-hit .knob,
+      .show-hit .cf, .show-hit .fx, .show-hit .kill-pad, .show-hit .linkbtn, .show-hit .trimchip, .show-hit .bandval {
+        outline: 2px dashed rgba(89, 194, 255, .8); outline-offset: 2px;
+      }
+
+      /* ---------- control map (study tool, not part of the app) ---------- */
+      .hots { position: absolute; inset: 0; pointer-events: none; z-index: 30; }
+      .hots i {
+        position: absolute; display: block; border: 1px dashed rgba(89, 194, 255, .75); border-radius: 3px;
+      }
+      .hots i.sel {
+        border: 1.5px solid #fff;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, .16);
+      }
+      .hots b {
+        position: absolute; transform: translate(-50%, -50%); min-width: 20px; height: 20px; padding: 0 4px;
+        border-radius: 3px; background: #3aa8ff; color: #00131f; display: grid; place-items: center;
+        font: 700 10px/1 var(--font-cond);
+      }
+      .hots b.sel { background: #fff; }
+      .ctl-sel { outline: 2px solid #fff !important; outline-offset: 2px; }
+
+      .cmap {
+        position: fixed; top: 0; right: 0; bottom: 0; width: 372px;
+        padding: calc(var(--bar, 62px) + 10px) 14px 14px;
+        background: rgba(9, 9, 10, .97); border-left: 1px solid var(--line); backdrop-filter: blur(12px);
+        display: none; flex-direction: column; gap: 10px; z-index: 45; overflow-y: auto;
+      }
+      .cmap.open { display: flex; }
+      body.panel-open .stage { padding-right: 392px; }
+
+      .cmap-head { display: flex; align-items: center; gap: 8px; }
+      .cmap-head h2 { font-size: 14px; margin: 0; font-weight: 600; }
+      .cmap-count { font: 600 10px/1 ui-monospace, Menlo, monospace; color: var(--dim); }
+      .cmap-head .tgl { margin-left: auto; min-width: 34px; padding: 0 8px; }
+      .cmap-search {
+        width: 100%; height: 36px; border-radius: 9px; border: 1px solid var(--line2);
+        background: var(--panel); color: var(--text); padding: 0 11px; font: inherit; font-size: 12px;
+      }
+      .cmap-filter { width: 100%; }
+      .cmap-filter button { flex: 1; padding: 6px 0; font-size: 11px; }
+      .cmap-list {
+        flex: 1 1 auto; overflow: auto; display: flex; flex-direction: column; gap: 1px;
+        margin-right: -6px; padding-right: 6px; min-height: 0;
+      }
+      .cmap-group {
+        font: 700 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase;
+        color: var(--dim); padding: 13px 5px 6px;
+      }
+      .cmap-row {
+        appearance: none; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left;
+        display: flex; align-items: center; gap: 8px; padding: 0 6px; min-height: 30px; border-radius: 7px; cursor: pointer;
+      }
+      .cmap-row:hover { background: rgba(255, 255, 255, .05); }
+      .cmap-row.on { background: var(--panel3); }
+      .cmap-row .n { font: 700 9px/1 ui-monospace, Menlo, monospace; color: var(--dim); width: 18px; flex: none; text-align: right; }
+      .cmap-row .l { flex: 1; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cmap-row .d { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+      .d.live { background: var(--green); }
+      .d.partial { background: var(--led); }
+      .d.planned { background: #8b7fb8; }
+
+      .cmap-card {
+        flex: none; max-height: 52%; overflow: auto; border: 1px solid var(--line2); border-radius: 10px;
+        background: var(--panel); padding: 10px; display: flex; flex-direction: column; gap: 7px;
+      }
+      .cmap-card .top { display: flex; align-items: center; gap: 7px; }
+      .cmap-card .num {
+        font: 700 9px/1 var(--font-cond); background: #3aa8ff; color: #00131f;
+        border-radius: 5px; padding: 4px 5px; flex: none;
+      }
+      .cmap-card .name { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; }
+      .cmap-card .st { font: 700 8px/1 ui-monospace, Menlo, monospace; letter-spacing: .1em; padding: 4px 5px; border-radius: 4px; flex: none; }
+      .st.live { background: rgba(74, 222, 128, .16); color: #8ff0b3; }
+      .st.partial { background: rgba(255, 176, 32, .16); color: #ffcf7a; }
+      .st.planned { background: rgba(139, 127, 184, .2); color: #c3b8e6; }
+      .cmap-card .where {
+        font: 700 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
+      }
+      .cmap-card p { margin: 0; font-size: 12px; line-height: 1.45; color: #d9d9dc; }
+      .cmap-card p.note { color: var(--muted); border-left: 2px solid var(--line2); padding-left: 8px; font-size: 11.5px; }
+      .cmap-card .meta { display: flex; flex-wrap: wrap; gap: 5px; }
+      .cmap-card .meta span {
+        font: 600 10px/1.2 ui-monospace, Menlo, monospace; color: var(--muted);
+        background: var(--panel3); border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px;
+      }
+      .cmap-empty { color: var(--dim); font-size: 12px; padding: 12px 6px; margin: 0; }
+      .cmap-foot { flex: none; font: 500 10px/1.35 ui-monospace, Menlo, monospace; color: var(--dim); }
+
+      .cmap-tabs { width: 100%; flex: none; }
+      .cmap-tabs button { flex: 1; padding: 5px 0; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+      .cmap-tabs .tab-count {
+        font: 700 9px/1 ui-monospace, Menlo, monospace; color: var(--dim);
+        background: var(--panel2); border-radius: 5px; padding: 2px 4px;
+      }
+      .cmap-tabs button.on .tab-count { color: var(--text); }
+      .cmap-pane { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; gap: 10px; }
+      .cmap-pane.on { display: flex; }
+
+      .cmap-note { display: flex; flex-direction: column; gap: 5px; padding-top: 8px; border-top: 1px solid var(--line); }
+      .cmap-note label {
+        display: flex; align-items: center; gap: 6px;
+        font: 700 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+      }
+      .cmap-note label span { color: var(--muted); font-size: 10px; letter-spacing: 0; text-transform: none; }
+      .cmap-note textarea, .notes-brief textarea {
+        width: 100%; border-radius: 3px; border: 1px solid var(--line2); background: #101012;
+        color: var(--text); padding: 8px 9px; font-family: inherit; font-size: 12px; line-height: 1.45;
+      }
+      .cmap-note textarea { min-height: 64px; resize: vertical; }
+      .scope-tabs { display: flex; gap: 4px; }
+      .scope-tabs button {
+        flex: 1; appearance: none; cursor: pointer; padding: 5px 0; border-radius: 6px;
+        border: 1px solid var(--line2); background: var(--panel2); color: var(--muted);
+        font-family: inherit; font-weight: 600; font-size: 10.5px; line-height: 1.2;
+      }
+      .scope-tabs button.on { background: var(--panel3); color: var(--text); border-color: var(--led); }
+      .scope-tabs button.has::after { content: ' ✎'; color: var(--led); }
+      .cmap-note textarea:focus, .notes-brief textarea:focus {
+        outline: none; border-color: var(--led); box-shadow: 0 0 0 2px rgba(255, 176, 32, .12);
+      }
+      .cmap-note-foot { display: flex; align-items: center; gap: 8px; font: 500 10px/1.2 ui-monospace, Menlo, monospace; color: var(--dim); }
+      .cmap-note-foot button {
+        appearance: none; border: 0; background: transparent; color: var(--muted);
+        font: inherit; cursor: pointer; padding: 0; text-decoration: underline;
+      }
+      .cmap-note-foot button:hover { color: var(--text); }
+      .cmap-area {
+        display: flex; flex-direction: column; gap: 5px; padding: 8px 9px;
+        border: 1px solid rgba(255, 176, 32, .3); border-radius: 8px;
+        background: rgba(255, 176, 32, .05);
+      }
+      .cmap-area-head {
+        display: flex; align-items: baseline; gap: 6px; min-width: 0;
+        font: 700 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .1em; text-transform: uppercase;
+        color: var(--led);
+      }
+      .cmap-area-head .name {
+        color: var(--text); font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        letter-spacing: 0; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .cmap-area-head button {
+        margin-left: auto; flex: none; appearance: none; border: 0; background: transparent;
+        color: var(--muted); font: 600 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .04em;
+        text-transform: uppercase; text-decoration: underline; cursor: pointer; padding: 0;
+      }
+      .cmap-area-head button:hover { color: var(--text); }
+      .cmap-area-text {
+        margin: 0; font-size: 11.5px; line-height: 1.45; color: #e8dfc9;
+        white-space: pre-wrap; overflow-wrap: anywhere;
+      }
+
+      .notes-brief { display: flex; flex-direction: column; gap: 5px; flex: none; }
+      .notes-brief label {
+        font: 700 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+      }
+      .notes-brief label span { color: var(--muted); font-size: 10px; letter-spacing: 0; text-transform: none; margin-left: 5px; }
+      .notes-brief textarea { min-height: 120px; resize: vertical; }
+      .notes-list {
+        flex: 1 1 auto; overflow: auto; display: flex; flex-direction: column; gap: 6px;
+        min-height: 90px; margin-right: -6px; padding-right: 6px;
+      }
+      .note-row {
+        appearance: none; width: 100%; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+        font: inherit; text-align: left; border-radius: 9px; padding: 7px 8px; display: flex; gap: 8px; cursor: pointer;
+      }
+      .note-row:hover { background: var(--panel2); border-color: var(--line2); }
+      .note-row .num {
+        font: 700 9px/1 ui-monospace, Menlo, monospace; background: var(--panel3); color: var(--muted);
+        border-radius: 5px; padding: 4px 5px; flex: none; align-self: flex-start;
+      }
+      .note-row .body { flex: 1; min-width: 0; }
+      .note-row .head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+      .note-row .d { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+      .note-row .head .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .note-row .snippet {
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        margin-top: 2px; font-size: 11px; line-height: 1.35; color: var(--muted);
+      }
+      .note-row .meta-line {
+        margin-top: 3px; font: 500 9px/1.2 ui-monospace, Menlo, monospace; color: var(--dim);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .notes-empty { color: var(--dim); font-size: 12px; line-height: 1.5; padding: 12px 6px; margin: 0; }
+      .notes-empty b { color: var(--muted); }
+      .notes-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: none; }
+      .notes-actions .tgl { font-size: 11px; padding: 7px 6px; min-height: 32px; }
+      .tgl.primary { background: var(--panel3); border-color: var(--led); color: var(--text); }
+      .notes-status {
+        display: flex; align-items: center; gap: 8px; flex: none; flex-wrap: wrap;
+        font: 500 10px/1.35 ui-monospace, Menlo, monospace; color: var(--dim);
+      }
+      .notes-status.warn { color: var(--led); }
+      .notes-clear {
+        margin-left: auto; appearance: none; border: 0; background: transparent; color: var(--dim);
+        font: inherit; cursor: pointer; padding: 0; text-decoration: underline; flex: none;
+      }
+      .notes-clear:hover:not(:disabled) { color: var(--red); }
+      .notes-clear:disabled { opacity: .4; cursor: default; }
+      .notes-hint { margin: 0; flex: none; font-size: 10.5px; line-height: 1.4; color: var(--dim); }
+      .notes-hint b { color: var(--muted); }
+
+      .sections-intro { margin: 0; flex: none; font-size: 11.5px; line-height: 1.45; color: var(--dim); }
+      .sections-list {
+        flex: 1 1 auto; overflow: auto; display: flex; flex-direction: column; gap: 8px;
+        min-height: 0; margin-right: -6px; padding-right: 6px;
+      }
+      .section-card {
+        flex: none; display: flex; flex-direction: column; gap: 6px;
+        border: 1px solid var(--line); background: var(--panel); border-radius: 9px; padding: 8px;
+      }
+      .section-card.has-note { border-color: rgba(255, 176, 32, .4); }
+      .section-head { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+      .section-label { font-size: 12px; font-weight: 600; flex: none; }
+      .section-scope {
+        font: 500 9px/1.2 ui-monospace, Menlo, monospace; color: var(--dim); text-transform: uppercase;
+        letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .section-card textarea {
+        width: 100%; min-height: 58px; resize: vertical; border-radius: 7px; border: 1px solid var(--line2);
+        background: #101012; color: var(--text); padding: 7px 8px; font-family: inherit; font-size: 12px; line-height: 1.4;
+      }
+      .section-card textarea:focus {
+        outline: none; border-color: var(--led); box-shadow: 0 0 0 2px rgba(255, 176, 32, .12);
+      }
+      .section-foot {
+        display: flex; align-items: center; gap: 8px;
+        font: 500 9px/1.2 ui-monospace, Menlo, monospace; color: var(--dim);
+      }
+      .section-foot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .section-foot button {
+        margin-left: auto; appearance: none; border: 0; background: transparent; color: var(--dim);
+        font: inherit; cursor: pointer; padding: 0; text-decoration: underline; flex: none;
+      }
+      .section-foot button:hover { color: var(--red); }
+      .note-row .num.sec { background: rgba(255, 176, 32, .14); color: var(--led); font-size: 11px; line-height: 1; padding: 3px 4px; }
+      .cmap-foot.warn { color: var(--led); }
+      .cmap-tabs .tab-count.has { background: var(--led); color: #2a1a00; }
+      .cmap-row .pen { color: var(--led); font-size: 10px; flex: none; }
+      #notesTgl b {
+        display: inline-grid; place-items: center; min-width: 16px; height: 16px; margin-left: 4px;
+        border-radius: 5px; background: var(--panel3); color: var(--muted); font: 700 9px/1 ui-monospace, Menlo, monospace;
+      }
+      #notesTgl.has-notes b { background: var(--led); color: #2a1a00; }
+      .hots i.noted { border-color: rgba(255, 176, 32, .85); }
+      .hots b.noted { background: var(--led); color: #2a1a00; }
+
+      @media (max-width: 1100px) {
+        body.panel-open .stage { padding-right: 20px; }
+        .cmap { width: 348px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="study">
+      <h1>Dex · iPad layout study <span>— mixer alt</span></h1>
+      <button class="tgl audio" id="audioTgl" title="Synthetic loops through the isolator, so the mixer can be heard">▶ Demo audio</button>
+      <button class="tgl" id="hitTgl">Show 64 pt touch targets</button>
+      <button class="tgl" id="libTgl">Library</button>
+      <button class="tgl" id="volTgl">Volume</button>
+      <button class="tgl" id="gridTgl" title="Beat grid sheet for the focused deck">Grid sheet</button>
+      <button class="tgl" id="mapTgl" title="Outline and number every control (F)">Function map</button>
+      <button class="tgl" id="cmapTgl" title="Control list and inspector">Controls</button>
+      <button class="tgl" id="notesTgl" title="Notes and change requests">Notes <b id="notesCount">0</b></button>
+      <label class="tgl screen-pick" title="Screens beyond the main console">Screen
+        <select id="screenSel" onchange="setScreen(this.value)">
+          <option value="console">Console</option>
+          <option value="firstrun">First run · empty decks</option>
+          <option value="analysing">Analysing tracks</option>
+          <option value="error">Error</option>
+          <option value="importing">Importing files</option>
+          <option value="loading">Loading deck B</option>
+          <option value="saving">Saving the library</option>
+          <option value="notsaved">Library not saved</option>
+          <option value="cover">Track with its own cover</option>
+          <option value="keysmissing">Library · keys missing</option>
+          <option value="findingkeys">Library · finding keys</option>
+          <option value="filemissing">Library · file missing</option>
+          <option value="bothdecks">Library · on both decks</option>
+          <option value="trackmore">Library · track details</option>
+          <option value="trackremove">Library · confirm removing</option>
+          <option value="trackagain">Library · confirm re-analysing</option>
+          <option value="drop">Dropping a file on B</option>
+          <option value="dropaudio">Dropping audio on B</option>
+          <option value="dropfiles">Dropping several files on B</option>
+          <option value="droplibrary">Dragging a library row to B</option>
+          <option value="dropblocked">Dropping on a playing deck</option>
+          <option value="shortcuts">Shortcuts</option>
+          <option value="tap">TAP tempo</option>
+          <option value="tapidle">TAP · not listening</option>
+          <option value="tapnoinputs">TAP · no inputs</option>
+          <option value="playlistmenu">Playlist menu</option>
+          <option value="rename">Renaming a playlist</option>
+          <option value="delete">Deleting a playlist</option>
+          <option value="gridunsure">Grid · tempo uncertain</option>
+          <option value="gridalts">Grid · other readings</option>
+          <option value="gridhelp">Grid · instructions</option>
+        </select>
+      </label>
+      <label class="tgl screen-pick" title="A taller screen gives its spare height to the zoom lanes, up to 4:3">Height
+        <select id="heightSel" onchange="setStretch(Number(this.value))">
+          <option value="0">11-inch</option>
+          <option value="66.5">13-inch</option>
+        </select>
+      </label>
+      <span class="spacer"></span>
+      <span class="note">cut faders · tap KILL to latch, hold for momentary · drag sideways for fine · tap a readout for the band sheet</span>
+    </div>
+
+    <div class="stage">
+      <div class="frame" id="frame">
+      <div class="ipad" id="ipad">
+        <header class="band" id="band"></header>
+        <main class="chassis" id="chassis"></main>
+        <section class="volpop" id="volpop" aria-label="Volume"></section>
+        <section class="library" id="library"></section>
+        <section class="gridsheet" id="gridsheet"></section>
+        <section class="sheet-layer" id="sheetLayer"></section>
+        <section class="help-layer" id="helpLayer" onclick="openHelp(null)"></section>
+        <div class="hots" id="hots" aria-hidden="true"></div>
+      </div>
+      </div>
+    </div>
+
+    <aside class="cmap" id="cmap" aria-label="Control map">
+      <header class="cmap-head">
+        <h2>Control map</h2>
+        <span class="cmap-count" id="cmapCount"></span>
+        <button class="tgl" id="cmapClose" title="Close (Esc)">✕</button>
+      </header>
+      <div class="seg cmap-tabs" id="cmapTabs">
+        <button data-view="controls" class="on">Controls</button>
+        <button data-view="notes" title="All notes and the change brief">Notes <span class="tab-count" id="cmapNoteCount">0</span></button>
+        <button data-view="sections" title="One note per whole area">Sections <span class="tab-count" id="cmapSectionCount">0</span></button>
+      </div>
+
+      <div class="cmap-pane on" id="paneControls">
+        <input class="cmap-search" id="cmapSearch" placeholder="Search controls…" spellcheck="false" />
+        <div class="seg cmap-filter" id="cmapFilter">
+          <button data-f="all" class="on">All</button>
+          <button data-f="live">Live</button>
+          <button data-f="partial">Partial</button>
+          <button data-f="planned">Planned</button>
+        </div>
+        <div class="cmap-list" id="cmapList"></div>
+        <div class="cmap-card" id="cmapCard"></div>
+        <p class="cmap-foot" id="cmapFoot"></p>
+      </div>
+
+      <div class="cmap-pane" id="paneNotes">
+        <div class="notes-brief">
+          <label for="notesBrief">Change brief <span>whole set</span></label>
+          <textarea id="notesBrief" placeholder="What is this change set for? Cross-cutting constraints, sections to revisit, things not to change…"></textarea>
+        </div>
+        <div class="notes-list" id="notesList"></div>
+        <div class="notes-actions">
+          <button class="tgl primary" id="notesCopy">Copy brief</button>
+          <button class="tgl" id="notesDownload">Download .md</button>
+          <button class="tgl" id="notesBackup">Backup .json</button>
+          <button class="tgl" id="notesRestore">Restore .json</button>
+        </div>
+        <div class="notes-status" id="notesStatus">
+          <span id="notesStatusText">Notes autosave in this browser.</span>
+          <button class="notes-clear" id="notesClear">Clear all</button>
+        </div>
+        <p class="notes-hint">Copy the brief into your request, or save the .md as <b>mockup/notes.md</b> so the agent can read it.</p>
+        <input type="file" id="notesFile" accept=".json,application/json" hidden />
+      </div>
+
+      <div class="cmap-pane" id="paneSections">
+        <p class="sections-intro">One note for a whole area, for changes that span the region rather than a single control.</p>
+        <div class="sections-list" id="sectionList"></div>
+        <p class="cmap-foot" id="sectionsFoot">Section notes are saved with the control notes and exported in the brief.</p>
+      </div>
+    </aside>
+
+    <script src="controls.data.js"></script>
+    <script>
+      /* This page is an alternative mixer study beside xdj-layout.html. Its
+         new controls are not in controls.json, so they are added here for the
+         inspector, and the tone entries describe this page's behaviour. */
+    </script>
+    <script>
+      /* ================================================================
+         Layout study data. Edit here to move things around; the render
+         functions below just lay the pieces out.
+
+         Deferred to a later pass, not touched here: the interaction model
+         behind the mixer EQ knobs, the hot-cue bank and the loop pads.
+         See mockup/notes.md for the discussion points.
+         ================================================================ */
+      const DECKS = {
+        A: { letter: 'A', track: 'Tiesto, Mathame — Everlight (Extended Mix)', time: '5:11 / 6:24', remain: '01:12.418', art: ['#2b4f7a', '#d0703a'], now: '133.0', range: 16, keyLock: true, keyShift: 0, bpm: '133.0', grid: '95% grid', confidence: 95, offset: 489.9, tempo: '+0.00%', state: 'playing', cue: 58, camelot: '8A' },
+        B: { letter: 'B', track: 'Patrick Topping — Ocean', time: '0:00 / 6:58', remain: '06:57.090', art: ['#0f5e63', '#9ad3c4'], now: '133.0', range: 8, keyLock: false, keyShift: 1, cueAt: '0:00.9', bpm: '130.0', grid: '88% grid', confidence: 88, offset: 247.3, tempo: '+2.31%', state: 'cued', cue: 72, camelot: '4A' }
+      };
+      const LIBRARY = [
+        { name: 'Tiesto, Mathame — Everlight (Extended Mix)', bpm: '133.0', dur: '6:24', grid: '95%', key: 'A minor', camelot: '8A', on: 'A' },
+        { name: 'Patrick Topping — Ocean', bpm: '130.0', dur: '6:58', grid: '88%', key: 'F minor', camelot: '4A', on: 'B' },
+        { name: 'Oneeva — Platform 9 (NCS Release)', bpm: '126.0', dur: '4:12', grid: '91%', key: 'D major', camelot: '10B', on: '' },
+        { name: 'Curtis Mayfield — Move On Up', bpm: '130.0', dur: '2:00', grid: '84%', key: 'G major', camelot: '9B', on: '' },
+        { name: 'Arkins, JERIDE, B.A.S.E — Banger Rangers', bpm: '132.0', dur: '2:00', grid: '97%', key: 'C minor', camelot: '5A', on: '' },
+        { name: 'Fred again.. — Delilah (pull me out of this)', bpm: '124.0', dur: '4:09', grid: '93%', key: 'B♭ minor', camelot: '3A', on: '' },
+        { name: 'Bicep — Glue', bpm: '129.9', dur: '4:29', grid: '96%', key: 'F minor', camelot: '4A', on: '' },
+        { name: 'Peggy Gou — It Goes Like (Nanana)', bpm: '130.0', dur: '3:35', grid: '90%', key: 'A♭ major', camelot: '4B', on: '' },
+        { name: 'Chris Lake — Turn Off The Lights', bpm: '126.0', dur: '3:22', grid: '92%', key: 'E minor', camelot: '9A', on: '' },
+        { name: 'Overmono — So U Kno', bpm: '134.0', dur: '4:04', grid: '87%', key: 'D minor', camelot: '7A', on: '' },
+        { name: 'Mochakk — Jealous', bpm: '128.0', dur: '3:12', grid: '94%', key: 'E♭ minor', camelot: '2A', on: '' },
+        { name: 'Disclosure — Latch', bpm: '122.0', dur: '4:15', grid: '89%', key: 'C# minor', camelot: '12A', on: '' }
+      ];
+
+      /* Camelot wheel in Mixed In Key colours: minor (A) ring is the pastel
+         tone, major (B) the saturated one, stepping round the hue circle. */
+      const CAMELOT_COLOURS = {
+        1: ['#56f1da', '#00e3c2'], 2: ['#7df2aa', '#3fe58a'], 3: ['#aef589', '#86ec4f'], 4: ['#e8ea8a', '#dadf3f'],
+        5: ['#fdcf91', '#ffb04e'], 6: ['#fdafa0', '#ff8b74'], 7: ['#fda7c8', '#ff7aae'], 8: ['#f0a9ec', '#e877e4'],
+        9: ['#d2b0fb', '#b98cff'], 10: ['#b5bbfd', '#8f99ff'], 11: ['#9ccffd', '#6db7ff'], 12: ['#84e6f6', '#4ad6f0']
+      };
+      const parseCamelot = (code) => {
+        const m = /^(\d{1,2})([AB])$/.exec(code || '');
+        return m ? { n: Number(m[1]), ring: m[2] } : null;
+      };
+      const camelotColour = (code) => {
+        const k = parseCamelot(code);
+        return k ? CAMELOT_COLOURS[k.n][k.ring === 'A' ? 0 : 1] : 'var(--dim)';
+      };
+      /* Harmonic neighbours: same key, ±1 on the wheel, and the relative
+         major / minor on the other ring. */
+      function camelotCompatible(code) {
+        const k = parseCamelot(code);
+        if (!k) return [code];
+        const step = (n) => ((n + 11) % 12) + 1;
+        return [code, step(k.n - 1) + k.ring, step(k.n + 1) + k.ring, k.n + (k.ring === 'A' ? 'B' : 'A')];
+      }
+      const camelotRank = (code) => {
+        const k = parseCamelot(code);
+        return k ? k.n * 2 + (k.ring === 'B' ? 1 : 0) : 99;
+      };
+      const camelotBadge = (code, extra = '') =>
+        `<span class="cam ${extra}" style="--cam:${camelotColour(code)}">${code}</span>`;
+
+      /* Library view state: live search, one sort column, optional key filter. */
+      const libView = { query: '', sort: 'key', dir: 1, key: '', compatible: true };
+
+      /* Controls in controls.json that this layout does not draw. They keep
+         their numbers (and any notes), and the inspector says why they are
+         missing instead of "has no entry". */
+      const OFF_CANVAS = {
+        'pads.exit': 'Folded into the loop stepper: its readout leaves a running loop.',
+        'pads.bank': 'Dropped: the loop stepper and the eight hot cues share one bank.',
+        'console.tap': 'Not placed in this layout yet.',
+        'console.grid': 'Dropped: GRID (#38) on each deck opens the same sheet.',
+        'console.beatfx': 'XDJ-RR only; the XDJ study view was removed in this layout.',
+        'console.browse': 'XDJ-RR only; the library (#1) covers browsing.',
+        'console.menu': 'XDJ-RR only; output settings live in the Volume popover.',
+        'deck.library': 'Dropped: the album art in each track window opens the library.',
+        'console.library': 'Dropped with the MUSIC pill: the album art in each track window opens the library.',
+        'deck.cue': 'Dropped: CUE (#34) beside the pads does the same thing.',
+        'deck.eqtoggle': 'Dropped: the EQ knobs are always on the mixer now.',
+        'mixer.bpm': 'Dropped: each deck\'s BPM is on its info card (#8).',
+        'mixer.eq': 'Dropped: the EQ knobs are always on the mixer now.',
+        'xdj.jogmode': 'XDJ-RR only; not in this layout.',
+        'xdj.temporange': 'XDJ-RR only; not in this layout.',
+        'xdj.mastertempo': 'XDJ-RR only; not in this layout.',
+        'xdj.beatloop': 'XDJ-RR only; the LOOP bank (#28) covers it.',
+        'xdj.sliploop': 'XDJ-RR only; not in this layout.',
+        'xdj.inout': 'XDJ-RR only; not in this layout.',
+        'xdj.cuecall': 'XDJ-RR only; not in this layout.',
+        'xdj.shift': 'XDJ-RR only; not in this layout.',
+        'xdj.mic': 'XDJ-RR only; not in this layout.',
+        'xdj.record': 'XDJ-RR only; not in this layout.',
+        'xdj.phones': 'XDJ-RR only; cue mix in the Volume popover is the nearest control.'
+      };
+
+      /* Editable grid state for the sheet, kept outside render so dragging and
+         tapping survive a re-render. The deck info cards follow on commit. */
+      const GRID_EDIT = {};
+      for (const key of ['A', 'B']) {
+        const deck = DECKS[key];
+        GRID_EDIT[key] = {
+          bpm: Number(deck.bpm),
+          confidence: deck.confidence,
+          offset: deck.offset,
+          taps: []
+        };
+      }
+
+      /* The visual editor shows a fixed 8-second window. The synthetic peaks are
+         tied to the deck's original grid, so moving the grid visibly pulls the
+         lines off the transients. */
+      const GWAVE = { centreMs: 24000, zooms: [8000, 4000, 2000, 1000, 500, 250], zoom: 2 };
+      const AUDIO_GRID = {
+        A: { bpm: 133.0, offsetMs: 489.9, seed: 7 },
+        B: { bpm: 130.0, offsetMs: 247.3, seed: 21 }
+      };
+
+      let hitOn = false;
+      let energyEnabled = false;
+      let volOpen = false;
+      let splitCue = true;
+      let padBank = { A: 'loop', B: 'loop' };
+      /* Eight hot cues per deck, one colour per slot, as in the app
+         (src/shared/hot-cue.ts). */
+      const HOT_CUES = {
+        A: [{ at: '0:32.0' }, { at: '1:44.7' }, null, { at: '4:21.5' }, null, null, null, null],
+        B: [{ at: '0:31.0' }, null, { at: '2:15.0' }, null, null, null, null, null]
+      };
+      /* Loop stepper: size in beats (1 … 64) and whether a loop is running. */
+      const LOOP = { A: { beats: 8, on: true, startBeat: 688 }, B: { beats: 16, on: false, startBeat: 0 } };
+      /* Beat jump length per deck, in bars. */
+      const JUMP_BARS = { A: 1, B: 1 };
+      const cueDelete = { A: false, B: false };
+      const cueOpen = { A: false, B: false };
+
+      /* Mixer state. Fader positions are 0–1 with 1 = top = 0 dB (see LAW).
+         The starting state is a long blend in progress: A is the playing
+         track, B is coming in with its LOW down, MID and HIGH partly cut. */
+      const MIX = {
+        A: { trim: 0, auto: -1.4, lufs: -7.6, level: 1, high: 1, mid: 1, low: 1, filter: 0.5, kill: { high: false, mid: false, low: false } },
+        B: { trim: 0, auto: 1.2, lufs: -10.2, level: 1, high: 0.8, mid: 0.6, low: 0.06, filter: 0.5, kill: { high: false, mid: false, low: false } },
+        xfade: 0.5,
+        link: false
+      };
+      const TARGET_LUFS = -9;
+      let mixPop = null; // null | { kind: 'trim', deck } | { kind: 'band', band }
+      let swallowDragClick = false;
+
+      /* Fixed 50% playhead for the stacked screen. `shift` is a drag offset in
+         CSS px; each lane's waveform, cue marker and whole-track bracket move
+         together underneath the shared line. */
+      const SCREEN_VIEW = {
+        A: { shift: 0, cue: DECKS.A.cue, baseFrom: 22, baseTo: 62 },
+        B: { shift: 0, cue: DECKS.B.cue, baseFrom: 41, baseTo: 78 }
+      };
+      const SCREEN_LANE_WIDTH = 1080;
+      let screenDrag = null;
+      let swallowScreenClick = false;
+
+      const ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>';
+      const ICON_BACK = '<svg viewBox="0 0 24 24"><path d="M17 5.5v13L6 12z"/></svg>';
+      const ICON_FORWARD = '<svg viewBox="0 0 24 24"><path d="M7 5.5v13L18 12z"/></svg>';
+      const ICON_PAUSE = '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+      const accentOf = (key) => (key === 'B' ? 'var(--b)' : 'var(--a)');
+
+      /* ---------- helpers ---------- */
+      /* Dense stroke waveform: one path for the whole track, one clipped to the
+         played span. The bars carry phrase swells and fine transient detail so
+         the display reads like audio rather than a pattern. */
+      function waveSvg(count, seed, played = 0.34, oneSided = false) {
+        let s = seed;
+        const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+        const cut = Math.round(count * played);
+        let all = '';
+        let mids = '', highs = '';
+        let lit = '';
+        for (let i = 0; i < count; i++) {
+          const phrase = 0.5 + 0.5 * Math.sin(i * 0.011 + seed * 0.13);
+          const beat = 0.42 + 0.58 * Math.abs(Math.sin(i * 0.083 + seed * 0.37));
+          const grain = 0.62 + 0.38 * rnd();
+          const hit = rnd() > 0.985 ? 0.5 : 0;
+          const h = Math.max(2, Math.min(96, 6 + 78 * phrase * beat * grain + hit * 26));
+          const bias = 0.46 + (rnd() - 0.5) * 0.16;
+          const seg = oneSided
+            ? 'M' + (i + 0.5) + ' 100V' + (100 - h).toFixed(1)
+            : 'M' + (i + 0.5) + ' ' + (50 - h * bias).toFixed(1) + 'V' + (50 + h * (1 - bias)).toFixed(1);
+          all += seg;
+          const bandSegment = height => oneSided
+            ? `M${i + 0.5} 100V${(100 - height).toFixed(1)}`
+            : `M${i + 0.5} ${(50 - height * bias).toFixed(1)}V${(50 + height * (1 - bias)).toFixed(1)}`;
+          mids += bandSegment(h * (0.28 + 0.25 * Math.abs(Math.sin(i * 0.043 + seed))));
+          highs += bandSegment(h * (0.12 + 0.65 * Math.abs(Math.sin(i * 0.083 + seed * 0.37)) ** 18));
+          if (i < cut) lit += seg;
+        }
+        const id = 'wv' + seed + '-' + Math.round(played * 100);
+        const gradient = `${id}-energy`;
+        const colours = [[69,124,230],[43,204,208],[241,196,72],[255,87,70]];
+        const stops = Array.from({length:25}, (_, i) => {
+          const value = 0.2 + 0.65 * (0.5 + 0.5 * Math.sin(count * i / 24 * 0.011 + seed * 0.13));
+          const p = value * 3, lo = Math.min(2, Math.floor(p)), t = p - lo;
+          const rgb = [0,1,2].map(c => Math.round(colours[lo][c] * (1-t) + colours[lo+1][c] * t));
+          return `<stop offset="${i / 24 * 100}%" stop-color="rgb(${rgb.join(',')})"/>`;
+        }).join('');
+        return `<svg class="wave" viewBox="0 0 ${count} 100" preserveAspectRatio="none" aria-hidden="true">
+          <defs><linearGradient id="${gradient}">${stops}</linearGradient><clipPath id="${id}"><rect x="0" y="0" width="${count * played}" height="100"/></clipPath></defs>
+          <path class="dim" d="${all}" style="stroke:${energyEnabled ? `url(#${gradient})` : '#2e73eb'}"/>
+          ${energyEnabled ? `<path class="lit" clip-path="url(#${id})" d="${lit}" style="stroke:url(#${gradient})"/>` : `<path d="${mids}" style="stroke:#d39131;stroke-width:1"/><path d="${highs}" style="stroke:#fff9e2;stroke-width:1"/>`}
+        </svg>`;
+      }
+      const faderV = (id, pos, accent) => `<div class="fader-v ${accent ? 'accent' : ''}" data-ctl="${id}" style="--pos:${pos}%;--lvl:${(pos / 100).toFixed(4)}"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>`;
+      const faderH = (id, pos) => `<div class="fader-h" data-ctl="${id}" style="--pos:${pos}%"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>`;
+
+      /* What the library is working on: [label and count, track, progress %]. */
+      const HEAD_STATUS = {
+        analysing: ['ANALYSING 3 / 12', 'Bicep — Glue', 25],
+        loading: ['ANALYSING'],
+        importing: ['IMPORTING'],
+        findingkeys: ['FINDING KEYS 3 / 4', 'Mochakk — Jealous', 75]
+      };
+      function headStatusHtml() {
+        const status = HEAD_STATUS[screen];
+        if (!status) return '';
+        const [label, name, progress] = status;
+        return `<span class="head-status" data-ctl="console.status"><i></i>${label}${name ? `<b>${name}</b>` : ''}${progress ? `<em style="--p:${progress}%"></em>` : ''}</span>`;
+      }
+      function headChipsHtml() {
+        if (screen === 'firstrun') return '';
+        const save = screen === 'saving' ? '<span class="chip">SAVING</span>'
+          : screen === 'notsaved' ? '<button class="chip" title="Retry saving the library">NOT SAVED · RETRY</button>' : '';
+        const sync = screen === 'loading' ? '' : '<span class="chip live">SYNC B</span>';
+        return `${save}${sync}<span class="chip master">MASTER A</span>`;
+      }
+
+      /* ---------- header: wordmark, status chips, volume ---------- */
+      function renderHead() {
+        return `
+          <div class="head">
+            <span class="brand"><i></i>DEX</span>
+            ${headStatusHtml()}
+            <span class="head-chips" data-ctl="console.chips">
+              ${headChipsHtml()}
+            </span>
+            <button class="btn head-btn bands-btn ${energyEnabled ? '' : 'on'}" data-ctl="console.threeband" aria-pressed="${!energyEnabled}" onclick="energyEnabled = false; render()" title="Frequency bands: blue bass, orange mids, white highs. Equal brightness throughout the track.">3BAND</button>
+            <button class="btn head-btn energy-btn ${energyEnabled ? 'on' : ''}" data-ctl="console.energy" aria-pressed="${energyEnabled}" onclick="energyEnabled = !energyEnabled; render()" title="Estimated musical intensity: blue → cyan → amber → red. Same scale for both decks. Toggle intensity or three frequency bands."><i aria-hidden="true"></i>ENERGY</button>
+            <button class="btn vol-btn ${volOpen ? 'on' : ''}" data-ctl="console.volume" onclick="toggleVol()">VOLUME</button>
+            <span class="chip" data-ctl="console.samplerate">48.0 kHz</span>
+            <button class="btn head-btn ${splitCue ? '' : 'on'}" data-ctl="console.splitcue" onclick="splitCue = !splitCue; render()" title="Split cue: master left, cue right. 4-channel: master 1/2, cue 3/4.">${splitCue ? 'SPLIT CUE' : '4-CH CUE'}</button>
+            <button class="btn head-btn ${TAP_SCREENS.includes(screen) ? 'on' : ''}" data-ctl="console.tap" onclick="setScreen('tap')" title="Read the tempo of an external input">TAP</button>
+            <button class="mini" data-ctl="console.help" onclick="setScreen('shortcuts')" title="Shortcuts">?</button>
+          </div>`;
+      }
+
+      function screenBounds(deck, width = SCREEN_LANE_WIDTH) {
+        const state = SCREEN_VIEW[deck];
+        const span = state.baseTo - state.baseFrom;
+        const delta = -((state.shift / width) * span);
+        const from = Math.max(0, Math.min(100 - span, state.baseFrom + delta));
+        return { from, to: from + span };
+      }
+
+      function paintScreenLane(deck) {
+        const state = SCREEN_VIEW[deck];
+        const lane = document.querySelector('.zw[data-deck="' + deck + '"]');
+        if (!lane) return;
+        const track = lane.querySelector('.zw-track');
+        if (track) track.style.transform = 'translateX(calc(-25% + ' + state.shift + 'px))';
+        const ticks = lane.querySelector('.zw-grid');
+        if (ticks) ticks.style.transform = 'translateX(' + state.shift + 'px)';
+        const cue = lane.querySelector('.zw-cue');
+        if (cue) cue.style.left = 'calc(' + state.cue + '% + ' + state.shift + 'px)';
+        const card = document.querySelector('.zcard[data-deck="' + deck + '"]');
+        const bracket = card && card.querySelector('.zview');
+        if (bracket) {
+          const bounds = screenBounds(deck, lane.offsetWidth || SCREEN_LANE_WIDTH);
+          bracket.style.left = bounds.from + '%';
+          bracket.style.right = (100 - bounds.to) + '%';
+        }
+      }
+
+      function startScreenDrag(event) {
+        const lane = event.target.closest('.zw');
+        if (!lane || event.button !== 0) return;
+        const rect = lane.getBoundingClientRect();
+        if (rect.width < 3) return;
+        const deck = lane.dataset.deck;
+        if (!SCREEN_VIEW[deck]) return;
+        screenDrag = {
+          deck,
+          lane,
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startShift: SCREEN_VIEW[deck].shift,
+          scale: rect.width / lane.offsetWidth || 1,
+          moved: false,
+          loop: Boolean(event.target.closest('.zw-loop')),
+          startBeat: LOOP[deck].startBeat
+        };
+        lane.classList.add(screenDrag.loop ? 'moving-loop' : 'scrubbing');
+        try {
+          lane.setPointerCapture(event.pointerId);
+        } catch {
+          /* synthetic pointer in a test harness */
+        }
+      }
+
+      function moveScreenDrag(event) {
+        if (!screenDrag || event.pointerId !== screenDrag.pointerId) return;
+        const dx = (event.clientX - screenDrag.startX) / screenDrag.scale;
+        if (!screenDrag.moved && Math.abs(dx) < 3) return;
+        screenDrag.moved = true;
+        if (screenDrag.loop) {
+          const d = DECKS[screenDrag.deck], loop = LOOP[screenDrag.deck];
+          const period = 60 / Number(d.bpm), offset = d.offset / 1000;
+          const first = Math.ceil(-offset / period - 1e-9);
+          const last = Math.floor((secs(d.time.split(' / ')[1]) - offset) / period - loop.beats + 1e-9);
+          if (last < first) return;
+          loop.startBeat = Math.max(first, Math.min(last, screenDrag.startBeat + Math.round(dx / screenDrag.lane.offsetWidth * laneSpanOf(d) / period)));
+          const highlight = screenDrag.lane.querySelector('.zw-loop');
+          highlight?.remove();
+          const ticks = screenDrag.lane.querySelector('.zw-grid');
+          if (ticks) ticks.insertAdjacentHTML('beforebegin', loopLaneHtml(d));
+          else screenDrag.lane.insertAdjacentHTML('beforeend', loopLaneHtml(d));
+          const card = document.querySelector('.zcard[data-deck="' + screenDrag.deck + '"] .zwave');
+          if (card) {
+            card.querySelector('.zloop')?.remove();
+            card.insertAdjacentHTML('beforeend', loopOverviewHtml(d));
+          }
+          return;
+        }
+        const max = screenDrag.lane.offsetWidth * 0.25;
+        SCREEN_VIEW[screenDrag.deck].shift = Math.max(-max, Math.min(max, screenDrag.startShift + dx));
+        paintScreenLane(screenDrag.deck);
+      }
+
+      function endScreenDrag(event) {
+        if (!screenDrag || event.pointerId !== screenDrag.pointerId) return;
+        if (screenDrag.loop) moveScreenDrag(event);
+        const drag = screenDrag;
+        screenDrag = null;
+        drag.lane.classList.remove('scrubbing', 'moving-loop');
+        try {
+          if (drag.lane.hasPointerCapture(event.pointerId)) drag.lane.releasePointerCapture(event.pointerId);
+        } catch {
+          /* synthetic pointer in a test harness */
+        }
+        if (drag.moved) {
+          swallowScreenClick = true;
+          window.setTimeout(() => { swallowScreenClick = false; }, 400);
+        }
+      }
+
+      /* The beat grid on a zoom lane, Pioneer style: a tick at the top and
+         bottom edge on every beat, a longer red one on each bar's downbeat.
+         Each lane shows LANE_SPAN seconds around the playhead (the ×4 zoom),
+         with the deck's demo position, as the app draws it. */
+      const LANE_SPAN = 12;
+      /* The master is the truth: a synced deck's lane is scaled so its beats
+         match the master's across the whole width (here B follows A). */
+      function laneSpanOf(d) {
+        return d.letter === 'B' ? LANE_SPAN * Number(DECKS.A.bpm) / Number(d.bpm) : LANE_SPAN;
+      }
+      function loopRegionFor(d) {
+        const loop = LOOP[d.letter];
+        if (!loop.on || isEmpty(d)) return null;
+        const period = 60 / Number(d.bpm);
+        const startSec = d.offset / 1000 + loop.startBeat * period;
+        return { startSec, endSec: startSec + loop.beats * period, lengthSec: loop.beats * period };
+      }
+      function loopLaneHtml(d) {
+        const region = loopRegionFor(d);
+        if (!region) return '';
+        const position = secs(d.time.split(' / ')[1]) - secs(d.remain);
+        const span = laneSpanOf(d);
+        const start = position - span / 2, end = start + span;
+        const left = Math.max(start, region.startSec), right = Math.min(end, region.endSec);
+        if (right <= left) return '';
+        const beats = LOOP[d.letter].beats;
+        return `<div class="zw-loop ${region.startSec >= start ? 'edge-start' : ''} ${region.endSec <= end ? 'edge-end' : ''}" style="left:${100*(left-start)/span}%;width:${100*(right-left)/span}%;transform:translateX(${SCREEN_VIEW[d.letter].shift}px)" role="slider" tabindex="0" aria-label="${beats}-beat loop position" aria-valuenow="${LOOP[d.letter].startBeat}" title="Drag to move the loop in whole beats" onkeydown="loopPositionKey(event,'${d.letter}')"><b>LOOP · ${beats} ${beats === 1 ? 'BEAT' : 'BEATS'}</b></div>`;
+      }
+      function loopPositionKey(event, key) {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();event.stopPropagation();
+        const d = DECKS[key], loop = LOOP[key], period = 60 / Number(d.bpm), offset = d.offset / 1000;
+        const first = Math.ceil(-offset / period - 1e-9);
+        const last = Math.floor((secs(d.time.split(' / ')[1]) - offset) / period - loop.beats + 1e-9);
+        if (last < first) return;
+        loop.startBeat = Math.max(first, Math.min(last, loop.startBeat + (event.key === 'ArrowRight' ? 1 : -1)));
+        render();document.querySelector('.zw[data-deck="'+key+'"] .zw-loop')?.focus();
+      }
+      function loopOverviewHtml(d) {
+        const region = loopRegionFor(d);
+        if (!region) return '';
+        const duration = secs(d.time.split(' / ')[1]);
+        return `<span class="zloop" style="left:${100*region.startSec/duration}%;width:${100*region.lengthSec/duration}%"></span>`;
+      }
+      function laneGridHtml(d) {
+        const duration = secs(d.time.split(' / ')[1]);
+        const position = duration - secs(d.remain);
+        const period = 60 / Number(d.bpm);
+        const offset = d.offset / 1000;
+        const span = laneSpanOf(d);
+        const start = position - span / 2;
+        const first = Math.ceil((Math.max(0, start) - offset) / period);
+        const last = Math.floor((Math.min(duration, start + span) - offset) / period);
+        let ticks = '';
+        for (let k = first; k <= last; k++) {
+          const left = ((offset + k * period - start) / span) * 100;
+          ticks += `<i class="${((k % 4) + 4) % 4 === 0 ? 'bar' : ''}" style="left:${left.toFixed(3)}%"></i>`;
+        }
+        return `<div class="zw-grid" style="transform:translateX(${SCREEN_VIEW[d.letter].shift}px)">${ticks}</div>`;
+      }
+
+      /* the screen: both zoom lanes full width under one shared playhead,
+         with the zoom keys stacked on the right */
+      function renderScreen() {
+        const strip = (d, seed) => {
+          const state = SCREEN_VIEW[d.letter];
+          if (isEmpty(d)) return `
+            <div class="zw" data-deck="${d.letter}" data-side="${d.letter}" data-ctl="console.screen.zoom" style="--accent:${accentOf(d.letter)}">
+              <span class="zw-label" data-ctl="deck.state">DECK <b style="color:${accentOf(d.letter)}">${d.letter}</b> · — BPM · ${isLoading(d) ? 'LOADING' : 'EMPTY'}</span>
+              ${isLoading(d) ? '' : '<span class="zw-empty">NO TRACK</span>'}
+            </div>`;
+          return `
+            <div class="zw ${dropTarget(d) === 'drop' ? 'drop' : ''}" data-deck="${d.letter}" data-side="${d.letter}" data-ctl="console.screen.zoom" style="--accent:${accentOf(d.letter)}">
+              <div class="zw-track" style="transform:translateX(calc(-25% + ${state.shift}px))">${waveSvg(1600, seed, 0.5)}</div>
+              ${loopLaneHtml(d)}
+              ${laneGridHtml(d)}
+              <span class="zw-label" data-ctl="deck.state">DECK <b style="color:${accentOf(d.letter)}">${d.letter}</b> · ${d.bpm} BPM · ${d.state.toUpperCase()}${energyEnabled ? '<em class="energy-reading"> · ENERGY —</em>' : ''}</span>
+              <span class="zw-cue" style="left:calc(${state.cue}% + ${state.shift}px)"></span>
+            </div>`;
+        };
+        const gridKey = (d) =>
+          `<button class="gridkey" data-ctl="transport.grid" data-side="${d.letter}" style="--accent:${accentOf(d.letter)}" onclick="openGrid('${d.letter}')" title="Beat grid for deck ${d.letter}">GRID<span class="letter">${d.letter}</span></button>`;
+        return `
+          <div class="screen">
+            <div class="grid-stack">${gridKey(DECKS.A)}${gridKey(DECKS.B)}</div>
+            <div class="screen-zoom">
+              ${strip(DECKS.A, 7)}
+              ${strip(DECKS.B, 21)}
+              <span class="zw-head" aria-hidden="true"></span>
+            </div>
+            <div class="zoom-stack">
+              <span data-ctl="console.zoomui" title="Zoom in">+</span>
+              <span class="read" data-ctl="console.zoomui">×4</span>
+              <span data-ctl="console.zoomui" title="Zoom out">−</span>
+            </div>
+          </div>`;
+      }
+
+      /* deck info: the track window. Album art loads (it opens the library
+         for this deck); the remaining time is the biggest thing in the box
+         because it says when the next track has to be in. */
+      const secs = (t) => t.split(':').reduce((s, part) => s * 60 + Number(part), 0);
+      const HOT_CUE_COLOURS = ['#38a8ff', '#35d06b', '#ffb020', '#ff5d8f', '#b06cff', '#22d3ee', '#ff8a1f', '#d9e86a'];
+      /* A semitone up is seven steps round the Camelot wheel. */
+      const shiftCamelot = (code, st) => {
+        const k = parseCamelot(code);
+        return k && st ? (((k.n - 1 + 7 * st) % 12 + 12) % 12 + 1) + k.ring : code;
+      };
+      function renderInfo() {
+        const card = (d, seed) => {
+          if (isEmpty(d)) return emptyCardHtml(d);
+          const [elapsed, total] = d.time.split(' / ');
+          const length = secs(total);
+          const played = secs(elapsed) / length;
+          const pct = (t) => (100 * secs(t) / length).toFixed(2) + '%';
+          const [artist, title] = d.track.includes(' — ') ? d.track.split(' — ') : ['', d.track];
+          const [whole, ms] = d.remain.split('.');
+          const [bpmWhole, bpmTenth] = d.now.split('.');
+          const sign = d.tempo.startsWith('-') || d.tempo.startsWith('−') ? '−' : '+';
+          /* The KEY chip says what changed: KEY LOCK, KEY +1 (shifted), or LOCK +1. */
+          const shift = d.keyShift ? (d.keyShift > 0 ? '+' : '−') + Math.abs(d.keyShift) : '';
+          const keyLabel = d.keyLock && shift ? 'LOCK ' + shift : d.keyLock ? 'KEY LOCK' : shift ? 'KEY ' + shift : '';
+          const role = d.letter === 'A' ? 'master' : 'sync';
+          const flags = HOT_CUES[d.letter]
+            .map((cue, i) => cue ? `<span class="zflag" style="left:${pct(cue.at)};--hc:${HOT_CUE_COLOURS[i]}"><b>${i + 1}</b></span>` : '')
+            .join('') + (d.cueAt ? `<span class="zflag mem" style="left:${pct(d.cueAt)}"></span>` : '');
+          const lines = HOT_CUES[d.letter]
+            .map((cue, i) => cue ? `<span class="zline" style="left:${pct(cue.at)};--hc:${HOT_CUE_COLOURS[i]}"></span>` : '')
+            .join('') + (d.cueAt ? `<span class="zline" style="left:${pct(d.cueAt)};--hc:var(--red)"></span>` : '');
+          const step = length > 240 ? 60 : 15;
+          const ticks = Array.from({ length: Math.floor(length / step) }, (_, i) =>
+            `<i style="left:${(100 * (i + 1) * step / length).toFixed(2)}%"></i>`).join('');
+          return `
+            <div class="zcard" data-deck="${d.letter}" data-side="${d.letter}" style="--accent:${accentOf(d.letter)}">
+              <div class="ztitle" data-ctl="console.screen.card">
+                <span class="zdeck">${d.letter}</span>
+                <span class="note">${NOTE_ICON}</span>
+                <span class="zname">${title}</span>
+                <span class="zartist">${artist}</span>
+              </div>
+              <button class="zart ${artState(d)}${hasCover(d) ? ' cover' : ''}" data-ctl="deck.load" onclick="tapArt('${d.letter}')" title="Load a track onto deck ${d.letter}"
+                style="--art:${hasCover(d) ? COVER_ART : `linear-gradient(135deg, ${d.art[0]} 0 55%, ${d.art[1]} 55% 100%)`}"><i>${NOTE_ICON}</i><b>${ART_LABEL[artState(d)]}</b></button>
+              <div class="zbody">
+                <div class="zreads">
+                  <div class="zrem"><span class="zlbl">REMAIN</span><span class="zsub">${elapsed} <span>/ ${total}</span></span></div>
+                  <div class="zremain"><b>${whole}<i>.${ms || '000'}</i></b></div>
+                  <div class="ztempo"><span class="zlbl">TEMPO</span><b>${sign} ${d.tempo.replace(/^[+−-]/, '').replace('%', '')}<i>%</i></b></div>
+                  <div class="zkey" data-ctl="deck.tags">
+                    <span class="zkeychip ${keyLabel ? '' : 'off'}">${keyLabel || 'KEY'}</span>
+                    ${camelotBadge(shiftCamelot(d.camelot, d.keyShift))}
+                  </div>
+                  <div class="zbpm ${role}"><b>${bpmWhole}<i>.${bpmTenth}</i></b><span>${role === 'master' ? 'MASTER' : 'SYNC'}</span></div>
+                </div>
+                <div class="zfull" data-ctl="console.screen.overview">
+                  <div class="zflags" style="position:relative">${flags}</div>
+                  <div class="zwave">${waveSvg(600, seed + 3, played, true)}${loopOverviewHtml(d)}</div>
+                  <div class="zbar"><i style="left:${(played * 100).toFixed(2)}%"></i></div>
+                  <div class="zticks">${ticks}</div>
+                  ${lines}
+                  <span class="zhead" style="left:${(played * 100).toFixed(2)}%"></span>
+                </div>
+              </div>
+              ${dropHtml(d)}
+            </div>`;
+        };
+        return `<div class="info">${card(DECKS.A, 7)}${card(DECKS.B, 21)}</div>`;
+      }
+
+      /* With the library open and a track picked, the album art is the load
+         target: lit in the deck colour when it will load, PLAYING when the
+         deck has to pause first, LOADED when the track is already on it. */
+      const ART_LABEL = { '': 'LOAD', armed: 'LOAD', blocked: 'PLAYING', loaded: 'LOADED' };
+      function artState(d) {
+        const sel = libOpen && libView.selected != null ? LIBRARY[libView.selected] : null;
+        if (!sel) return '';
+        if (sel.name === d.track) return 'loaded';
+        return d.state === 'playing' ? 'blocked' : 'armed';
+      }
+      function tapArt(key) {
+        /* A load into a stopped deck is the end of the job: close the library. */
+        if (libOpen && libView.selected != null) {
+          if (DECKS[key].state === 'playing') return;
+          loadSelected(key);
+          toggleLib();
+        } else toggleLib();
+      }
+
+      function renderBand() {
+        return renderHead() + renderScreen() + renderInfo() + (screen === 'error' ? renderAlert() : '');
+      }
+
+      /* ---------- deck bay ---------- */
+      function platterDisplay(key, bpm) {
+        const ticks = Array.from({ length: 40 }, (_, i) =>
+          `<path d="M50 7V11 M50 13V16 M50 18V21" transform="rotate(${i * 9} 50 50)"/>`).join('');
+        return `<div class="platter-display" aria-hidden="true" style="--platter-period:${120 / bpm}s">
+          <svg viewBox="0 0 100 100">
+            <defs><mask id="platter-gap-${key}" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+              <rect width="100" height="100" fill="white"/>
+              <path class="platter-gap" d="M50 50 L42.154 -49.692 A100 100 0 0 1 73.345 -47.237 Z" fill="black"/>
+            </mask></defs>
+            <circle class="platter-screen-edge" cx="50" cy="50" r="48"/>
+            <g class="platter-ticks" mask="url(#platter-gap-${key})">${ticks}</g>
+            <circle class="platter-accent-ring" cx="50" cy="50" r="24"/>
+            <circle class="platter-inner-ring" cx="50" cy="50" r="19"/>
+            <circle class="platter-hub" cx="50" cy="50" r="15"/>
+          </svg>
+        </div>`;
+      }
+
+      function loopStepperHtml(key) {
+        const loop = LOOP[key];
+        if (isEmpty(DECKS[key])) return `<div class="loopbar">
+            <button class="lstep" disabled>‹</button>
+            <button class="lsize" disabled><b>${loop.beats}</b></button>
+            <button class="lstep" disabled>›</button>
+          </div>`;
+        return `<div class="loopbar ${loop.on ? 'on' : ''}">
+            <button class="lstep" data-ctl="pads.halve" onclick="stepLoop('${key}', -1)" ${loop.beats <= 1 ? 'disabled' : ''} title="Halve the loop size">‹</button>
+            <button class="lsize ${loop.on ? 'on' : ''}" data-ctl="pads.loop" onclick="toggleLoopPad('${key}')" title="${loop.on ? 'Leave the loop' : 'Start a loop at this size'}"><b>${loop.beats}</b></button>
+            <button class="lstep" data-ctl="pads.double" onclick="stepLoop('${key}', 1)" ${loop.beats >= 64 ? 'disabled' : ''} title="Double the loop size">›</button>
+          </div>`;
+      }
+
+      /* Beat jump, CDJ style: a row of its own under the platter, level with
+         the mixer's CUE · KILL row (ROW.kill: 384, 44), 274 pt wide: square ◀ and ▶ at its ends and the 1 · 4 · 16 · 32
+         selector between them. One jump per press. */
+      const JUMP = { y: 384, h: 44, key: 44, gap: 6, width: 274 };
+      const JUMP_KEYS = { A: ['Q', 'W'], B: ['O', 'P'] };
+      function jumpHtml(key) {
+        const left = DECK_X[key].jump;
+        const off = isEmpty(DECKS[key]) ? 'disabled' : '';
+        const bars = JUMP_BARS[key];
+        const unit = bars === 1 ? 'bar' : 'bars';
+        const step = (x, inner, title) =>
+          `<button class="jstep at" data-ctl="xdj.beatjump" style="${at(x, JUMP.y, JUMP.key, JUMP.h)}" ${off} title="${title}">${inner}</button>`;
+        const right = left + JUMP.width;
+        return `${step(left, ICON_BACK, `Jump back ${bars} ${unit} (${JUMP_KEYS[key][0]})`)}
+          <div class="jlen at" data-ctl="xdj.beatjump" style="${at(left + JUMP.key + JUMP.gap, JUMP.y, JUMP.width - 2 * (JUMP.key + JUMP.gap), JUMP.h)}">${[1, 4, 16, 32]
+            .map((n) => `<button class="${n === bars ? 'on' : ''}" onclick="setJumpBars('${key}', ${n})" ${off} title="Jump ${n} ${n === 1 ? 'bar' : 'bars'} a press">${n}</button>`)
+            .join('')}</div>
+          ${step(right - JUMP.key, ICON_FORWARD, `Jump forward ${bars} ${unit} (${JUMP_KEYS[key][1]})`)}`;
+      }
+      function setJumpBars(key, bars) {
+        JUMP_BARS[key] = bars;
+        render();
+      }
+
+      /* Hot cues: a 4 × 2 bank in a modal over the platter, opened by the deck's
+         HOT CUE key. An empty pad captures, a set pad jumps; DELETE turns set
+         pads into erasers until it is pressed again or nothing is left. */
+      function cuePopHtml(key) {
+        const deleting = cueDelete[key];
+        return `<div class="mixpop cuepop at ${deleting ? 'deleting' : ''}" data-ctl="xdj.hotcue" data-side="${key}" style="${at(DECK_X[key].platter - 150, 132, 300, 236)};--accent:${accentOf(key)}">
+            <h4>Hot cues ${key}
+              <button class="cuebank-del ${deleting ? 'on' : ''}" onclick="toggleCueDelete('${key}')" ${HOT_CUES[key].some(Boolean) ? '' : 'disabled'}>${deleting ? 'KEEP' : 'DELETE'}</button>
+              <button class="btn ghost done" onclick="toggleHotCues('${key}')">Done</button>
+            </h4>
+            <div class="cuebank-grid">
+              ${HOT_CUES[key].map((cue, i) => cue
+                ? `<button class="hc set" onclick="pressCue('${key}', ${i})"><b>${i + 1}</b><small>${cue.at}</small></button>`
+                : `<button class="hc" onclick="pressCue('${key}', ${i})" ${deleting ? 'disabled' : ''}><b>${i + 1}</b><small>set</small></button>`).join('')}
+            </div>
+          </div>`;
+      }
+
+      /* Loop stepper: arrows halve or double (a running loop follows); the
+         readout starts or leaves the loop. Hot cues: an empty pad captures,
+         DEL turns set pads into erasers until nothing is left. */
+      const LOOP_STEPS = [1, 2, 4, 8, 16, 32, 64];
+      function stepLoop(key, dir) {
+        const beats = LOOP[key].beats;
+        LOOP[key].beats = dir > 0 ? (LOOP_STEPS.find((b) => b > beats) ?? 64) : ([...LOOP_STEPS].reverse().find((b) => b < beats) ?? 1);
+        render();
+      }
+      function toggleLoopPad(key) {
+        LOOP[key].on = !LOOP[key].on;
+        if (LOOP[key].on) {
+          const d = DECKS[key];
+          const position = secs(d.time.split(' / ')[1]) - secs(d.remain);
+          LOOP[key].startBeat = Math.ceil((position - d.offset / 1000) / (60 / Number(d.bpm)));
+        }
+        render();
+      }
+      function toggleHotCues(key) {
+        cueOpen[key] = !cueOpen[key];
+        if (!cueOpen[key]) cueDelete[key] = false;
+        render();
+      }
+      function toggleCueDelete(key) {
+        cueDelete[key] = !cueDelete[key];
+        render();
+      }
+      function pressCue(key, slot) {
+        const cues = HOT_CUES[key];
+        if (cues[slot] && cueDelete[key]) {
+          cues[slot] = null;
+          if (!cues.some(Boolean)) cueDelete[key] = false;
+        } else if (!cues[slot]) {
+          cues[slot] = { at: DECKS[key].time.split(' / ')[0] + '.0' };
+        }
+        render();
+      }
+
+      /* Position on the chassis face: x is measured across the 1194 pt canvas
+         (minus the 10 pt bezel), y from the top of the chassis section. The
+         338 pt band above the chassis is head 32 + screen 168 + info 138.
+         The row of keys that used to run above the mixer (SYNC · MASTER · KEY ·
+         GRID and MUSIC) is gone and its 48 pt went to the track windows, so
+         the y values below are still the drawing's and LIFT raises them all. */
+      const LIFT = 48;
+      const at = (x, y, w, h) => `left:${x - 10}px;top:${y - LIFT}px;width:${w}px;height:${h}px`;
+      /* Narrower than layout 01: the bays give 60 pt each to the mixer. */
+      /* SYNC · MASTER · KEY · HOT CUE run the full width of the deck, centred
+         on the TRIM row and 40 pt tall on purpose. The tempo fader starts 23 pt
+         under them, a finger's room, and its foot lines up with the mixer
+         faders' foot (ROW.fader: 150 + 228), with its readout and then TEMPO
+         below it. The platter fills the space under the
+         keys, and CUE, PLAY and the loop widget run along the bottom in the
+         same order on both decks. */
+      const DECK_KEY = { y: 64, w: 78, h: 40, gap: 6 };
+      const TEMPO_TOP = DECK_KEY.y + DECK_KEY.h + 23;
+      /* The platter sits 10 pt under the keys and 8 pt above the beat jump
+         row. */
+      const PLATTER = { y: 114, size: 262 };
+      const ROW_Y = 446;
+      const KEY = 66;
+      const DECK_X = {
+        /* keys: left edge of the four keys; jump: left edge of the beat jump
+           row; row: left edge of the bottom row (CUE · PLAY · loop). */
+        A: { keys: 22, jump: 78, tempo: 46, platter: 215, row: 22 },
+        B: { keys: 842, jump: 842, tempo: 1148, platter: 979, row: 832 }
+      };
+
+      function renderBay(key) {
+        const d = DECKS[key];
+        const x = DECK_X[key];
+        const playing = d.state === 'playing' && !isEmpty(d);
+        const off = isEmpty(d) ? 'disabled' : '';
+        const pill = (i, cls, id, label, extra = '') =>
+          `<button class="pill at ${cls}" data-ctl="${id}" style="${at(x.keys + i * (DECK_KEY.w + DECK_KEY.gap), DECK_KEY.y, DECK_KEY.w, DECK_KEY.h)}" ${extra}>${label}</button>`;
+        return `<section class="bay ${key === 'A' ? 'a' : 'b'} ${playing ? 'playing' : ''}" data-side="${key}">
+          ${pill(0, key === 'A' || off ? 'sync' : 'sync on', 'transport.sync', 'SYNC')}
+          ${pill(1, key === 'A' && !off ? 'master on' : 'master', 'transport.master', 'MASTER', off)}
+          ${pill(2, d.keyLock ? 'on' : '', 'transport.key', 'KEY')}
+          ${pill(3, cueOpen[key] ? 'on' : '', 'xdj.hotcue', 'HOT CUE', `onclick="toggleHotCues('${key}')" ${off}`)}
+          <div class="col at" style="${at(x.tempo - 24, TEMPO_TOP, 48, ROW.fader[0] + ROW.fader[1] - TEMPO_TOP + 34)}">
+            ${faderV('tone.tempo', off ? 50 : 50 - parseFloat(d.tempo.replace('−', '-')) * 100 / 32, true)}
+            <span class="eq-val mono">${off ? '+0.00%' : d.tempo}</span>
+            <span class="eq-name">TEMPO</span>
+          </div>
+          <div class="face-platter at" style="${at(x.platter - PLATTER.size / 2, PLATTER.y, PLATTER.size, PLATTER.size)}">
+            <div class="platter" data-ctl="deck.platter">${platterDisplay(key, Number(d.now))}</div>
+          </div>
+          ${jumpHtml(key)}
+          <button class="big lg cue at keep" data-ctl="transport.cue" style="${at(x.row, ROW_Y, KEY, KEY)}" ${off}>CUE</button>
+          <button class="big lg play at keep" data-ctl="transport.play" style="${at(x.row + KEY + 8, ROW_Y, KEY, KEY)}" ${off}>${playing ? ICON_PAUSE : ICON_PLAY}</button>
+          <div class="at keep" style="${at(x.row + 2 * KEY + 26, ROW_Y + 7, 340 - 2 * KEY - 26, 52)};display:flex">${loopStepperHtml(key)}</div>
+          ${cueOpen[key] ? cuePopHtml(key) : ''}
+        </section>`;
+      }
+
+      /* ---------- centre mixer (alt) ----------
+         Per channel, outside in: LEVEL · HI · MID · LOW, so the two LOW
+         faders sit side by side across the centre. Every band fader is
+         cut-only on one law; kills are separate latching pads. */
+      const LAW = [[1, 0], [0.8, -3], [0.6, -6], [0.4, -12], [0.2, -24], [0.03, -48]];
+      function dbAt(p) {
+        if (p <= 0.005) return -Infinity;
+        if (p < 0.03) return -48 - ((0.03 - p) / 0.025) * 22;
+        for (let i = 1; i < LAW.length; i++) {
+          const [p0, d0] = LAW[i - 1];
+          const [p1, d1] = LAW[i];
+          if (p >= p1) return d1 + ((d0 - d1) * (p - p1)) / (p0 - p1);
+        }
+        return -48;
+      }
+      const gainAt = (p) => { const db = dbAt(p); return db === -Infinity ? 0 : Math.pow(10, db / 20); };
+      const fmtDb = (db) => (db === -Infinity ? '−∞' : Math.abs(db) < 0.05 ? '0.0' : (db > 0 ? '+' : '−') + Math.abs(db).toFixed(1));
+      const fmtTrim = (db) => (Math.abs(db) < 0.05 ? '0.0' : (db > 0 ? '+' : '−') + Math.abs(db).toFixed(1));
+      const fmtHz = (f) => (f >= 1000 ? (f / 1000).toFixed(1) + 'k' : String(Math.round(f)));
+      const BAND_NAME = { high: 'HI', mid: 'MID', low: 'LOW', level: 'LEVEL' };
+      const BANDS = ['high', 'mid', 'low'];
+      const COLS = { level: [372, 44], high: [422, 44], mid: [472, 44], low: [522, 52] };
+      const colX = (key, col) => { const [x, w] = COLS[col]; return [key === 'A' ? x : 1194 - x - w, w]; };
+      const ROW = { top: [62, 44], val: [110, 36], fader: [150, 228], kill: [384, 44], xf: [455, 48] };
+      const CAP = 24;
+      const xfGains = () => [Math.cos((MIX.xfade * Math.PI) / 2), Math.sin((MIX.xfade * Math.PI) / 2)];
+
+      /* Dex's sweep filter (src/shared/curves.ts) on a 0–1 slider. */
+      function filterAt(pos) {
+        const v = (pos - 0.5) * 2;
+        if (Math.abs(v) < 0.04) return { type: 'lowpass', frequency: 20000, q: 0.7 };
+        if (v < 0) return { type: 'lowpass', frequency: 20000 * Math.pow(120 / 20000, -v), q: 0.7 + 0.6 * -v };
+        return { type: 'highpass', frequency: 20 * Math.pow(9000 / 20, v), q: 0.7 + 0.6 * v };
+      }
+      function filterLabel(pos) {
+        const f = filterAt(pos);
+        if (f.frequency >= 20000) return 'FILTER';
+        return (f.type === 'lowpass' ? 'LP ' : 'HP ') + fmtHz(f.frequency);
+      }
+
+      /* Worst case: both lows in phase, after trim, LEVEL and crossfader.
+         0 dB is one track's full low on its own. */
+      function lowSumDb() {
+        const [ga, gb] = xfGains();
+        const part = (key, g) => {
+          const d = MIX[key];
+          return d.kill.low ? 0 : gainAt(d.low) * gainAt(d.level) * Math.pow(10, d.trim / 20) * g;
+        };
+        const sum = part('A', ga) + part('B', gb);
+        return sum <= 0 ? -Infinity : 20 * Math.log10(sum);
+      }
+
+      function cutFader(key, col) {
+        const [x, w] = colX(key, col);
+        const [y, h] = ROW.fader;
+        const inner = h - 2;
+        const ticks = [1, 0.8, 0.6, 0.4, 0.2, 0]
+          .map((p) => `<i class="tick ${p === 1 ? 'unity' : ''}" style="top:${(inner - CAP / 2 - p * (inner - CAP)).toFixed(1)}px"></i>`).join('');
+        const id = { level: 'xdj.channellevel', high: 'tone.high', mid: 'tone.mid', low: 'tone.low' }[col];
+        return `<div class="cf mixctl ${col === 'level' ? 'lvl' : col}" role="slider" data-ctl="${id}" data-deck="${key}" data-param="${col}"
+          aria-label="Deck ${key} ${BAND_NAME[col]}" style="${at(x, y, w, h)};--pos:${MIX[key][col].toFixed(4)}">${ticks}<span class="fr"></span><span class="thumb"></span></div>`;
+      }
+
+      function bandVal(key, col) {
+        const [x, w] = colX(key, col);
+        const action = col === 'level' ? 'void 0' : `openBand('${col}')`;
+        return `<button class="bandval at" data-val="${key}-${col}" data-ctl="${col === 'level' ? 'xdj.channellevel' : 'alt.bandsheet'}" onclick="${action}"
+          style="${at(x - 3, ROW.val[0], w + 6, ROW.val[1])}"><b>${BAND_NAME[col]}</b><span></span></button>`;
+      }
+
+      const killPad = (key, band, style, cls = '') =>
+        `<button class="kill-pad mixctl ${cls}" data-ctl="tone.kill" data-kill="${key}-${band}" onclick="void 0"
+          aria-label="Kill deck ${key} ${BAND_NAME[band]}" style="${style}">${BAND_NAME[band]}<br>KILL</button>`;
+
+      function renderChannel(key) {
+        const [lx, lw] = colX(key, 'level');
+        const trimX = key === 'A' ? 372 : 762;
+        const filterX = key === 'A' ? 440 : 620;
+        return `
+          <div class="chan ${key === 'B' ? 'b' : 'a'}" data-side="${key}" style="--accent:${accentOf(key)}">
+            <button class="trimchip at" data-ctl="alt.trim" data-trim="${key}" onclick="openTrim('${key}')" style="${at(trimX, ROW.top[0], 60, ROW.top[1])}"><b>TRIM</b><span></span></button>
+            <div class="fx mixctl" data-ctl="tone.filter" data-deck="${key}" data-param="filter" data-axis="x" style="${at(filterX, ROW.top[0], 134, ROW.top[1])};--pos:${MIX[key].filter}">
+              <span class="fr"></span><span class="zero"></span><span class="flabel" data-flabel="${key}"></span><span class="thumb"></span>
+            </div>
+            ${['level', ...BANDS].map((col) => bandVal(key, col) + cutFader(key, col)).join('')}
+            ${BANDS.map((band) => { const [x, w] = colX(key, band); return killPad(key, band, at(x, ROW.kill[0], w, ROW.kill[1]), 'at'); }).join('')}
+            <button class="chan-btn at ${key === 'A' ? 'on' : ''}" data-ctl="mixer.cue" style="${at(lx, ROW.kill[0], lw, ROW.kill[1])}">CUE</button>
+          </div>`;
+      }
+
+      function trimPop(key) {
+        const d = MIX[key];
+        return `<div class="mixpop at" data-side="${key}" style="${at(key === 'A' ? 372 : 522, 110, 300, 124)};--accent:${accentOf(key)}">
+          <h4>Trim ${key}${infoBtn('trim')}<button class="btn ghost done" onclick="closeMixPop()">Done</button></h4>
+          <div class="row">
+            <div class="fx mixctl" data-ctl="alt.trim" data-deck="${key}" data-param="trimpos" data-axis="x" style="position:relative;flex:1;height:44px;--pos:${((d.trim + 12) / 24).toFixed(4)}"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>
+            <span class="val" data-trimval="${key}"></span>
+            <button class="btn" onclick="setTrim('${key}', 0)">RESET</button>
+          </div>
+        </div>`;
+      }
+
+      function bandPop(band) {
+        const row = (key) => `<div class="row" style="--accent:${accentOf(key)}">
+            <span class="letter who">${key}</span>
+            <div class="fx band mixctl" data-ctl="tone.${band}" data-deck="${key}" data-param="${band}" data-axis="x" style="position:relative;flex:1;height:52px;--pos:${MIX[key][band].toFixed(4)}"><span class="fr"></span><span class="thumb"></span></div>
+            <span class="val" data-sheetval="${key}-${band}"></span>
+            ${killPad(key, band, 'width:52px;height:52px')}
+          </div>`;
+        return `<div class="mixpop at" style="${at(352, 62, 490, band === 'low' ? 252 : 196)}">
+          <h4>${BAND_NAME[band]} · both decks${infoBtn('band')}<button class="btn ghost done" onclick="closeMixPop()">Done</button></h4>
+          ${row('A')}${row('B')}
+          ${band === 'low' ? `<div class="row"><button class="linkbtn" data-ctl="alt.link" onclick="toggleLink()" style="min-width:120px;min-height:44px">LINK LOWS</button></div>` : ''}
+        </div>`;
+      }
+
+      function renderMixer() {
+        const pop = !mixPop ? '' : mixPop.kind === 'trim' ? trimPop(mixPop.deck) : bandPop(mixPop.band);
+        return `
+          <section class="mixer">
+            ${renderChannel('A')}
+            <button class="bandval sumval at" data-ctl="alt.lowsum" onclick="void 0" style="${at(574, ROW.val[0], 46, ROW.val[1])}"><b>LOW Σ</b><span id="lowsumVal"></span></button>
+            <div class="meter-v at" data-ctl="mixer.meter" title="Master peak" style="${at(578, ROW.fader[0], 7, ROW.fader[1])}"><i id="mmeterBar"></i></div>
+            <div class="meter-v at" data-ctl="alt.lowsum" style="${at(589, ROW.fader[0], 27, ROW.fader[1])}"><i id="lowsumBar"></i><span class="u" style="bottom:80%"></span></div>
+            <button class="linkbtn at" data-ctl="alt.link" onclick="toggleLink()" style="${at(575, ROW.kill[0], 44, ROW.kill[1])}">LINK<br>LOWS</button>
+            ${renderChannel('B')}
+            <span class="xside at keep" style="${at(452, ROW.xf[0] + 12, 14, 24)};line-height:24px">A</span>
+            <div class="fx xf mixctl keep" data-ctl="mixer.crossfader" data-param="xfade" data-axis="x" style="${at(472, ROW.xf[0], 250, ROW.xf[1])};--pos:${MIX.xfade}"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>
+            <span class="xside at keep" style="${at(728, ROW.xf[0] + 12, 14, 24)};line-height:24px">B</span>
+            ${pop}
+          </section>`;
+      }
+
+      /* Paint every mixer control in place from MIX. Cheap enough to run on
+         every pointer move, and it never rebuilds markup, so captures survive. */
+      function paintMix() {
+        document.querySelectorAll('#chassis [data-param]').forEach((el) => {
+          const p = el.dataset.param;
+          const key = el.dataset.deck;
+          el.style.setProperty('--pos', getP(key, p).toFixed(4));
+          el.classList.toggle('killed', BANDS.includes(p) && MIX[key].kill[p]);
+          if (el.classList.contains('cf')) el.classList.toggle('linked', p === 'low' && MIX.link);
+        });
+        document.querySelectorAll('#chassis [data-val]').forEach((el) => {
+          const [key, col] = el.dataset.val.split('-');
+          const d = MIX[key];
+          const killed = col !== 'level' && d.kill[col];
+          const db = dbAt(d[col]);
+          const drag = activeDrag(key, col);
+          el.querySelector('span').textContent = killed ? 'KILL' : fmtDb(db);
+          el.querySelector('b').textContent = drag && drag.speed < 1 ? (drag.speed > 0.2 ? 'FINE ¼' : 'FINE ⅒') : BAND_NAME[col];
+          el.classList.toggle('killed', killed);
+          el.classList.toggle('cut', !killed && db < -0.05);
+          el.classList.toggle('live', Boolean(drag));
+          el.classList.toggle('fine', Boolean(drag && drag.speed < 1));
+        });
+        document.querySelectorAll('#chassis [data-sheetval]').forEach((el) => {
+          const [key, band] = el.dataset.sheetval.split('-');
+          const killed = MIX[key].kill[band];
+          const drag = activeDrag(key, band);
+          el.textContent = killed ? 'KILL' : (drag && drag.speed < 1 ? '· ' : '') + fmtDb(dbAt(MIX[key][band]));
+          el.classList.toggle('killed', killed);
+        });
+        document.querySelectorAll('#chassis [data-kill]').forEach((el) => {
+          const [key, band] = el.dataset.kill.split('-');
+          el.classList.toggle('on', MIX[key].kill[band]);
+          el.setAttribute('aria-pressed', String(MIX[key].kill[band]));
+        });
+        document.querySelectorAll('#chassis [data-flabel]').forEach((el) => { el.textContent = filterLabel(MIX[el.dataset.flabel].filter); });
+        document.querySelectorAll('#chassis [data-trim]').forEach((el) => {
+          const d = MIX[el.dataset.trim];
+          const auto = d.trim === d.auto && d.auto !== 0;
+          el.classList.toggle('auto', auto);
+          el.querySelector('b').textContent = auto ? 'AUTO' : 'TRIM';
+          el.querySelector('span').textContent = fmtTrim(d.trim);
+        });
+        document.querySelectorAll('#chassis [data-trimval]').forEach((el) => { el.textContent = fmtTrim(MIX[el.dataset.trimval].trim) + ' dB'; });
+        document.querySelectorAll('#chassis .linkbtn').forEach((el) => el.classList.toggle('on', MIX.link));
+        const sum = lowSumDb();
+        const bar = document.getElementById('lowsumBar');
+        const val = document.getElementById('lowsumVal');
+        if (bar && val) {
+          bar.style.setProperty('--h', (sum === -Infinity ? 0 : Math.max(0, Math.min(100, ((sum + 24) / 30) * 100))) + '%');
+          val.textContent = fmtDb(sum);
+          val.className = sum >= 3 ? 'over' : sum > 1 ? 'warn' : '';
+        }
+        applyAudio();
+      }
+
+      function getP(key, p) {
+        if (p === 'xfade') return MIX.xfade;
+        if (p === 'trimpos') return (MIX[key].trim + 12) / 24;
+        return MIX[key][p];
+      }
+      function setP(key, p, v) {
+        const c = Math.max(0, Math.min(1, v));
+        if (p === 'xfade') MIX.xfade = c;
+        else if (p === 'trimpos') {
+          const t = Math.round((c * 24 - 12) * 10) / 10;
+          MIX[key].trim = Math.abs(t) < 0.25 ? 0 : t;
+        } else MIX[key][p] = c;
+      }
+      const RESET = { xfade: 0.5, filter: 0.5, trimpos: 0.5 };
+
+      function openBand(band) { if (swallowDragClick) return; mixPop = { kind: 'band', band }; render(); }
+      function openTrim(key) { mixPop = { kind: 'trim', deck: key }; render(); }
+      function closeMixPop() { mixPop = null; render(); }
+      function toggleLink() { MIX.link = !MIX.link; paintMix(); }
+      function setTrim(key, db) { MIX[key].trim = db; render(); }
+
+      /* ---------- volume popover: master, cue mix, split cue ---------- */
+      function renderVolume() {
+        return `
+          <h3>Volume ${infoBtn('volume')}<button class="btn ghost done" onclick="toggleVol()">Done</button></h3>
+          <div class="vrow">
+            <span class="tiny">master</span>
+            ${faderH('rail.master', 68)}
+            <span class="val">71%</span>
+          </div>
+          <div class="vrow">
+            <span class="tiny">cue mix</span>
+            ${faderH('rail.cuemix', 50)}
+            <span class="val">50%</span>
+          </div>`;
+      }
+
+      /* ---------- library sheet: deck panel, playlists, the crate ---------- */
+      const PLAYLISTS = [
+        { id: 'warm', name: 'Warm up', tracks: [5, 2, 6, 3] },
+        { id: 'peak', name: 'Peak time', tracks: [] }
+      ];
+      Object.assign(libView, { playlist: 'all', selected: null, moreFor: null, sort: '' });
+
+      const playlistOf = () => PLAYLISTS.find((p) => p.id === libView.playlist) || null;
+
+      /* Rows as LIBRARY indexes: a playlist keeps its own order, the whole
+         library sorts by name; a key filter and the search narrow either. */
+      function libRows() {
+        const needle = libView.query.trim().toLowerCase();
+        const keys = libView.key ? (libView.compatible ? camelotCompatible(libView.key) : [libView.key]) : null;
+        const list = playlistOf() ? [...playlistOf().tracks] : LIBRARY.map((_, i) => i).sort((x, y) => titleOf(LIBRARY[x]).localeCompare(titleOf(LIBRARY[y])));
+        const rows = list.filter((i) => {
+          const t = LIBRARY[i];
+          if (keys && !keys.includes(t.camelot)) return false;
+          if (!needle) return true;
+          if (parseCamelot(needle.toUpperCase())) return t.camelot === needle.toUpperCase();
+          return (t.name + ' ' + t.key + ' ' + t.camelot + ' ' + t.bpm).toLowerCase().includes(needle);
+        });
+        if (!libView.sort) return rows;
+        const value = {
+          name: (t) => titleOf(t).toLowerCase(),
+          key: (t) => camelotRank(t.camelot),
+          bpm: (t) => Number(t.bpm),
+          dur: (t) => t.dur.split(':').reduce((m, x) => m * 60 + Number(x), 0),
+          grid: (t) => parseFloat(t.grid)
+        }[libView.sort];
+        return rows.sort((x, y) => {
+          const a = value(LIBRARY[x]);
+          const b = value(LIBRARY[y]);
+          return (a < b ? -1 : a > b ? 1 : 0) * libView.dir || titleOf(LIBRARY[x]).localeCompare(titleOf(LIBRARY[y]));
+        });
+      }
+
+      /* FIND KEYS works through tracks saved before key analysis. "Library · keys
+         missing" has four of them; "finding keys" is two through. */
+      const KEYLESS_FROM = { keysmissing: 8, findingkeys: 10 };
+      const hasNoKey = (i) => screen in KEYLESS_FROM && i >= KEYLESS_FROM[screen];
+      function libTrack(i) {
+        const t = LIBRARY[i];
+        if (screen === 'bothdecks' && t.on) return { ...t, on: t.on === 'A' ? 'AB' : '' };
+        if (hasNoKey(i)) return { ...t, key: '', camelot: '—' };
+        if (screen === 'filemissing' && t.name === 'Bicep — Glue') return { ...t, missing: true };
+        return t;
+      }
+      function findKeysHtml() {
+        const missing = LIBRARY.filter((t, i) => hasNoKey(i)).length;
+        if (!missing) return '';
+        return `<button class="btn" data-ctl="lib.findkeys" title="Analyse the key of every track that does not have one yet"${screen === 'findingkeys' ? ' disabled' : ''}>Find keys (${missing})</button>`;
+      }
+
+      /* Stand-ins for each track's cover, drawn full width and cropped to the row. */
+      const ROW_ART = ['#f47131', '#f3362f', '#40bd5c', '#393f40', '#00bcf2', '#dce12d'];
+      /* The title from the file's tags; the demo's names also carry the artist. */
+      const titleOf = (t) => t.name.split(' — ').pop();
+      /* The condensed face has no ♭, so flats read as DJ software writes them: Bbm. */
+      const keyShort = (key) => key.replace('♭', 'b').replace(' minor', 'm').replace(' major', '');
+      const decksOf = (t) => [...t.on];
+      const isOnAir = (t) => decksOf(t).some((deck) => DECKS[deck].state === 'playing');
+      /* icons/music.note.svg */
+      const NOTE_ICON = '<svg viewBox="0 0 15.01 24.75" aria-hidden="true"><path d="M9.06,19.71c-.01,1.12-.28,1.7-1,2.55-.28.33-.56.65-.91.92-1.18.91-2.49,1.42-4,1.27-.7-.07-1.38-.39-1.92-.81-1.15-.9-1.2-2.51-.44-3.8.27-.46.64-.83,1.03-1.21,1.16-1.16,3.06-1.84,4.66-1.5.41.09.77.23,1.18.37l.06-.91.06-8.37.05-5.64.05-1.99c.09-.19.41-.33.59-.29.8.19.59,1.02,1.03,2.01.32.7.76,1.29,1.27,1.85l1.56,1.73c2.06,2.27,3.04,5.14,1.89,8.1-.29.74-.65,1.42-1.3,1.89-.21.1-.65-.13-.66-.36.12-.47.33-.88.48-1.34.29-.87.44-1.75.32-2.67-.2-1.49-.94-2.87-2.11-3.81-.54-.43-1.14-.71-1.79-1.01l-.05,7.32-.06,5.72Z"/></svg>';
+      /* The note, or the decks holding the track: white when loaded, a green arrow when playing. */
+      function rowMarkHtml(t) {
+        const decks = decksOf(t);
+        if (!decks.length) return `<span class="lib-mark">${NOTE_ICON}</span>`;
+        return `<span class="lib-mark ${decks.length > 1 ? 'both' : ''}">${decks.map((deck) =>
+          `<b class="lib-deck ${DECKS[deck].state === 'playing' ? 'playing' : ''}">${deck}</b>`).join('')}</span>`;
+      }
+
+      function libRowsHtml() {
+        const rows = libRows();
+        const list = playlistOf();
+        if (screen === 'firstrun') return '<p class="lib-empty">No tracks yet. Add files or a folder, or drop audio onto a deck.</p>';
+        if (rows.length === 0) return `<p class="lib-empty">${libView.query || libView.key ? 'Nothing matches that search or key.' : 'This playlist is empty. Drag tracks onto it, or use MORE on a track.'}</p>`;
+        return rows.map((i) => {
+          const t = libTrack(i);
+          return `
+              <div class="lib-row ${libView.selected === i ? 'selected' : ''} ${isOnAir(t) ? 'playing' : ''} ${t.missing ? 'missing' : ''}" onclick="selectRow(${i})">
+                <span class="lib-art" style="--art:${ROW_ART[i % ROW_ART.length]}"></span>
+                ${rowMarkHtml(t)}
+                <div class="lib-name">${titleOf(t)}${t.missing ? '<small>file missing</small>' : ''}</div>
+                <span class="lib-bpm" data-ctl="lib.bpm">${t.bpm}</span>
+                <span class="lib-dur">${t.dur}</span>
+                <span class="lib-key" data-ctl="lib.key" onclick="event.stopPropagation(); ${t.camelot === '—' ? '' : `filterKey('${t.camelot}')`}" ${t.camelot === '—' ? '' : `title="Show ${t.camelot} and its harmonic matches"`}>${camelotBadge(t.camelot, libView.key === t.camelot ? 'sel' : '')}</span>
+                <span class="lib-note">${keyShort(t.key)}</span>
+                ${libGridHtml(i)}
+                <button class="lib-more" data-ctl="lib.more" onclick="event.stopPropagation(); openMore(${i})" title="Track details, playlists and re-analyse">MORE</button>
+              </div>`;
+        }).join('');
+      }
+
+      /* Flagged tracks read amber with a ? and name the other tempos in the tooltip. */
+      function libGridHtml(i) {
+        const t = LIBRARY[i];
+        if (!gridUnsure(i)) return `<span class="lib-grid" data-ctl="lib.grid">${t.grid}</span>`;
+        const alts = gridAltsOf(i).map((alt) => alt.bpm.toFixed(2)).join(' or ');
+        return `<span class="lib-grid unsure" data-ctl="lib.grid" title="Tempo uncertain: it may be ${alts}. Open the beat grid to choose.">${t.grid}?</span>`;
+      }
+
+      function libFilterHtml() {
+        if (!libView.key) return '<span>All keys</span>';
+        const keys = libView.compatible ? camelotCompatible(libView.key) : [libView.key];
+        return `<span>Key</span>${keys.map((k) => `<span class="lib-key" onclick="filterKey('${k}')">${camelotBadge(k, k === libView.key ? 'sel' : '')}</span>`).join('')}
+          <div class="seg">
+            <button class="${libView.compatible ? '' : 'on'}" onclick="setKeyMode(false)">${libView.key} only</button>
+            <button class="${libView.compatible ? 'on' : ''}" onclick="setKeyMode(true)">+ compatible</button>
+          </div>
+          <button class="btn ghost clear" onclick="filterKey('')">Clear</button>`;
+      }
+
+      const libCountText = () => {
+        if (screen === 'firstrun') return '0 tracks';
+        const total = playlistOf() ? playlistOf().tracks.length : LIBRARY.length;
+        const shown = libRows().length;
+        return `${total} ${total === 1 ? 'track' : 'tracks'}${shown !== total ? ` · ${shown} shown` : ''}`;
+      };
+
+      /* Only the list, count and filter bar repaint while typing, so the search box keeps focus. */
+      function refreshLibrary() {
+        const list = document.getElementById('libList');
+        if (!list) return;
+        list.innerHTML = libRowsHtml();
+        document.getElementById('libCount').textContent = libCountText();
+        document.getElementById('libFilter').innerHTML = libFilterHtml();
+        paintSelection();
+        annotateControls();
+        paintHotspots();
+      }
+      function searchLibrary(value) { libView.query = value; refreshLibrary(); }
+      function sortLibrary(col) {
+        if (libView.sort === col) libView.dir = -libView.dir;
+        else { libView.sort = col; libView.dir = 1; }
+        render();
+      }
+      function filterKey(code) { libView.key = libView.key === code ? '' : code; render(); }
+      function setKeyMode(compatible) { libView.compatible = compatible; render(); }
+      function selectRow(i) { libView.selected = i; render(); }
+      function openMore(i) { libView.moreFor = i; libView.moreConfirm = false; libView.moreAgain = false; render(); }
+      /* The first tap arms it. The mockup's second tap only closes: the demo crate stays whole. */
+      function removeTrack() {
+        if (libView.moreConfirm || screen === 'trackremove') {
+          openMore(null);
+          return;
+        }
+        libView.moreConfirm = true;
+        libView.moreAgain = false;
+        render();
+      }
+      /* Re-analysing replaces hand-edited grids, so it asks twice too. */
+      function reanalyseTrack() {
+        if (libView.moreAgain || screen === 'trackagain') {
+          openMore(null);
+          return;
+        }
+        libView.moreAgain = true;
+        libView.moreConfirm = false;
+        render();
+      }
+      function setPlaylist(id) { libView.playlist = id; libView.sort = ''; render(); }
+      function togglePlaylistTrack(id, i) {
+        const list = PLAYLISTS.find((p) => p.id === id);
+        list.tracks = list.tracks.includes(i) ? list.tracks.filter((x) => x !== i) : [...list.tracks, i];
+        render();
+      }
+      function newPlaylist(i) {
+        const id = 'pl' + Date.now();
+        PLAYLISTS.push({ id, name: 'New playlist' + (PLAYLISTS.some((p) => p.name === 'New playlist') ? ' ' + (PLAYLISTS.length + 1) : ''), tracks: i == null ? [] : [i] });
+        libView.playlist = id;
+        libView.moreFor = null;
+        render();
+      }
+
+      /* A deck's title is its load button: it arms when a row is selected;
+         a playing deck refuses, so a stray tap cannot cut the mix. */
+      function loadSelected(key) {
+        const i = libView.selected;
+        const d = DECKS[key];
+        if (i == null || d.state === 'playing') return;
+        const t = LIBRARY[i];
+        LIBRARY.forEach((x) => { if (x.on === key) x.on = ''; });
+        t.on = key;
+        Object.assign(d, { track: t.name, bpm: t.bpm, camelot: t.camelot, grid: t.grid + ' grid', state: 'cued' });
+        render();
+      }
+
+      function renderLibrary() {
+        const list = playlistOf();
+        return `
+          <div class="lib-head">
+            <h2>${list ? escapeHtml(list.name) : 'Library'}</h2>
+            <span class="lib-count" id="libCount">${libCountText()}</span>
+            <input class="search" data-ctl="lib.search" placeholder="Search tracks, keys (4A), BPM" value="${escapeHtml(libView.query)}" oninput="searchLibrary(this.value)" />
+            ${findKeysHtml()}
+            <button class="btn accent" data-ctl="lib.addfiles">Add files</button>
+            <button class="btn" data-ctl="lib.addfolder">Add folder</button>
+            ${infoBtn('library')}
+            <button class="btn ghost done" data-ctl="lib.done" onclick="toggleLib()">Done</button>
+          </div>
+          <div class="lib-body">
+            <nav class="lib-side" data-ctl="lib.playlists">
+              <span class="lib-side-label">COLLECTION</span>
+              <button class="lib-side-item ${list ? '' : 'on'}" onclick="setPlaylist('all')"><i>${NOTE_ICON}</i><span>All tracks</span><em>${screen === 'firstrun' ? 0 : LIBRARY.length}</em></button>
+              <div class="lib-side-head"><span class="lib-side-label">PLAYLISTS</span><span class="lib-actions"><button onclick="newPlaylist()" title="New playlist">+</button></span></div>
+              ${screen === 'firstrun' ? '<p class="lib-side-empty">No playlists yet. Tap + to make one.</p>' : PLAYLISTS.map(playlistItemHtml).join('')}
+            </nav>
+            <div class="lib-main">
+              <div class="lib-filter" id="libFilter">${libFilterHtml()}</div>
+              <div class="lib-cols" data-ctl="lib.sort">
+                ${[['name', 'track'], ['bpm', 'bpm'], ['dur', 'time'], ['key', 'camelot'], [null, 'key'], ['grid', 'grid']].map(([col, label]) =>
+                  col ? `<button class="${libView.sort === col ? 'on' + (libView.dir < 0 ? ' desc' : '') : ''}" onclick="sortLibrary('${col}')">${label}</button>` : `<span>${label}</span>`).join('')}
+                <span></span>
+              </div>
+              <div class="lib-list" id="libList">${libRowsHtml()}</div>
+            </div>
+          </div>`;
+      }
+
+      /* ---------- beat grid sheet ---------- */
+      let gridArm = false;
+      let gridDrag = null;
+      let swallowGridClick = false;
+
+      /* What the sheet is showing: a window of the track, one zoom step for
+         both decks, its centre per deck. */
+      const gridWindow = { A: { startMs: 0 }, B: { startMs: 0 } };
+      const gridSpan = () => GWAVE.zooms[GWAVE.zoom];
+      const gridTrackMs = (key) => {
+        const track = LIBRARY.find((t) => t.on === key);
+        return track ? track.dur.split(':').reduce((sum, part) => sum * 60 + Number(part), 0) * 1000 : 384000;
+      };
+      function centreGrid(key, centreMs) {
+        const span = gridSpan();
+        gridWindow[key].startMs = Math.max(0, Math.min(gridTrackMs(key) - span, centreMs - span / 2));
+      }
+      const gridNoise = (ms) => { const x = Math.sin(Math.floor(ms * 8) * 12.9898) * 43758.5453; return (x - Math.floor(x)) * 2 - 1; };
+
+      /* A synthetic signal tied to the deck's original grid: a kick with a hard
+         attack on every beat, harder on the downbeat, a hat on the offbeat. */
+      function gridSignal(audio, ms) {
+        const period = 60000 / audio.bpm;
+        const beat = Math.floor((ms - audio.offsetMs) / period);
+        const since = ms - (audio.offsetMs + beat * period);
+        const downbeat = ((beat % 4) + 4) % 4 === 0;
+        const pitch = 58 + 190 * Math.exp(-since / 14);
+        const kick = (downbeat ? 1 : 0.84) * Math.exp(-since / 95) * Math.sin(2 * Math.PI * pitch * since / 1000);
+        const off = since - period / 2;
+        const hat = off >= 0 ? 0.3 * Math.exp(-off / 20) * gridNoise(ms) : 0;
+        return kick + hat + 0.05 * gridNoise(ms);
+      }
+
+      /* One column per screen pixel, drawn at twice the stage's size: each
+         the loudest and quietest of the signal under it. */
+      function paintGridWave(key) {
+        const canvas = document.getElementById('gcanvas');
+        if (!canvas) return;
+        const box = canvas.parentElement;
+        const columns = box.clientWidth * 2, height = box.clientHeight * 2;
+        if (canvas.width !== columns) canvas.width = columns;
+        if (canvas.height !== height) canvas.height = height;
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, columns, height);
+        context.fillStyle = '#dfe2e4';
+        const audio = AUDIO_GRID[key];
+        const startMs = gridWindow[key].startMs, msPerColumn = gridSpan() / columns;
+        const middle = height / 2, reach = middle - 12;
+        for (let column = 0; column < columns; column++) {
+          let low = 0, high = 0;
+          for (let sample = 0; sample < 6; sample++) {
+            const value = gridSignal(audio, startMs + (column + sample / 6) * msPerColumn);
+            if (value < low) low = value;
+            if (value > high) high = value;
+          }
+          context.fillRect(column, middle - high * reach, 1, Math.max(1, (high - low) * reach));
+        }
+      }
+
+      /* The whole track under the wave: where the window is, and a way to move it. */
+      function paintGridStrip(key) {
+        const canvas = document.getElementById('gstrip');
+        if (!canvas) return;
+        const box = canvas.parentElement;
+        const columns = box.clientWidth, height = box.clientHeight;
+        if (canvas.width !== columns) { canvas.width = columns; canvas.height = height; }
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, columns, height);
+        context.fillStyle = '#6a6e71';
+        let seed = AUDIO_GRID[key].seed;
+        for (let column = 0; column < columns; column += 2) {
+          seed = (seed * 9301 + 49297) % 233280;
+          const section = 0.45 + 0.4 * Math.abs(Math.sin(column / columns * 9 + AUDIO_GRID[key].seed));
+          const level = Math.max(2, section * (0.75 + 0.25 * seed / 233280) * (height - 6));
+          context.fillRect(column, (height - level) / 2, 1, level);
+        }
+        const rect = document.getElementById('gspot');
+        const track = gridTrackMs(key);
+        rect.style.left = (gridWindow[key].startMs / track * 100).toFixed(3) + '%';
+        rect.style.width = 'max(8px, ' + (gridSpan() / track * 100).toFixed(3) + '%)';
+      }
+
+      function gridLines(key) {
+        const g = GRID_EDIT[key];
+        const period = 60000 / g.bpm;
+        const startMs = gridWindow[key].startMs, spanMs = gridSpan();
+        const first = Math.floor((startMs - g.offset) / period) - 1;
+        const last = Math.ceil((startMs + spanMs - g.offset) / period) + 1;
+        let out = '';
+        for (let beat = first; beat <= last; beat++) {
+          const time = g.offset + beat * period;
+          const pct = ((time - startMs) / spanMs) * 100;
+          if (pct < -0.5 || pct > 100.5) continue;
+          const downbeat = ((beat % 4) + 4) % 4 === 0;
+          const bar = Math.floor(beat / 4) + 1;
+          out +=
+            '<span class="gbeat' + (downbeat ? ' bar' : '') + '" style="left:' + pct.toFixed(2) + '%">' +
+            (downbeat ? '<b>' + bar + '</b>' : '') +
+            '</span>';
+        }
+        // The playhead belongs to the audio, so it moves with the waveform.
+        const now = ((GWAVE.centreMs - startMs) / spanMs) * 100;
+        if (now >= 0 && now <= 100) out += '<span class="gnow" style="left:' + now.toFixed(2) + '%"></span>';
+        return out;
+      }
+
+      /* During a drag only the readouts and the lines change; the whole sheet
+         is not rebuilt, so the pointer capture survives. */
+      function refreshGridSheet() {
+        if (!gridOpen) return;
+        const g = GRID_EDIT[gridOpen];
+        const bpm = document.getElementById('gbpm');
+        if (!bpm) return;
+        bpm.textContent = g.bpm.toFixed(1);
+        document.getElementById('gconf').textContent = Math.round(g.confidence) + '%';
+        document.getElementById('goff').textContent = (g.offset >= 0 ? '+' : '') + g.offset.toFixed(1);
+        document.getElementById('glines').innerHTML = gridLines(gridOpen);
+        paintGridWave(gridOpen);
+        paintGridStrip(gridOpen);
+      }
+
+      function zoomGrid(step) {
+        if (!gridOpen) return;
+        const centre = gridWindow[gridOpen].startMs + gridSpan() / 2;
+        GWAVE.zoom = Math.max(0, Math.min(GWAVE.zooms.length - 1, GWAVE.zoom + step));
+        centreGrid(gridOpen, centre);
+        render();
+      }
+
+      /* Centres the next grid line before or after the middle of the window. */
+      function stepGridBeat(direction) {
+        if (!gridOpen) return;
+        const g = GRID_EDIT[gridOpen];
+        const period = 60000 / g.bpm;
+        const centre = gridWindow[gridOpen].startMs + gridSpan() / 2;
+        const beat = (centre - g.offset) / period;
+        const next = direction > 0 ? Math.floor(beat + 0.001) + 1 : Math.ceil(beat - 0.001) - 1;
+        centreGrid(gridOpen, g.offset + next * period);
+        refreshGridSheet();
+      }
+
+      function moveGridStrip(event) {
+        if (!gridOpen || (event.type === 'pointermove' && !event.buttons)) return;
+        if (event.type === 'pointerdown') {
+          try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* synthetic pointer in a test harness */ }
+        }
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+        centreGrid(gridOpen, x * gridTrackMs(gridOpen));
+        refreshGridSheet();
+      }
+
+      /* Tempo alternates: the readings the analysis turned down, each with its
+         own downbeat. Only the gridunsure and gridalts screens give deck A's
+         track any; gridunsure also flags it as an uncertain tempo. */
+      const GRID_ALTS = [
+        { bpm: 88.667, offset: 120.4, relation: '2/3' },
+        { bpm: 177.333, offset: 489.9, relation: '4/3' },
+        { bpm: 99.75, offset: 312.8, relation: '3/4' }
+      ];
+      const GRID_SCREENS = ['gridunsure', 'gridalts', 'gridhelp'];
+      const gridAltsOf = (i) => (GRID_SCREENS.includes(screen) && LIBRARY[i].on === 'A' ? GRID_ALTS : []);
+      const gridUnsure = (i) => screen === 'gridunsure' && LIBRARY[i].on === 'A';
+
+      /* A tempo over another as the simplest ratio of small numbers, e.g. "4/3". */
+      function relationOver(bpm, base) {
+        const ratio = bpm / base;
+        for (let d = 1; d <= 8; d++) {
+          const n = Math.round(ratio * d);
+          if (n > 0 && Math.abs(n / d - ratio) < 0.005 * ratio) return d === 1 ? String(n) : `${n}/${d}`;
+        }
+        return ratio.toFixed(2);
+      }
+
+      /* Swap the grid for an alternate; the reading it replaces joins the list. */
+      function useGridAlt(n) {
+        if (!gridOpen) return;
+        const g = GRID_EDIT[gridOpen];
+        const alt = GRID_ALTS[n];
+        const previous = { bpm: g.bpm, offset: g.offset };
+        g.bpm = alt.bpm;
+        g.offset = alt.offset;
+        GRID_ALTS[n] = previous;
+        for (const entry of GRID_ALTS) entry.relation = relationOver(entry.bpm, g.bpm);
+        commitGrid(gridOpen);
+      }
+
+      function commitGrid(key) {
+        const g = GRID_EDIT[key];
+        const deck = DECKS[key];
+        deck.bpm = g.bpm.toFixed(1);
+        deck.grid = Math.round(g.confidence) + '% grid';
+        deck.confidence = Math.round(g.confidence);
+        render();
+      }
+
+      function nudgeGridBpm(delta) {
+        if (!gridOpen) return;
+        const g = GRID_EDIT[gridOpen];
+        g.bpm = Math.min(300, Math.max(40, g.bpm + delta));
+        commitGrid(gridOpen);
+      }
+
+      function nudgeGridOffset(delta) {
+        if (!gridOpen) return;
+        GRID_EDIT[gridOpen].offset += delta;
+        gridWindow[gridOpen].startMs += delta;
+        commitGrid(gridOpen);
+      }
+
+      function scaleGrid(factor) {
+        if (!gridOpen) return;
+        const g = GRID_EDIT[gridOpen];
+        g.bpm = Math.min(300, Math.max(40, g.bpm * factor));
+        commitGrid(gridOpen);
+      }
+
+      function tapGrid() {
+        if (!gridOpen) return;
+        const g = GRID_EDIT[gridOpen];
+        const now = performance.now();
+        g.taps = g.taps.filter((time) => now - time < 2600);
+        g.taps.push(now);
+        g.taps = g.taps.slice(-8);
+        if (g.taps.length >= 3) {
+          const intervals = g.taps.slice(1).map((time, index) => time - g.taps[index]);
+          const average = intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
+          if (average > 150) {
+            g.bpm = Math.min(200, Math.max(60, 60000 / average));
+            g.confidence = 50;
+          }
+        }
+        commitGrid(gridOpen);
+      }
+
+      function armGrid() {
+        gridArm = !gridArm;
+        render();
+      }
+
+      function startGridDrag(event) {
+        if (!gridOpen) return;
+        const wave = event.currentTarget;
+        gridDrag = {
+          key: gridOpen,
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startOffset: GRID_EDIT[gridOpen].offset,
+          startMs: gridWindow[gridOpen].startMs,
+          rect: wave.getBoundingClientRect(),
+          moved: false,
+          armed: gridArm
+        };
+        try {
+          wave.setPointerCapture(event.pointerId);
+        } catch {
+          /* synthetic pointer in a test harness */
+        }
+      }
+
+      function moveGridDrag(event) {
+        if (!gridDrag || event.pointerId !== gridDrag.pointerId) return;
+        const dx = event.clientX - gridDrag.startX;
+        if (Math.abs(dx) < 3) return;
+        gridDrag.moved = true;
+        if (gridDrag.armed) return;
+        // The waveform follows the finger and the lines stay where they are.
+        const msPerPixel = gridSpan() / gridDrag.rect.width;
+        GRID_EDIT[gridDrag.key].offset = gridDrag.startOffset - dx * msPerPixel;
+        gridWindow[gridDrag.key].startMs = gridDrag.startMs - dx * msPerPixel;
+        refreshGridSheet();
+      }
+
+      function endGridDrag(event) {
+        if (!gridDrag || event.pointerId !== gridDrag.pointerId) return;
+        const drag = gridDrag;
+        gridDrag = null;
+        try {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+        } catch {
+          /* synthetic pointer in a test harness */
+        }
+
+        if (drag.armed && !drag.moved) {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+          const timeMs = gridWindow[drag.key].startMs + x * gridSpan();
+          const barMs = 4 * (60000 / GRID_EDIT[drag.key].bpm);
+          GRID_EDIT[drag.key].offset = timeMs % barMs;
+          gridArm = false;
+          commitGrid(drag.key);
+          return;
+        }
+
+        if (drag.moved) {
+          swallowGridClick = true;
+          window.setTimeout(() => { swallowGridClick = false; }, 400);
+          // Fold the result into one bar: the lines look identical, but the
+          // offset stays in a readable range instead of growing with the drag.
+          const g = GRID_EDIT[drag.key];
+          const barMs = 4 * (60000 / g.bpm);
+          g.offset = ((g.offset % barMs) + barMs) % barMs;
+          commitGrid(drag.key);
+        }
+      }
+
+      /* ---------- instructions: behind an (i) key, one modal per topic ---------- */
+      const HELP = {
+        grid: {
+          title: 'How the beat grid works',
+          rows: [
+            ['Drag', 'Drag the waveform until the beat sits on a line. The lines stay still.'],
+            ['− +', 'Zoom in until you can see the attack of the beat.'],
+            ['◀ Beat ▶', 'Step to the line before or after. The strip below the wave moves along the track.'],
+            ['Set downbeat', 'Arm it, then tap the first beat of a bar.'],
+            ['Tap', 'Tap along with the beat. Three taps set the tempo.'],
+            ['±0.1 · 1 ms', 'Trim the tempo, or slide the grid earlier or later.'],
+            ['÷2 · ×2', 'Fix a half-time or double-time reading.'],
+            ['Other tempos', 'Swap in a tempo the analysis turned down. It brings its own downbeat.']
+          ],
+          foot: 'Every edit saves to the library straight away. There is no Apply step.'
+        },
+        tap: {
+          title: 'How TAP tempo works',
+          rows: [
+            ['Input', 'Pick what to listen to. To follow another app, send its output to a loopback device such as BlackHole.'],
+            ['Listening', 'A tempo shows after about 8 seconds of rhythm.'],
+            ['Match deck', "Sets that deck's tempo to the one TAP hears."]
+          ],
+          foot: 'Nothing is recorded or sent to the mix. TAP only reads a tempo.'
+        },
+        trim: {
+          title: 'Trim',
+          rows: [
+            ['Trim', 'Input gain for the track. Set it once when the track loads, then mix on the faders.'],
+            ['Reset', 'Back to 0 dB.']
+          ]
+        },
+        band: {
+          title: 'EQ band',
+          rows: [
+            ['Slider', 'Full left kills the band. The right end is 0 dB.'],
+            ['Fine', 'Drag up or down off the slider for fine moves.'],
+            ['Long ride', 'Longer travel than the fader, for 16- and 32-bar rides. Same curve, same kills.'],
+            ['Link lows', "Linked, one drag trades A's low for B's: the bass swap in one move."]
+          ]
+        },
+        volume: {
+          title: 'Volume',
+          rows: [
+            ['Master', 'The main output level.'],
+            ['Cue mix', 'Blends the headphones from the cued deck (left) to the master (right).']
+          ]
+        },
+        library: {
+          title: 'How the library works',
+          rows: [
+            ['Load', "Tap a track, then tap a deck's album art. Or drag the track onto the deck."],
+            ['Playlists', 'Drag a track onto a playlist, or switch it on in MORE on its row.'],
+            ['Keys', 'Tap a key to show it and its harmonic matches.'],
+            ['Sort', 'Tap a column heading.']
+          ],
+          foot: 'Files stay on this machine.'
+        }
+      };
+      const INFO_ICON = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="4.5" r="2.1"/><rect x="8" y="8" width="4" height="9.5" rx="1"/></svg>';
+      const infoBtn = (topic) => `<button class="btn ghost info" data-ctl="help.${topic}" onclick="event.stopPropagation(); openHelp('${topic}')" title="${HELP[topic].title}">${INFO_ICON}</button>`;
+      function renderHelp() {
+        const h = HELP[help];
+        return `
+          <div class="gsheet narrow help" data-ctl="help" onclick="event.stopPropagation()">
+            <div class="gsheet-head">
+              <h2>${h.title}</h2>
+              <button class="btn ghost done" onclick="openHelp(null)">Close</button>
+            </div>
+            <div class="help-rows">${h.rows.map(([term, text]) => `<div class="help-row"><b>${term}</b><span>${text}</span></div>`).join('')}</div>
+            ${h.foot ? `<p class="help-foot">${h.foot}</p>` : ''}
+          </div>`;
+      }
+      function openHelp(topic) {
+        help = topic;
+        render();
+      }
+
+      function renderGridSheet() {
+        const key = gridOpen === 'B' ? 'B' : 'A';
+        const g = GRID_EDIT[key];
+        const accent = key === 'A' ? 'var(--a)' : 'var(--b)';
+        const tapLabel = g.taps.length > 0 ? g.taps.length + (g.taps.length === 1 ? ' tap' : ' taps') : '3 taps';
+        const track = LIBRARY.findIndex((t) => t.on === key);
+        const alts = track < 0 ? [] : gridAltsOf(track);
+        const unsure = track >= 0 && gridUnsure(track);
+        const altsHtml = alts.length === 0 ? '' : `
+            <div class="galts${unsure ? ' unsure' : ''}" data-ctl="grid.alternates">
+              <span>${unsure ? 'Not sure of this tempo · it may be' : 'Other readings'}</span>
+              ${alts.map((alt, n) => `<button class="gact galt" onclick="useGridAlt(${n})" title="Use ${alt.bpm.toFixed(2)} BPM, with its own downbeat">${alt.bpm.toFixed(2)}<small>${alt.relation}×</small></button>`).join('')}
+            </div>`;
+        return `
+          <div class="gsheet gridwide" style="--accent:${accent}">
+            <div class="gsheet-head">
+              <h2>Beat grid <span>· deck ${key}</span></h2>
+              ${infoBtn('grid')}
+              <button class="btn ghost done" data-ctl="grid.close" onclick="closeGrid()">Close</button>
+            </div>
+            <div class="gstats" data-ctl="grid.readouts">
+              <div class="gstat"><b id="gbpm">${g.bpm.toFixed(1)}</b><span>BPM</span></div>
+              <div class="gstat"><b class="${unsure ? 'unsure' : 'ok'}" id="gconf">${Math.round(g.confidence)}%${unsure ? '?' : ''}</b><span>confidence</span></div>
+              <div class="gstat"><b id="goff">${(g.offset >= 0 ? '+' : '') + g.offset.toFixed(1)}</b><span>offset ms</span></div>
+            </div>
+
+            <div class="gview">
+              <div class="gview-head">
+                <span class="gview-title">grid · 4/4</span>
+                <span class="gview-hint">${gridArm ? 'Tap the first beat of a bar' : 'Drag the waveform onto the lines'}</span>
+                <span class="gkeys" data-ctl="grid.beatstep">
+                  <button class="gkey" onclick="stepGridBeat(-1)" title="Centre the line before">◀ BEAT</button>
+                  <button class="gkey" onclick="stepGridBeat(1)" title="Centre the line after">BEAT ▶</button>
+                </span>
+                <span class="gkeys" data-ctl="grid.zoom">
+                  <button class="gkey sq" onclick="zoomGrid(-1)" title="Zoom out" ${GWAVE.zoom === 0 ? 'disabled' : ''}>−</button>
+                  <b class="gzoom">${gridSpan() >= 1000 ? gridSpan() / 1000 + ' S' : gridSpan() + ' MS'}</b>
+                  <button class="gkey sq" onclick="zoomGrid(1)" title="Zoom in" ${GWAVE.zoom === GWAVE.zooms.length - 1 ? 'disabled' : ''}>+</button>
+                </span>
+                <button class="garm ${gridArm ? 'on' : ''}" data-ctl="grid.setdownbeat" onclick="armGrid()">${gridArm ? 'TAP THE FIRST BEAT' : 'SET DOWNBEAT'}</button>
+              </div>
+              <div class="gwave ${gridArm ? 'arming' : ''}" data-ctl="grid.wave"
+                onpointerdown="startGridDrag(event)"
+                onpointermove="moveGridDrag(event)"
+                onpointerup="endGridDrag(event)"
+                onpointercancel="endGridDrag(event)">
+                <canvas id="gcanvas"></canvas>
+                <div class="glines" id="glines">${gridLines(key)}</div>
+              </div>
+              <div class="gstripbox" data-ctl="grid.overview" onpointerdown="moveGridStrip(event)" onpointermove="moveGridStrip(event)">
+                <canvas id="gstrip"></canvas>
+                <span class="gspot" id="gspot"></span>
+              </div>
+            </div>
+
+            <div class="gactions">
+              <button class="gact tall" data-ctl="grid.tap" onclick="tapGrid()">TAP<small>${tapLabel}</small></button>
+              <button class="gact" data-ctl="grid.bpmdown" onclick="nudgeGridBpm(-0.1)">−0.1<small>BPM</small></button>
+              <button class="gact" data-ctl="grid.bpmup" onclick="nudgeGridBpm(0.1)">+0.1<small>BPM</small></button>
+              <button class="gact" data-ctl="grid.nudgeback" onclick="nudgeGridOffset(-1)">◀ 1 ms<small>earlier</small></button>
+              <button class="gact" data-ctl="grid.nudgefwd" onclick="nudgeGridOffset(1)">1 ms ▶<small>later</small></button>
+              <button class="gact" data-ctl="grid.halve" onclick="scaleGrid(0.5)">÷2<small>half</small></button>
+              <button class="gact" data-ctl="grid.double" onclick="scaleGrid(2)">×2<small>double</small></button>
+            </div>${altsHtml}
+          </div>`;
+      }
+
+      /* ---------- render ---------- */
+      function render() {
+        const root = document.getElementById('ipad');
+        root.className = 'ipad' + (hitOn ? ' show-hit' : '') + (libOpen ? ' lib-open' : '');
+        document.getElementById('band').innerHTML = renderBand();
+        document.getElementById('chassis').innerHTML = renderBay('A') + renderMixer() + renderBay('B');
+        paintMix();
+        const vol = document.getElementById('volpop');
+        vol.innerHTML = renderVolume();
+        vol.classList.toggle('open', volOpen);
+        document.getElementById('library').innerHTML = renderLibrary();
+        document.getElementById('library').classList.toggle('open', libOpen);
+        const gridSheet = document.getElementById('gridsheet');
+        gridSheet.innerHTML = gridOpen ? renderGridSheet() : '';
+        gridSheet.classList.toggle('open', Boolean(gridOpen));
+        if (gridOpen) { paintGridWave(gridOpen); paintGridStrip(gridOpen); }
+        const sheet = document.getElementById('sheetLayer');
+        const moreOpen = libOpen && libView.moreFor !== null;
+        sheet.innerHTML = screen === 'shortcuts' ? renderShortcuts() : TAP_SCREENS.includes(screen) ? renderTap() : moreOpen ? renderMore() : '';
+        sheet.classList.toggle('open', screen === 'shortcuts' || TAP_SCREENS.includes(screen) || moreOpen);
+        const helpLayer = document.getElementById('helpLayer');
+        helpLayer.innerHTML = help ? renderHelp() : '';
+        helpLayer.classList.toggle('open', Boolean(help));
+        paintSelection();
+        annotateControls();
+        paintHotspots();
+      }
+
+      let libOpen = false;
+      let gridOpen = null;
+      let help = null;
+
+      /* ---------- screens beyond the console ----------
+         Picked with Screen in the study bar. Each is a state the app has
+         to draw that the console above does not show: first run, the
+         analysing status, an error, a file dragged over a deck, the
+         shortcuts and TAP tempo sheets, and the playlist menu. Also the states
+         the native app reached first: importing, a deck loading, saving, a
+         track's own cover, FIND KEYS, a missing file, and the other drop and
+         TAP states. */
+      let screen = 'console';
+      const PLAYLIST_SCREENS = ['playlistmenu', 'rename', 'delete'];
+      const LIB_SCREENS = [...PLAYLIST_SCREENS, 'keysmissing', 'findingkeys', 'filemissing', 'bothdecks', 'trackmore', 'trackremove', 'trackagain'];
+      const TAP_SCREENS = ['tap', 'tapidle', 'tapnoinputs'];
+      const isLoading = (d) => screen === 'loading' && d.letter === 'B';
+      const isEmpty = (d) => screen === 'firstrun' || isLoading(d);
+      /* Stands in for a cover read from the file's tags. */
+      const COVER_ART = `url('data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#20242c"/><rect x="20" y="20" width="60" height="60" fill="#d0703a"/><rect x="40" y="40" width="20" height="20" fill="#f2f5f8"/></svg>')}') center / cover`;
+      const hasCover = (d) => screen === 'cover' && d.letter === 'A';
+      function setScreen(next) {
+        const wasLib = LIB_SCREENS.includes(screen);
+        const wasGrid = GRID_SCREENS.includes(screen);
+        screen = next;
+        if (LIB_SCREENS.includes(next)) {
+          libOpen = true;
+          libView.playlist = PLAYLIST_SCREENS.includes(next) ? 'warm' : 'all';
+          libView.moreFor = next === 'trackmore' || next === 'trackremove' || next === 'trackagain' ? LIBRARY.findIndex((t) => t.name === 'Bicep — Glue') : null;
+        } else if (wasLib) {
+          libOpen = false;
+          libView.moreFor = null;
+        }
+        if (GRID_SCREENS.includes(next)) {
+          libOpen = false;
+          gridOpen = 'A';
+          centreGrid('A', GWAVE.centreMs);
+        } else if (wasGrid) gridOpen = null;
+        help = next === 'gridhelp' ? 'grid' : null;
+        document.getElementById('libTgl').classList.toggle('on', libOpen);
+        document.getElementById('gridTgl').classList.toggle('on', Boolean(gridOpen));
+        const pick = document.getElementById('screenSel');
+        if (pick) pick.value = next;
+        render();
+      }
+
+      /* A taller screen's spare height goes to the zoom lanes (MAX_STRETCH). */
+      let stretch = 0;
+      function setStretch(next) {
+        stretch = next;
+        document.getElementById('ipad').style.setProperty('--stretch', `${next}px`);
+        const pick = document.getElementById('heightSel');
+        if (pick) pick.value = String(next);
+        fit();
+      }
+
+      /* An empty deck keeps its window; the readouts go dark and say how to load. */
+      function emptyCardHtml(d) {
+        return `
+            <div class="zcard empty" data-deck="${d.letter}" data-side="${d.letter}" style="--accent:${accentOf(d.letter)}">
+              <div class="ztitle" data-ctl="console.screen.card">
+                <span class="zdeck">${d.letter}</span>
+                <span class="note">${NOTE_ICON}</span>
+                <span class="zname">${isLoading(d) ? 'Loading…' : 'No track loaded'}</span>
+                <span class="zartist"></span>
+              </div>
+              <button class="zart" data-ctl="deck.load" onclick="toggleLib()" title="Open the library to load deck ${d.letter}" style="--art:#151517"><i>${NOTE_ICON}</i><b>LOAD</b></button>
+              <div class="zbody">
+                <div class="zreads">
+                  <div class="zrem"><span class="zlbl">REMAIN</span><span class="zsub">-:-- <span>/ -:--</span></span></div>
+                  <div class="zremain"><b>--:--<i>.---</i></b></div>
+                  <div class="ztempo"><span class="zlbl">TEMPO</span><b>+ 0.00<i>%</i></b></div>
+                  <div class="zkey" data-ctl="deck.tags">
+                    <span class="zkeychip off">KEY</span>
+                    ${camelotBadge('—')}
+                  </div>
+                  <div class="zbpm"><b>---<i>.-</i></b><span></span></div>
+                </div>
+                <div class="zfull" data-ctl="console.screen.overview">
+                  <div class="zflags" style="position:relative"></div>
+                  <div class="zwave"><span class="zempty">TAP THE ART TO LOAD, OR DROP A FILE HERE</span></div>
+                  <div class="zbar"></div>
+                  <div class="zticks"></div>
+                </div>
+              </div>
+            </div>`;
+      }
+
+      /* A file dragged over a deck: its window and lane light up. A playing
+         deck refuses, in amber, and says why. */
+      const DROP_LABELS = {
+        drop: 'Bicep — Glue.flac · analysed, then loaded',
+        dropaudio: 'Audio file · analysed, then loaded',
+        dropfiles: '3 files · analysed, the last one loaded',
+        droplibrary: 'Bicep — Glue · from the library'
+      };
+      const dropTarget = (d) =>
+        DROP_LABELS[screen] && d.letter === 'B' ? 'drop' : screen === 'dropblocked' && d.letter === 'A' ? 'blocked' : '';
+      function dropHtml(d) {
+        if (dropTarget(d) === 'drop') return `<div class="zdrop"><b>DROP TO LOAD ON B</b><span>${DROP_LABELS[screen]}</span></div>`;
+        if (dropTarget(d) === 'blocked') return '<div class="zdrop blocked"><b>DECK A IS PLAYING</b><span>Pause it to load here, or drop on deck B</span></div>';
+        return '';
+      }
+
+      function renderAlert() {
+        return `<div class="alert" role="alert" data-ctl="console.error">
+            <b>CAN'T LOAD</b>
+            <span>"Bicep — Glue" isn't on disk any more. Add the file again to play it.</span>
+            <button class="mini" onclick="setScreen('console')" title="Dismiss">✕</button>
+          </div>`;
+      }
+
+      const SHORTCUT_GROUPS = [
+        ['TRANSPORT', [[['1', '2'], 'Play or pause deck A or B'], [['SPACE'], 'Play or pause the focused deck'], [['C'], 'CUE on the focused deck: set, return, hold to preview'], [['L'], 'Start or leave a loop at the stepper size'], [['⇧', 'L'], 'Halve the running loop'], [['Q', 'W'], 'Beat jump deck A back / forward'], [['O', 'P'], 'Beat jump deck B back / forward']]],
+        ['SYNC · TEMPO', [[['S'], 'Sync the other deck to this one'], [['⇧', 'S'], 'Sync this deck to the other'], [['[', ']'], 'Tempo −0.1 % / +0.1 %']]],
+        ['MIXER', [[['M'], 'Headphone CUE on the focused deck']]],
+        ['BEAT GRID', [[['←', '→'], 'Nudge the grid 1 ms'], [['⇧', '← →'], 'Nudge the grid 10 ms']]],
+        ['CONSOLE', [[['ESC'], 'Close the open sheet, or stop both decks'], [['?'], 'This list']]]
+      ];
+      function renderShortcuts() {
+        const group = ([name, rows]) => `<div class="keys-group"><h3>${name}</h3>${rows
+          .map(([keys, text]) => `<div class="keys-row"><div>${keys.map((k) => `<kbd>${k}</kbd>`).join('')}</div><span>${text}</span></div>`).join('')}</div>`;
+        return `
+          <div class="gsheet wide" data-ctl="console.help">
+            <div class="gsheet-head">
+              <h2>Keyboard <span>· shortcuts</span></h2>
+              <button class="btn ghost done" onclick="setScreen('console')">Close</button>
+            </div>
+            <div class="keys-cols">
+              <div>${group(SHORTCUT_GROUPS[0])}${group(SHORTCUT_GROUPS[2])}</div>
+              <div>${group(SHORTCUT_GROUPS[1])}${group(SHORTCUT_GROUPS[3])}${group(SHORTCUT_GROUPS[4])}</div>
+            </div>
+            <p class="gnote">The <b>focused deck</b> is the last one you touched. Shortcuts never fire while you type in the library's search.</p>
+          </div>`;
+      }
+
+      /* MORE on a library row: what the file's tags and the analysis know, its
+         playlists, re-analyse and remove. Removing asks twice, as deleting a
+         playlist does. Dates follow the system's short format. */
+      const DEMO_TAGS = [
+        { album: 'Demo Album', genre: 'Melodic House', subgenre: 'Progressive', release: '2024-03-14' },
+        { album: 'Demo Album', genre: 'Tech House', subgenre: 'Latin', release: '2023-06-02' },
+        { album: 'Sample Sessions', genre: 'Trance', subgenre: 'Uplifting', release: '2022-01-19' },
+        { album: 'Sample Sessions', genre: 'Soul', release: '1970-09-01' },
+        { album: 'Test Pressing', genre: 'Hard Dance', remixer: 'Demo Remixer', release: '2024-10-07' },
+        { album: 'Test Pressing', genre: 'House', subgenre: 'Melodic', release: '2022-02-25' },
+        { album: 'Demo Album', genre: 'Electronica', subgenre: 'Breaks', release: '2019-12-09' },
+        { album: 'Sample Sessions', genre: 'House', release: '2023-08-11' },
+        { album: 'Test Pressing', genre: 'House', subgenre: 'Tech', release: '2023-05-30' },
+        { album: 'Demo Album', genre: 'Techno', subgenre: 'Peak Time', release: '2021-04-16' },
+        { release: '2023-07-21' },
+        { album: 'Sample Sessions', genre: 'UK Garage', remixer: 'Demo Remixer', release: '2012-10-08' }
+      ];
+      function shortDate(iso) {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString(undefined, { dateStyle: 'short' });
+      }
+      function renderMore() {
+        const i = libView.moreFor;
+        const t = libTrack(i);
+        const tags = DEMO_TAGS[i];
+        const names = t.name.split(' — ');
+        const confirm = screen === 'trackremove' || libView.moreConfirm;
+        const again = screen === 'trackagain' || libView.moreAgain;
+        const joined = (first, rest) => (first || '') + (first && rest ? ' • ' : '') + (rest || '');
+        const field = (label, value) => `<div class="more-field"><span>${label}</span><b>${value}</b></div>`;
+        return `
+          <div class="gsheet more" data-ctl="lib.more">
+            <div class="more-top">
+              <span class="more-art" style="--art:${ROW_ART[i % ROW_ART.length]}"></span>
+              <div class="more-actions">
+                <button class="btn more-remove ${confirm ? 'confirm' : ''}" data-ctl="lib.remove" onclick="removeTrack()" title="Take this track out of the library"><i>X</i>${confirm ? 'Tap again to remove' : 'Remove from library'}</button>
+                <button class="btn more-again ${again ? 'confirm' : ''}" data-ctl="lib.reanalyze" onclick="reanalyseTrack()" title="Run the analysis on this track again"><i>↻</i>${again ? 'Tap again to re-analyse' : 'Re-analyse'}</button>
+                <button class="btn done" onclick="openMore(null)">Done</button>
+              </div>
+              <div class="more-title">
+                <span>Track</span>
+                <b>${titleOf(t)}</b>
+                <p><span>Artists:</span> ${joined(names.length > 1 ? names[0] : '', tags.remixer)}</p>
+              </div>
+            </div>
+            <div class="more-fields">
+              ${field('Album', tags.album || '')}
+              ${field('Genre', joined(tags.genre, tags.subgenre))}
+              ${field('BPM', t.bpm)}
+              ${field('Key', t.camelot === '—' ? '' : `${camelotBadge(t.camelot)}${keyShort(t.key)}`)}
+              ${field('Length', t.dur)}
+              ${field('Released', shortDate(tags.release))}
+            </div>
+            <div class="more-lists" data-ctl="lib.playlist">
+              <h3>Playlists</h3>
+              <div>${PLAYLISTS.map((p) => `<button class="${p.tracks.includes(i) ? 'on' : ''}" onclick="togglePlaylistTrack('${p.id}', ${i})">${p.name}</button>`).join('')}</div>
+            </div>
+          </div>`;
+      }
+
+      /* TAP: reads the tempo of an audio input (a loopback device carrying
+         another app, an interface, a microphone) so a deck can be matched to
+         it. Analysis only: it never reaches the outputs. Shown listening,
+         not listening, or with no inputs to pick. */
+      function renderTap() {
+        const noInputs = screen === 'tapnoinputs';
+        const listening = screen === 'tap';
+        const note = noInputs ? 'No audio inputs are visible. Connect an interface or install a loopback device, then Refresh.' : 'Pick an input and listen.';
+        return `
+          <div class="gsheet narrow" data-ctl="console.tap">
+            <div class="gsheet-head">
+              <h2>Tap tempo <span>· audio input</span></h2>
+              <span class="chip exp">EXPERIMENTAL</span>
+              ${infoBtn('tap')}
+              <button class="btn ghost done" onclick="setScreen('console')">Close</button>
+            </div>
+            <div class="tap-device">
+              <div class="tap-pick"><span>${noInputs ? 'No audio inputs' : 'BlackHole 2ch'}</span>${noInputs ? '' : '<em>LOOPBACK</em>'}<i>▾</i></div>
+              <button class="btn ghost"${listening ? ' disabled' : ''}>Refresh</button>
+              ${listening ? '<button class="btn on">Stop</button>' : `<button class="btn"${noInputs ? ' disabled' : ''}>Listen</button>`}
+            </div>
+            <div class="tap-read">
+              <div class="gstat"><b class="big-bpm">${listening ? '128.0' : '—'}</b><span>${listening ? 'BPM · 86% confidence' : 'BPM'}</span></div>
+              <div class="gstat tap-level">
+                <div class="vrow"><div class="meter-h"><i style="width:${listening ? '76.67' : '0'}%"></i></div><span class="val">${listening ? '−14' : '—'} dB</span></div>
+                <p>${listening ? 'Listening · 5 windows' : note}</p>
+              </div>
+            </div>
+            <div class="tap-match">
+              <button class="gact" style="--accent:var(--a)"${listening ? '' : ' disabled'}><span class="letter">A</span><span>MATCH DECK A<small>${listening ? '133.0 → 128.0 · −3.76%' : '133.0 BPM'}</small></span></button>
+              <button class="gact" style="--accent:var(--b)"${listening ? '' : ' disabled'}><span class="letter b">B</span><span>MATCH DECK B<small>${listening ? '130.0 → 128.0 · −1.54%' : '130.0 BPM'}</small></span></button>
+            </div>
+          </div>`;
+      }
+
+      /* Playlists: the selected one shows ⋯ for rename and delete. Delete asks
+         twice; the tracks stay in the library. */
+      function playlistItemHtml(p) {
+        const on = libView.playlist === p.id;
+        const renaming = on && screen === 'rename';
+        const menuOpen = on && (screen === 'playlistmenu' || screen === 'delete');
+        const confirm = screen === 'delete';
+        const menu = menuOpen ? `<div class="lib-menu" onclick="event.stopPropagation()">
+            <b>${escapeHtml(p.name).toUpperCase()}</b>
+            <button onclick="setScreen('rename')"><i>✎</i>Rename</button>
+            <button class="danger ${confirm ? 'confirm' : ''}" onclick="setScreen('delete')"><i>✕</i>${confirm ? 'Tap again to delete' : 'Delete playlist'}</button>
+            ${confirm ? `<small>Its ${p.tracks.length} ${p.tracks.length === 1 ? 'track stays' : 'tracks stay'} in the library.</small>` : ''}
+          </div>` : '';
+        const name = renaming ? `<input class="lib-side-input" value="${escapeHtml(p.name)}" />` : `<span>${escapeHtml(p.name)}</span>`;
+        const more = on && !renaming
+          ? `<span class="lib-actions"><button class="${menuOpen ? 'on' : ''}" onclick="event.stopPropagation(); setScreen('${menuOpen ? 'console' : 'playlistmenu'}')" title="Rename or delete">⋯</button>${menu}</span>`
+          : '';
+        return `<div class="lib-side-item ${on ? 'on' : ''}" role="button" onclick="setPlaylist('${p.id}')"><i>≡</i>${name}<em>${p.tracks.length}</em>${more}</div>`;
+      }
+      let focusedDeck = 'A';
+
+      function openGrid(key) {
+        gridOpen = key === 'B' ? 'B' : 'A';
+        gridArm = false;
+        gridDrag = null;
+        GWAVE.zoom = 2;
+        centreGrid(gridOpen, GWAVE.centreMs);
+        if (libOpen) {
+          libOpen = false;
+          document.getElementById('libTgl').classList.remove('on');
+        }
+        document.getElementById('gridTgl').classList.add('on');
+        render();
+      }
+
+      function closeGrid() {
+        gridOpen = null;
+        gridArm = false;
+        gridDrag = null;
+        document.getElementById('gridTgl').classList.remove('on');
+        render();
+      }
+
+      function toggleGrid() {
+        if (gridOpen) closeGrid();
+        else openGrid(focusedDeck);
+      }
+
+      function toggleLib() {
+        libOpen = !libOpen;
+        if (libOpen && gridOpen) {
+          gridOpen = null;
+          document.getElementById('gridTgl').classList.remove('on');
+        }
+        document.getElementById('libTgl').classList.toggle('on', libOpen);
+        render();
+      }
+      function toggleVol(open = !volOpen) {
+        volOpen = open;
+        document.getElementById('volTgl').classList.toggle('on', volOpen);
+        render();
+      }
+      function setBank(key, bank) {
+        padBank[key] = bank;
+        render();
+      }
+      function setHit(on) {
+        hitOn = on;
+        document.getElementById('hitTgl').classList.toggle('on', on);
+        render();
+      }
+
+      /* Mixer drags. Each pointer drives its own control, so a fader ride and
+         a kill tap (or two faders) work at once. Movement is relative: the
+         control moves by the finger's travel, never to the finger. Moving the
+         finger sideways away from a vertical fader (or up/down from a
+         horizontal slider) slows it to ¼ at 60 pt and ⅒ at 120 pt. */
+      const DRAGS = new Map();
+      const KILL_TOUCHES = new Map();
+      const HOLD_MS = 300;
+      let lastTap = { el: null, t: 0 };
+      function activeDrag(key, param) {
+        for (const d of DRAGS.values()) if (d.key === key && d.param === param && d.moved) return d;
+        return null;
+      }
+
+      function startMixDrag(event) {
+        if (event.button > 0) return;
+        const kill = event.target.closest('[data-kill]');
+        if (kill) { killDown(event, kill); return; }
+        const el = event.target.closest('[data-param]');
+        if (!el) return;
+        const horiz = el.dataset.axis === 'x';
+        const rect = el.getBoundingClientRect();
+        const scale = (horiz ? rect.width / el.offsetWidth : rect.height / el.offsetHeight) || 1;
+        const thumb = horiz ? parseFloat(getComputedStyle(el).getPropertyValue('--tw')) || 40 : CAP;
+        const travel = ((horiz ? el.offsetWidth : el.offsetHeight - 2) - thumb) * scale;
+        DRAGS.set(event.pointerId, {
+          el, key: el.dataset.deck, param: el.dataset.param, horiz, scale, travel,
+          last: horiz ? event.clientX : event.clientY,
+          cross0: horiz ? event.clientY : event.clientX,
+          moved: false, acc: 0, speed: 1
+        });
+        try { el.setPointerCapture(event.pointerId); } catch { /* synthetic pointer in a test harness */ }
+      }
+
+      function moveMixDrag(event) {
+        const d = DRAGS.get(event.pointerId);
+        if (!d) return;
+        const now = d.horiz ? event.clientX : event.clientY;
+        const delta = d.horiz ? now - d.last : d.last - now;
+        d.last = now;
+        const cross = Math.abs((d.horiz ? event.clientY : event.clientX) - d.cross0) / d.scale;
+        d.speed = cross >= 120 ? 0.1 : cross >= 60 ? 0.25 : 1;
+        d.acc += Math.abs(delta);
+        if (!d.moved) {
+          if (d.acc < 3 * d.scale) return;
+          d.moved = true;
+          d.el.classList.add('dragging');
+        }
+        const before = getP(d.key, d.param);
+        setP(d.key, d.param, before + (delta / d.travel) * d.speed);
+        if (d.param === 'low' && MIX.link) {
+          const other = d.key === 'A' ? 'B' : 'A';
+          setP(other, 'low', MIX[other].low - (MIX[d.key].low - before));
+        }
+        paintMix();
+      }
+
+      function endMixDrag(event) {
+        if (killUp(event)) return;
+        const d = DRAGS.get(event.pointerId);
+        if (!d) return;
+        DRAGS.delete(event.pointerId);
+        d.el.classList.remove('dragging');
+        try { if (d.el.hasPointerCapture(event.pointerId)) d.el.releasePointerCapture(event.pointerId); } catch { /* synthetic pointer in a test harness */ }
+        if (d.moved) {
+          swallowDragClick = true;
+          window.setTimeout(() => { swallowDragClick = false; }, 400);
+        } else if (event.type === 'pointerup') {
+          // Double-tap resets: bands and LEVEL to 0 dB, filter / crossfader / trim to centre.
+          const t = performance.now();
+          if (lastTap.el === d.el && t - lastTap.t < 320) {
+            setP(d.key, d.param, RESET[d.param] ?? 1);
+            lastTap = { el: null, t: 0 };
+          } else {
+            lastTap = { el: d.el, t };
+          }
+        }
+        paintMix();
+      }
+
+      /* Kill pads: the band mutes on touch-down. A quick tap latches it; a
+         hold (300 ms+) is momentary and un-mutes on release. Touching a
+         latched kill releases it. The fader never moves. */
+      function killDown(event, el) {
+        const [key, band] = el.dataset.kill.split('-');
+        KILL_TOUCHES.set(event.pointerId, { key, band, wasOn: MIX[key].kill[band], t0: performance.now() });
+        MIX[key].kill[band] = true;
+        document.querySelectorAll(`#chassis [data-kill="${key}-${band}"]`).forEach((k) => k.classList.add('held'));
+        try { el.setPointerCapture(event.pointerId); } catch { /* synthetic pointer in a test harness */ }
+        paintMix();
+      }
+      function killUp(event) {
+        const k = KILL_TOUCHES.get(event.pointerId);
+        if (!k) return false;
+        KILL_TOUCHES.delete(event.pointerId);
+        document.querySelectorAll(`#chassis [data-kill="${k.key}-${k.band}"]`).forEach((el) => el.classList.remove('held'));
+        const held = performance.now() - k.t0 >= HOLD_MS;
+        MIX[k.key].kill[k.band] = k.wasOn ? false : !held;
+        paintMix();
+        return true;
+      }
+
+      /* ---------- demo audio ----------
+         Two synthetic 4-bar loops at 128 BPM. The kicks land on the same
+         beats and in phase, which is the worst case for stacking. Chain per
+         deck: trim → 3-band isolator → sweep filter → LEVEL → equal-power
+         crossfader → master → limiter. The isolator mirrors the app's
+         EqChain (src/renderer/audio/eq.ts, src/shared/isolator.ts). */
+      const XO_LOW = 220;
+      const XO_HIGH = 3500;
+      const AUDIO = { ctx: null, decks: {}, analyser: null, limiter: null };
+
+      function lr4(ctx, type, frequency) {
+        // Linkwitz-Riley 24 dB/oct = two cascaded Butterworth biquads. Web
+        // Audio reads lowpass/highpass Q in dB, so Butterworth (Q 0.707) is
+        // 20·log10(0.707) ≈ −3.01 here; the all-pass below takes a linear Q.
+        const a = ctx.createBiquadFilter();
+        const b = ctx.createBiquadFilter();
+        for (const f of [a, b]) { f.type = type; f.frequency.value = frequency; f.Q.value = 20 * Math.log10(Math.SQRT1_2); }
+        a.connect(b);
+        return { input: a, output: b };
+      }
+
+      /* An isolator, not shelves: LR4 crossovers split the bands and they
+         are summed, so a band at gain 0 is really gone and all three at unity
+         sum flat. The low band gets the high crossover's all-pass so its
+         phase matches the mid + high branch. */
+      function buildIsolator(ctx) {
+        const input = ctx.createGain();
+        const output = ctx.createGain();
+        const lowLp = lr4(ctx, 'lowpass', XO_LOW);
+        const restHp = lr4(ctx, 'highpass', XO_LOW);
+        const midLp = lr4(ctx, 'lowpass', XO_HIGH);
+        const highHp = lr4(ctx, 'highpass', XO_HIGH);
+        const ap = ctx.createBiquadFilter();
+        ap.type = 'allpass';
+        ap.frequency.value = XO_HIGH;
+        ap.Q.value = Math.SQRT1_2;
+        const gains = { low: ctx.createGain(), mid: ctx.createGain(), high: ctx.createGain() };
+        input.connect(lowLp.input);
+        lowLp.output.connect(ap);
+        ap.connect(gains.low);
+        input.connect(restHp.input);
+        restHp.output.connect(midLp.input);
+        restHp.output.connect(highHp.input);
+        midLp.output.connect(gains.mid);
+        highHp.output.connect(gains.high);
+        for (const g of Object.values(gains)) g.connect(output);
+        return { input, output, gains };
+      }
+
+      async function renderLoop(key, sampleRate) {
+        const beat = 60 / 128;
+        const bars = 4;
+        const oc = new OfflineAudioContext(2, Math.ceil(beat * 4 * bars * sampleRate), sampleRate);
+        const out = oc.createGain();
+        out.gain.value = 0.5;
+        out.connect(oc.destination);
+        const noise = oc.createBuffer(1, sampleRate, sampleRate);
+        const ch = noise.getChannelData(0);
+        let seed = key === 'A' ? 7 : 21;
+        for (let i = 0; i < ch.length; i++) { seed = (seed * 9301 + 49297) % 233280; ch[i] = seed / 116640 - 1; }
+        const env = (node, t, peak, attack, decay) => {
+          const g = oc.createGain();
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(peak, t + attack);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+          node.connect(g);
+          g.connect(out);
+        };
+        const kick = (t, f0, f1) => {
+          const o = oc.createOscillator();
+          o.frequency.setValueAtTime(f0, t);
+          o.frequency.exponentialRampToValueAtTime(f1, t + 0.11);
+          env(o, t, 0.95, 0.002, 0.38);
+          o.start(t);
+          o.stop(t + 0.45);
+        };
+        const bass = (t, f, dur, g) => {
+          const o = oc.createOscillator();
+          o.type = 'sawtooth';
+          o.frequency.value = f;
+          const lp = oc.createBiquadFilter();
+          lp.type = 'lowpass';
+          lp.frequency.value = 320;
+          lp.Q.value = 3;
+          o.connect(lp);
+          env(lp, t, g, 0.004, dur);
+          o.start(t);
+          o.stop(t + dur + 0.05);
+        };
+        const hit = (t, type, frequency, q, g, dur) => {
+          const s = oc.createBufferSource();
+          s.buffer = noise;
+          const f = oc.createBiquadFilter();
+          f.type = type;
+          f.frequency.value = frequency;
+          f.Q.value = q;
+          s.connect(f);
+          env(f, t, g, 0.001, dur);
+          s.start(t, (t * 0.37) % 0.5);
+          s.stop(t + dur + 0.05);
+        };
+        const stab = (t, freqs, dur) => {
+          const lp = oc.createBiquadFilter();
+          lp.type = 'lowpass';
+          lp.frequency.value = 2400;
+          for (const f of freqs) {
+            const o = oc.createOscillator();
+            o.type = 'square';
+            o.frequency.value = f;
+            o.connect(lp);
+            o.start(t);
+            o.stop(t + dur + 0.05);
+          }
+          env(lp, t, 0.06, 0.004, dur);
+        };
+        for (let i = 0; i < bars * 4; i++) {
+          const t = i * beat;
+          if (key === 'A') {
+            kick(t, 118, 46);
+            bass(t + beat / 2, 55, beat * 0.42, 0.32);
+            hit(t + beat / 2, 'highpass', 7500, 0.7, 0.22, 0.09);
+            if (i % 4 === 1) stab(t + beat / 2, [220, 261.63, 329.63], 0.22);
+          } else {
+            kick(t, 128, 50);
+            for (const q of [0.25, 0.5, 0.75]) bass(t + beat * q, 43.65, beat * 0.2, 0.28);
+            for (const q of [0, 0.25, 0.5, 0.75]) hit(t + beat * q, 'highpass', 9000, 0.7, q === 0.5 ? 0.16 : 0.08, 0.04);
+            if (i % 2 === 1) hit(t, 'bandpass', 1400, 1.1, 0.55, 0.16);
+            if (i % 8 === 6) stab(t + beat * 0.75, [349.23, 415.3, 523.25], 0.3);
+          }
+        }
+        return oc.startRendering();
+      }
+
+      function applyAudio() {
+        if (!AUDIO.ctx) return;
+        const t = AUDIO.ctx.currentTime;
+        const tc = 0.012;
+        const [ga, gb] = xfGains();
+        for (const key of ['A', 'B']) {
+          const d = MIX[key];
+          const n = AUDIO.decks[key];
+          n.trim.gain.setTargetAtTime(Math.pow(10, d.trim / 20), t, tc);
+          for (const band of BANDS) n.iso.gains[band].gain.setTargetAtTime(d.kill[band] ? 0 : gainAt(d[band]), t, tc);
+          const f = filterAt(d.filter);
+          if (n.filter.type !== f.type) n.filter.type = f.type;
+          n.filter.frequency.setTargetAtTime(f.frequency, t, tc);
+          n.filter.Q.setTargetAtTime(f.q, t, tc);
+          n.level.gain.setTargetAtTime(gainAt(d.level), t, tc);
+          n.xf.gain.setTargetAtTime(key === 'A' ? ga : gb, t, tc);
+        }
+      }
+
+      function meterLoop() {
+        const buf = new Float32Array(AUDIO.analyser.fftSize);
+        const tick = () => {
+          AUDIO.analyser.getFloatTimeDomainData(buf);
+          let peak = 0;
+          for (const s of buf) peak = Math.max(peak, Math.abs(s));
+          const db = 20 * Math.log10(Math.max(1e-6, peak));
+          const bar = document.getElementById('mmeterBar');
+          if (bar) {
+            bar.style.setProperty('--h', Math.max(0, Math.min(100, ((db + 48) / 48) * 100)) + '%');
+            bar.parentElement.dataset.peak = db.toFixed(1);
+            bar.parentElement.dataset.gr = AUDIO.limiter.reduction.toFixed(1);
+          }
+          requestAnimationFrame(tick);
+        };
+        tick();
+      }
+
+      async function toggleAudio() {
+        const btn = document.getElementById('audioTgl');
+        if (AUDIO.ctx) {
+          if (AUDIO.ctx.state === 'running') await AUDIO.ctx.suspend();
+          else await AUDIO.ctx.resume();
+        } else {
+          btn.textContent = 'Rendering…';
+          const ctx = new AudioContext();
+          AUDIO.ctx = ctx;
+          const [la, lb] = await Promise.all([renderLoop('A', ctx.sampleRate), renderLoop('B', ctx.sampleRate)]);
+          const master = ctx.createGain();
+          // Hot enough that two full lows stacking push into the limiter, as real masters do.
+          master.gain.value = 1.3;
+          const limiter = ctx.createDynamicsCompressor();
+          limiter.threshold.value = -3;
+          limiter.knee.value = 0;
+          limiter.ratio.value = 20;
+          limiter.attack.value = 0.002;
+          limiter.release.value = 0.12;
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 1024;
+          master.connect(limiter);
+          limiter.connect(analyser);
+          analyser.connect(ctx.destination);
+          const t0 = ctx.currentTime + 0.15;
+          for (const [key, buffer] of [['A', la], ['B', lb]]) {
+            const src = ctx.createBufferSource();
+            src.buffer = buffer;
+            src.loop = true;
+            const trim = ctx.createGain();
+            const iso = buildIsolator(ctx);
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 20000;
+            filter.Q.value = 0.7;
+            const level = ctx.createGain();
+            const xf = ctx.createGain();
+            src.connect(trim);
+            trim.connect(iso.input);
+            iso.output.connect(filter);
+            filter.connect(level);
+            level.connect(xf);
+            xf.connect(master);
+            AUDIO.decks[key] = { src, trim, iso, filter, level, xf };
+            src.start(t0);
+          }
+          AUDIO.analyser = analyser;
+          AUDIO.limiter = limiter;
+          applyAudio();
+          meterLoop();
+        }
+        const running = AUDIO.ctx.state === 'running';
+        btn.classList.toggle('on', running);
+        btn.textContent = running ? '❚❚ Demo audio' : '▶ Demo audio';
+      }
+
+      const bandEl = document.getElementById('band');
+      bandEl.addEventListener('pointerdown', startScreenDrag);
+      bandEl.addEventListener('pointermove', moveScreenDrag);
+      bandEl.addEventListener('pointerup', endScreenDrag);
+      bandEl.addEventListener('pointercancel', endScreenDrag);
+      const chassisEl = document.getElementById('chassis');
+      chassisEl.addEventListener('pointerdown', startMixDrag);
+      chassisEl.addEventListener('pointermove', moveMixDrag);
+      chassisEl.addEventListener('pointerup', endMixDrag);
+      chassisEl.addEventListener('pointercancel', endMixDrag);
+      // A tap outside an open mixer popover closes it.
+      chassisEl.addEventListener('click', (event) => {
+        if (mixPop && !event.target.closest('.mixpop, .trimchip, .bandval')) closeMixPop();
+      });
+      document.getElementById('audioTgl').addEventListener('click', () => toggleAudio());
+
+      document.getElementById('hitTgl').addEventListener('click', () => setHit(!hitOn));
+      document.getElementById('libTgl').addEventListener('click', () => toggleLib());
+      document.getElementById('gridTgl').addEventListener('click', () => toggleGrid());
+      document.getElementById('volTgl').addEventListener('click', () => toggleVol());
+      // Like the app's overlay: a tap outside the sheet closes it.
+      document.getElementById('gridsheet').addEventListener('click', (event) => {
+        if (!event.target.closest('.gsheet')) closeGrid();
+      });
+
+      /* ================================================================
+         Control map. Every element with data-ctl resolves to an entry in
+         controls.data.js (generated from controls.json). Clicking one says
+         what that control does in the real app, or that nothing is behind
+         it yet.
+         ================================================================ */
+      const CMAP = window.DEX_CONTROLS || { groups: [], controls: [] };
+      const CTL = new Map(CMAP.controls.map((c) => [c.id, c]));
+      const CTL_GROUPS = CMAP.groups || [];
+      const $ = (id) => document.getElementById(id);
+
+      let mapOn = false;
+      let panelOpen = false;
+      let selected = null;
+      let selectedEl = null;
+      let ctlFilter = 'all';
+      let ctlQuery = '';
+      const NOTE_KEY = 'dex.mockup.notes.mixer-alt.v1';
+      let notes = {};
+      let noteScope = '';
+      let brief = '';
+
+      /* Whole-area notes, kept separate from the per-control notes but saved
+         and exported alongside them. Ids are stable, so a layout edit only
+         needs the section entry to keep its note. */
+      const SECTIONS = [
+        { id: 'section.console', label: 'Header and screen', scope: 'header, waveforms, deck info', source: 'src/renderer/App.tsx' },
+        { id: 'section.deck.a', label: 'Deck A bay', scope: 'sync row, tempo, platter, pads', source: 'src/renderer/ui/DeckPanel.tsx' },
+        { id: 'section.mixer', label: 'Centre mixer', scope: 'trim, filter, cut faders, kills, link, low sum, crossfader', source: 'src/renderer/App.tsx' },
+        { id: 'section.deck.b', label: 'Deck B bay', scope: 'sync row, tempo, platter, pads', source: 'src/renderer/ui/DeckPanel.tsx' },
+        { id: 'section.rail', label: 'Volume popover', scope: 'master, cue mix, split cue', source: 'src/renderer/App.tsx' },
+        { id: 'section.library', label: 'Library sheet', scope: 'browse and load', source: 'src/renderer/ui/LibrarySheet.tsx' },
+        { id: 'section.grid', label: 'Beat grid sheet', scope: 'waveform editor', source: 'src/renderer/ui/GridSheet.tsx' }
+      ];
+      const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
+      let sectionNotes = {};
+      let notesView = 'controls';
+      let storageOk = true;
+      let statusTimer = 0;
+
+      const panelIsDocked = () => window.innerWidth > 1100;
+
+      function deckContext(el) {
+        if (!el) return '';
+        const side = sideOf(el);
+        if (!side) return '';
+        return (el.closest('.mixer') ? 'Channel ' : 'Deck ') + side;
+      }
+
+      function sectionAt(el) {
+        if (!el) return null;
+        let id = null;
+        if (el.closest('#band')) {
+          id = 'section.console';
+        } else {
+          const bay = el.closest('.bay');
+          if (bay) id = bay.classList.contains('b') ? 'section.deck.b' : 'section.deck.a';
+          else if (el.closest('.mixer')) id = 'section.mixer';
+          else if (el.closest('#volpop')) id = 'section.rail';
+          else if (el.closest('#library')) id = 'section.library';
+          else if (el.closest('#gridsheet')) id = 'section.grid';
+        }
+        return id ? SECTIONS.find((s) => s.id === id) || null : null;
+      }
+
+      function annotateControls() {
+        document.querySelectorAll('[data-ctl]').forEach((el) => {
+          const entry = CTL.get(el.dataset.ctl);
+          if (entry && !el.getAttribute('title')) {
+            el.setAttribute('title', entry.n + ' · ' + entry.label + ' — click for what it does');
+          }
+        });
+      }
+
+      function paintSelection() {
+        document.querySelectorAll('.ctl-sel').forEach((el) => el.classList.remove('ctl-sel'));
+        if (!selected) return;
+        document.querySelectorAll('[data-ctl="' + selected + '"]').forEach((el) => {
+          if (el.offsetParent !== null) el.classList.add('ctl-sel');
+        });
+      }
+
+      /* ================================================================
+         Notes and change requests. Notes are keyed by data-ctl id, so they
+         survive layout edits and rebuilds, and autosave in this browser.
+         Export builds one Markdown brief for a whole change set.
+         ================================================================ */
+      const escapeHtml = (value) =>
+        String(value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+      /* A mirrored control (deck, pads, transport, channel strip) is drawn on
+         both sides under one id. Its notes are keyed `id` (both sides),
+         `id@A` or `id@B`, so each instance can carry its own change request. */
+      const SCOPES = [['A', 'Deck A'], ['B', 'Deck B'], ['', 'Both']];
+      const SCOPE_LABEL = { A: 'Deck A', B: 'Deck B', '': 'Both decks' };
+      const MIRRORED_GROUPS = new Set(['deck', 'tone', 'pads', 'transport']);
+      const noteKey = (id, scope) => (scope ? id + '@' + scope : id);
+      const baseId = (key) => key.replace(/@[AB]$/, '');
+      const keyScope = (key) => (/@([AB])$/.exec(key) || [])[1] || '';
+      const sideOf = (el) => {
+        const unit = el && el.closest('[data-side]');
+        return unit ? unit.dataset.side : '';
+      };
+      function isMirrored(id) {
+        const entry = CTL.get(id);
+        if (entry && MIRRORED_GROUPS.has(entry.group)) return true;
+        return [...document.querySelectorAll('[data-ctl="' + id + '"]')].some((el) => el.closest('[data-side]'));
+      }
+      const noteKeysFor = (id) => [id, id + '@A', id + '@B'];
+      const noteText = (key) => (notes[key] || '').trim();
+      const hasNote = (key) => noteText(key) !== '';
+      const hasAnyNote = (id) => noteKeysFor(id).some(hasNote);
+      const elementNoted = (el, id) => hasNote(id) || hasNote(id + '@' + sideOf(el));
+      const noteCount = () => Object.keys(notes).filter((id) => noteText(id) !== '').length;
+      const sectionNoteText = (id) => (sectionNotes[id] || '').trim();
+      const hasSectionNote = (id) => sectionNoteText(id) !== '';
+      const sectionNoteCount = () => SECTIONS.filter((s) => hasSectionNote(s.id)).length;
+
+      function loadNotes() {
+        let raw = null;
+        try {
+          raw = localStorage.getItem(NOTE_KEY);
+        } catch {
+          storageOk = false;
+          return;
+        }
+        if (!raw) return;
+        try {
+          const doc = JSON.parse(raw);
+          if (!doc || (doc.version !== 1 && doc.version !== 2)) return;
+          if (typeof doc.brief === 'string') brief = doc.brief;
+          if (doc.notes && typeof doc.notes === 'object') {
+            for (const [id, text] of Object.entries(doc.notes)) {
+              if (typeof text === 'string' && text.trim()) notes[id] = text;
+            }
+          }
+          if (doc.sections && typeof doc.sections === 'object') {
+            for (const [id, text] of Object.entries(doc.sections)) {
+              if (SECTION_IDS.has(id) && typeof text === 'string' && text.trim()) sectionNotes[id] = text;
+            }
+          }
+        } catch {
+          /* ignore a corrupt draft; the file can be restored below */
+        }
+      }
+
+      function updateStatus() {
+        const n = noteCount();
+        const s = sectionNoteCount();
+        const total = n + s;
+        $('notesCount').textContent = total;
+        $('cmapNoteCount').textContent = total;
+        $('cmapSectionCount').textContent = s;
+        $('cmapNoteCount').classList.toggle('has', total > 0);
+        $('cmapSectionCount').classList.toggle('has', s > 0);
+        $('notesTgl').classList.toggle('has-notes', total > 0);
+        $('notesClear').disabled = total === 0 && !brief.trim();
+        const parts = [];
+        if (n > 0) parts.push(n + ' control note' + (n === 1 ? '' : 's'));
+        if (s > 0) parts.push(s + ' section note' + (s === 1 ? '' : 's'));
+        const summary = parts.length > 0 ? parts.join(' · ') : 'No notes';
+        $('notesStatusText').textContent =
+          summary +
+          (storageOk ? ' · autosaved in this browser' : ' · autosave unavailable — export before closing');
+        $('notesStatus').classList.toggle('warn', !storageOk);
+        $('sectionsFoot').textContent = storageOk
+          ? 'Section notes are saved with the control notes and exported in the brief.'
+          : 'Autosave unavailable — export from Notes before closing.';
+        $('sectionsFoot').classList.toggle('warn', !storageOk);
+        if (notesView === 'notes') $('cmapCount').textContent = total + (total === 1 ? ' note' : ' notes');
+      }
+
+      function saveNotes() {
+        try {
+          // Keep version 1: `sections` is additive, so an older copy of the page
+          // still loads the control notes and brief instead of rejecting the draft.
+          localStorage.setItem(
+            NOTE_KEY,
+            JSON.stringify({ version: 1, brief: brief, notes: notes, sections: sectionNotes, updatedAt: new Date().toISOString() })
+          );
+          storageOk = true;
+        } catch {
+          storageOk = false;
+        }
+        updateStatus();
+        renderPanel();
+        if (panelOpen) renderNotes();
+      }
+
+      function setNote(id, text) {
+        if (text.trim()) notes[id] = text;
+        else delete notes[id];
+        saveNotes();
+      }
+
+      function setSectionNote(id, text) {
+        if (text.trim()) sectionNotes[id] = text;
+        else delete sectionNotes[id];
+        saveNotes();
+      }
+
+      function flashNotes(message, warn = false) {
+        $('notesStatusText').textContent = message;
+        $('notesStatus').classList.toggle('warn', warn || !storageOk);
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(updateStatus, 2800);
+      }
+
+      function buildBrief() {
+        const rows = CMAP.controls.filter((c) => hasAnyNote(c.id));
+        const sectionRows = SECTIONS.filter((s) => hasSectionNote(s.id));
+        const unknown = Object.keys(notes).filter((key) => !CTL.has(baseId(key)) && hasNote(key));
+        const lines = [];
+        lines.push('# Dex mockup — change brief');
+        lines.push('');
+        lines.push(
+          'Generated ' + new Date().toISOString().slice(0, 10) + ' · ' + rows.length +
+          ' annotated control' + (rows.length === 1 ? '' : 's') + ' · ' + sectionRows.length +
+          ' section note' + (sectionRows.length === 1 ? '' : 's') + ' · ' + CMAP.controls.length + ' in the map'
+        );
+        lines.push('');
+        lines.push(
+          'This is one change set. Review shared code and neighbouring sections before editing; the section and ' +
+          'control notes are the requirements, and `mockup/controls.json` has the current behaviour for every ' +
+          'control below.'
+        );
+        lines.push('');
+        if (brief.trim()) {
+          lines.push('## Intent');
+          lines.push('');
+          lines.push(brief.trim());
+          lines.push('');
+        }
+        if (sectionRows.length > 0) {
+          lines.push('## Section notes');
+          lines.push('');
+          for (const s of sectionRows) {
+            lines.push('### ' + s.label + ' — whole area');
+            lines.push('');
+            lines.push('`' + s.id + '` · ' + s.scope + ' · `' + s.source + '`');
+            lines.push('');
+            for (const line of sectionNoteText(s.id).split(/\r?\n/)) lines.push(line ? '> ' + line : '>');
+            lines.push('');
+          }
+        }
+        for (const group of CTL_GROUPS) {
+          const items = rows.filter((c) => c.group === group.id);
+          if (items.length === 0) continue;
+          lines.push('## ' + group.title);
+          lines.push('');
+          for (const c of items) {
+            lines.push('### #' + c.n + ' ' + c.label + ' — ' + c.status.toUpperCase());
+            lines.push('');
+            lines.push('`' + c.id + '`' + (c.source ? ' · `' + c.source + '`' : ' · not implemented'));
+            lines.push('');
+            const keys = noteKeysFor(c.id).filter(hasNote);
+            const scoped = keys.length > 1 || keyScope(keys[0]) !== '';
+            for (const key of keys) {
+              if (scoped) {
+                lines.push('**' + SCOPE_LABEL[keyScope(key)] + (keyScope(key) ? ' only' : '') + '**');
+                lines.push('');
+              }
+              for (const line of noteText(key).split(/\r?\n/)) lines.push(line ? '> ' + line : '>');
+              lines.push('');
+            }
+          }
+        }
+        const files = new Map();
+        for (const c of rows) {
+          if (!c.source) continue;
+          if (!files.has(c.source)) files.set(c.source, []);
+          files.get(c.source).push('#' + c.n);
+        }
+        for (const s of sectionRows) {
+          if (!s.source) continue;
+          if (!files.has(s.source)) files.set(s.source, []);
+          files.get(s.source).push('§ ' + s.label);
+        }
+        if (files.size > 0) {
+          lines.push('## Files referenced');
+          lines.push('');
+          for (const [file, refs] of [...files.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+            lines.push('- `' + file + '` — ' + refs.join(', '));
+          }
+          lines.push('');
+        }
+        if (unknown.length > 0) {
+          lines.push('## Notes not in this build');
+          lines.push('');
+          for (const id of unknown) {
+            lines.push('### `' + id + '`');
+            lines.push('');
+            for (const line of noteText(id).split(/\r?\n/)) lines.push(line ? '> ' + line : '>');
+            lines.push('');
+          }
+        }
+        if (rows.length === 0 && sectionRows.length === 0 && unknown.length === 0 && !brief.trim()) {
+          lines.push('_No notes yet._');
+        }
+        return lines.join('\n').trimEnd() + '\n';
+      }
+
+      function noteRowHtml(c, key) {
+        const snippet = noteText(key).replace(/\s+/g, ' ').slice(0, 160);
+        const scope = keyScope(key);
+        return (
+          '<button class="note-row" data-id="' + c.id + '" data-scope="' + scope + '">' +
+          '<span class="num">' + c.n + '</span>' +
+          '<span class="body">' +
+          '<span class="head"><span class="label">' + escapeHtml(c.label) +
+          (scope ? ' · ' + SCOPE_LABEL[scope] : '') + '</span>' +
+          '<span class="d ' + c.status + '"></span></span>' +
+          '<span class="snippet">' + escapeHtml(snippet) + '</span>' +
+          '<span class="meta-line">' + escapeHtml(c.id) + (c.source ? ' · ' + escapeHtml(c.source) : '') + '</span>' +
+          '</span></button>'
+        );
+      }
+
+      function sectionRowHtml(s) {
+        const snippet = sectionNoteText(s.id).replace(/\s+/g, ' ').slice(0, 160);
+        return (
+          '<button class="note-row" data-section-jump="' + s.id + '">' +
+          '<span class="num sec">§</span>' +
+          '<span class="body">' +
+          '<span class="head"><span class="label">' + escapeHtml(s.label) + '</span></span>' +
+          '<span class="snippet">' + escapeHtml(snippet) + '</span>' +
+          '<span class="meta-line">' + escapeHtml(s.id) + ' · ' + escapeHtml(s.scope) + '</span>' +
+          '</span></button>'
+        );
+      }
+
+      function renderNotes() {
+        const list = $('notesList');
+        if (!list) return;
+        const scroll = list.scrollTop;
+        const known = CMAP.controls.filter((c) => hasAnyNote(c.id));
+        const sectionRows = SECTIONS.filter((s) => hasSectionNote(s.id));
+        const unknown = Object.keys(notes).filter((key) => !CTL.has(baseId(key)) && hasNote(key));
+        if (known.length === 0 && sectionRows.length === 0 && unknown.length === 0) {
+          list.innerHTML =
+            '<p class="notes-empty">No notes yet. Open <b>Controls</b> and write a note on a component card, or ' +
+            'open <b>Sections</b> and write one for a whole area.</p>';
+          return;
+        }
+        let html = '';
+        if (sectionRows.length > 0) {
+          html += '<div class="cmap-group">Sections</div>';
+          for (const s of sectionRows) html += sectionRowHtml(s);
+        }
+        for (const group of CTL_GROUPS) {
+          const items = known.filter((c) => c.group === group.id);
+          if (items.length === 0) continue;
+          html += '<div class="cmap-group">' + group.title + '</div>';
+          for (const c of items) {
+            for (const key of noteKeysFor(c.id)) if (hasNote(key)) html += noteRowHtml(c, key);
+          }
+        }
+        if (unknown.length > 0) {
+          html += '<div class="cmap-group">Not in this build</div>';
+          for (const id of unknown) {
+            html +=
+              '<button class="note-row" data-orphan="' + escapeHtml(id) + '">' +
+              '<span class="num">?</span><span class="body"><span class="head">' +
+              '<span class="label">' + escapeHtml(id) + '</span></span>' +
+              '<span class="snippet">' + escapeHtml(noteText(id)) + '</span></span></button>';
+          }
+        }
+        list.innerHTML = html;
+        list.scrollTop = scroll;
+      }
+
+      function renderSections() {
+        const list = $('sectionList');
+        if (!list) return;
+        const scroll = list.scrollTop;
+        list.innerHTML = SECTIONS.map((s) =>
+          '<div class="section-card' + (hasSectionNote(s.id) ? ' has-note' : '') + '">' +
+          '<div class="section-head">' +
+          '<label class="section-label" for="secNote-' + s.id + '">' + escapeHtml(s.label) + '</label>' +
+          '<span class="section-scope">' + escapeHtml(s.scope) + '</span>' +
+          '</div>' +
+          '<textarea id="secNote-' + s.id + '" data-section="' + s.id + '" rows="3" ' +
+          'placeholder="What should change across this area? Intent, constraints, what to keep…">' +
+          escapeHtml(sectionNotes[s.id] || '') +
+          '</textarea>' +
+          '<div class="section-foot"><span>' + escapeHtml(s.source) + '</span>' +
+          '<button type="button" data-clear-section="' + s.id + '">Clear</button></div>' +
+          '</div>'
+        ).join('');
+        list.scrollTop = scroll;
+      }
+
+      function openSection(id) {
+        if (notesView !== 'sections') setView('sections');
+        const field = $('sectionList').querySelector('textarea[data-section="' + id + '"]');
+        if (!field) return;
+        field.focus({ preventScroll: true });
+        field.setSelectionRange(field.value.length, field.value.length);
+        field.scrollIntoView({ block: 'center' });
+      }
+
+      function downloadFile(name, text, type) {
+        const url = URL.createObjectURL(new Blob([text], { type: type }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+      }
+
+      const briefStamp = () => new Date().toISOString().slice(0, 10);
+
+      async function copyBrief() {
+        const text = buildBrief();
+        try {
+          await navigator.clipboard.writeText(text);
+          flashNotes('Brief copied — paste it with your request.');
+        } catch {
+          const area = document.createElement('textarea');
+          area.value = text;
+          area.style.position = 'fixed';
+          area.style.opacity = '0';
+          document.body.appendChild(area);
+          area.select();
+          let ok = false;
+          try {
+            ok = document.execCommand('copy');
+          } catch {
+            ok = false;
+          }
+          area.remove();
+          flashNotes(ok ? 'Brief copied — paste it with your request.' : 'Copy blocked — use Download .md.', !ok);
+        }
+      }
+
+      function restoreBackup(file) {
+        file
+          .text()
+          .then((text) => {
+            let doc = null;
+            try {
+              doc = JSON.parse(text);
+            } catch {
+              flashNotes('That file is not valid JSON.', true);
+              return;
+            }
+            if (!doc || (doc.version !== 1 && doc.version !== 2) || !doc.notes || typeof doc.notes !== 'object') {
+              flashNotes('That is not a Dex notes backup.', true);
+              return;
+            }
+            if (!confirm('Restore this backup? It replaces the notes and section notes in this browser.')) return;
+            notes = {};
+            for (const [id, value] of Object.entries(doc.notes)) {
+              if (typeof value === 'string' && value.trim()) notes[id] = value;
+            }
+            sectionNotes = {};
+            if (doc.sections && typeof doc.sections === 'object') {
+              for (const [id, value] of Object.entries(doc.sections)) {
+                if (SECTION_IDS.has(id) && typeof value === 'string' && value.trim()) sectionNotes[id] = value;
+              }
+            }
+            brief = typeof doc.brief === 'string' ? doc.brief : '';
+            $('notesBrief').value = brief;
+            saveNotes();
+            renderSections();
+            if (selected) renderCard();
+            flashNotes('Backup restored.');
+          })
+          .catch(() => flashNotes('Could not read that file.', true));
+      }
+
+      function clearNotes() {
+        if (!confirm('Delete every control note, section note and the change brief in this browser?')) return;
+        notes = {};
+        sectionNotes = {};
+        brief = '';
+        $('notesBrief').value = '';
+        saveNotes();
+        renderSections();
+        if (selected) renderCard();
+        flashNotes('Notes cleared.');
+      }
+
+      function setView(view) {
+        notesView = view;
+        document.querySelectorAll('#cmapTabs button').forEach((btn) => {
+          btn.classList.toggle('on', btn.dataset.view === view);
+        });
+        $('paneControls').classList.toggle('on', view === 'controls');
+        $('paneNotes').classList.toggle('on', view === 'notes');
+        $('paneSections').classList.toggle('on', view === 'sections');
+        $('cmapTgl').classList.toggle('on', panelOpen && view === 'controls');
+        $('notesTgl').classList.toggle('on', panelOpen && view === 'notes');
+        if (view === 'sections') {
+          renderSections();
+          $('cmapCount').textContent = SECTIONS.length + ' areas';
+        } else if (view === 'notes') {
+          renderNotes();
+          updateStatus();
+        } else {
+          renderPanel();
+          renderCard();
+        }
+      }
+
+      /* Outline every anchored control, with the same number as the panel.
+         Drawn inside the iPad so it scales with the canvas. */
+      function paintHotspots() {
+        const layer = $('hots');
+        layer.innerHTML = '';
+        if (!mapOn && !selected) return;
+        const pad = $('ipad');
+        const padRect = pad.getBoundingClientRect();
+        const scale = padRect.width / 1194 || 1;
+        const ox = padRect.left + pad.clientLeft * scale;
+        const oy = padRect.top + pad.clientTop * scale;
+        const libraryOpen = $('library').classList.contains('open');
+        const sheetOpen = $('gridsheet').classList.contains('open');
+
+        document.querySelectorAll('[data-ctl]').forEach((el) => {
+          const id = el.dataset.ctl;
+          if (libraryOpen && !el.closest('.library')) return;
+          if (sheetOpen && !el.closest('.gridsheet')) return;
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 3 || rect.height < 3) return;
+          const entry = CTL.get(id);
+          const isSelected = id === selected;
+          if (!mapOn && !isSelected) return;
+
+          const box = document.createElement('i');
+          box.style.left = ((rect.left - ox) / scale) + 'px';
+          box.style.top = ((rect.top - oy) / scale) + 'px';
+          box.style.width = (rect.width / scale) + 'px';
+          box.style.height = (rect.height / scale) + 'px';
+          if (isSelected) box.className = 'sel';
+          if (!isSelected && elementNoted(el, id)) box.classList.add('noted');
+          layer.appendChild(box);
+
+          if (mapOn && entry) {
+            const badge = document.createElement('b');
+            badge.textContent = entry.n;
+            badge.style.left = ((rect.left - ox) / scale) + 'px';
+            badge.style.top = ((rect.top - oy) / scale) + 'px';
+            if (isSelected) badge.className = 'sel';
+            if (!isSelected && elementNoted(el, id)) badge.classList.add('noted');
+            layer.appendChild(badge);
+          }
+        });
+      }
+
+      function renderPanel() {
+        const list = $('cmapList');
+        const scroll = list.scrollTop;
+        const needle = ctlQuery.trim().toLowerCase();
+        const rows = CMAP.controls.filter((c) => {
+          if (ctlFilter !== 'all' && c.status !== ctlFilter) return false;
+          if (!needle) return true;
+          return (c.label + ' ' + c.does + ' ' + (c.shortcut || '') + ' ' + noteKeysFor(c.id).map((k) => notes[k] || '').join(' ')).toLowerCase().includes(needle);
+        });
+        if (notesView === 'controls') $('cmapCount').textContent = rows.length + ' / ' + CMAP.controls.length;
+        if (rows.length === 0) {
+          list.innerHTML = '<p class="cmap-empty">Nothing matches that search.</p>';
+          return;
+        }
+        let html = '';
+        for (const group of CTL_GROUPS) {
+          const items = rows.filter((c) => c.group === group.id);
+          if (items.length === 0) continue;
+          html += '<div class="cmap-group">' + group.title + '</div>';
+          for (const c of items) {
+            html +=
+              '<button class="cmap-row' + (selected === c.id ? ' on' : '') + '" data-id="' + c.id + '">' +
+              '<span class="n">' + c.n + '</span>' +
+              '<span class="l">' + c.label + '</span>' +
+              (hasAnyNote(c.id) ? '<span class="pen" title="Has a note">✎</span>' : '') +
+              '<span class="d ' + c.status + '" title="' + c.status + '"></span>' +
+              '</button>';
+          }
+        }
+        list.innerHTML = html;
+        list.scrollTop = scroll;
+      }
+
+      function renderCard() {
+        const card = $('cmapCard');
+        if (!selected) {
+          card.innerHTML =
+            '<p class="cmap-empty">Click any control in the mockup, or a row above. The number matches the ' +
+            'Function map overlay.</p>';
+          return;
+        }
+        const entry = CTL.get(selected);
+        const offCanvas = OFF_CANVAS[selected] || '';
+        if (!entry) {
+          card.innerHTML =
+            '<div class="top"><span class="name">' + selected + '</span></div>' +
+            '<p>This control is drawn but has no entry yet. Add it to <b>mockup/controls.json</b> and rebuild.</p>';
+          return;
+        }
+        const where = deckContext(selectedEl);
+        const mirrored = isMirrored(entry.id);
+        if (!mirrored) noteScope = '';
+        const key = noteKey(entry.id, noteScope);
+        const area = sectionAt(selectedEl);
+        const areaNote = area && hasSectionNote(area.id) ? sectionNoteText(area.id) : '';
+        card.innerHTML =
+          '<div class="top">' +
+          '<span class="num">' + entry.n + '</span>' +
+          '<span class="name">' + entry.label + '</span>' +
+          '<span class="st ' + entry.status + '">' + entry.status.toUpperCase() + '</span>' +
+          '</div>' +
+          '<div class="where">' + (where ? where + ' · ' : '') +
+          (entry.kind === 'block' ? 'planned block' : entry.kind) + '</div>' +
+          (offCanvas ? '<p class="note">Not drawn in this layout. ' + escapeHtml(offCanvas) + '</p>' : '') +
+          '<div class="cmap-note">' +
+          '<label for="ctlNote">Note <span>for #' + entry.n +
+          (mirrored ? ' · ' + (noteScope ? SCOPE_LABEL[noteScope] + ' only' : 'both decks') : '') + '</span></label>' +
+          (mirrored
+            ? '<div class="scope-tabs" role="tablist">' +
+              SCOPES.map(([scope, label]) =>
+                '<button type="button" role="tab" data-scope="' + scope + '" aria-selected="' + (scope === noteScope) + '"' +
+                ' class="' + (scope === noteScope ? 'on' : '') + (hasNote(noteKey(entry.id, scope)) ? ' has' : '') + '">' +
+                label + '</button>'
+              ).join('') +
+              '</div>'
+            : '') +
+          '<textarea id="ctlNote" rows="3" placeholder="What should change here? Intent, constraints, what to keep…">' +
+          escapeHtml(notes[key] || '') +
+          '</textarea>' +
+          '<div class="cmap-note-foot"><span>Autosaved in this browser</span>' +
+          '<button type="button" id="ctlNoteClear">Clear</button></div>' +
+          '</div>' +
+          (areaNote
+            ? '<div class="cmap-area">' +
+              '<div class="cmap-area-head"><span>Area note</span>' +
+              '<span class="name">' + escapeHtml(area.label) + '</span>' +
+              '<button type="button" id="ctlAreaOpen" title="Open this area in Sections">Edit</button></div>' +
+              '<p class="cmap-area-text">' + escapeHtml(areaNote) + '</p>' +
+              '</div>'
+            : '') +
+          '<p>' + entry.does + '</p>' +
+          (entry.note ? '<p class="note">' + entry.note + '</p>' : '') +
+          '<div class="meta">' +
+          (entry.shortcut ? '<span>key ' + entry.shortcut + '</span>' : '') +
+          (entry.source ? '<span>' + entry.source + '</span>' : '') +
+          '</div>';
+        const noteField = card.querySelector('#ctlNote');
+        if (noteField) {
+          noteField.addEventListener('input', () => setNote(key, noteField.value));
+          card.querySelector('#ctlNoteClear').addEventListener('click', () => {
+            noteField.value = '';
+            setNote(key, '');
+            noteField.focus();
+          });
+        }
+        card.querySelectorAll('.scope-tabs button').forEach((tab) => {
+          tab.addEventListener('click', () => {
+            noteScope = tab.dataset.scope;
+            renderCard();
+            const field = $('ctlNote');
+            if (field) field.focus();
+          });
+        });
+        const areaButton = card.querySelector('#ctlAreaOpen');
+        if (area && areaButton) areaButton.addEventListener('click', () => openSection(area.id));
+      }
+
+      function selectControl(id, el, openPanel = true, scope) {
+        if (notesView !== 'controls') setView('controls');
+        selected = id;
+        selectedEl = el || document.querySelector('[data-ctl="' + id + '"]');
+        noteScope = isMirrored(id) ? (scope !== undefined ? scope : sideOf(selectedEl)) : '';
+        if (openPanel && !panelOpen) setPanel(true);
+        paintSelection();
+        paintHotspots();
+        renderCard();
+        renderPanel();
+      }
+
+      function setPanel(open) {
+        panelOpen = open;
+        document.body.classList.toggle('panel-open', open);
+        $('cmap').classList.toggle('open', open);
+        $('cmapTgl').classList.toggle('on', open && notesView === 'controls');
+        $('notesTgl').classList.toggle('on', open && notesView === 'notes');
+        fit();
+      }
+
+      function setMap(on) {
+        mapOn = on;
+        $('mapTgl').classList.toggle('on', on);
+        paintHotspots();
+      }
+
+      $('mapTgl').addEventListener('click', () => setMap(!mapOn));
+      $('cmapTgl').addEventListener('click', () => {
+        if (panelOpen && notesView === 'controls') {
+          setPanel(false);
+        } else {
+          setPanel(true);
+          setView('controls');
+        }
+      });
+      $('notesTgl').addEventListener('click', () => {
+        if (panelOpen && notesView === 'notes') {
+          setPanel(false);
+        } else {
+          setPanel(true);
+          setView('notes');
+        }
+      });
+      $('cmapClose').addEventListener('click', () => setPanel(false));
+      $('cmapTabs').addEventListener('click', (event) => {
+        const btn = event.target.closest('button[data-view]');
+        if (btn) setView(btn.dataset.view);
+      });
+      $('cmapSearch').addEventListener('input', (event) => {
+        ctlQuery = event.target.value;
+        renderPanel();
+      });
+      $('cmapFilter').addEventListener('click', (event) => {
+        const btn = event.target.closest('button');
+        if (!btn) return;
+        ctlFilter = btn.dataset.f;
+        [...event.currentTarget.children].forEach((b) => b.classList.toggle('on', b === btn));
+        renderPanel();
+      });
+      $('cmapList').addEventListener('click', (event) => {
+        const row = event.target.closest('.cmap-row');
+        if (row) selectControl(row.dataset.id);
+      });
+
+      $('notesList').addEventListener('click', (event) => {
+        const orphan = event.target.closest('[data-orphan]');
+        if (orphan) {
+          if (!confirm('Delete the note for ' + orphan.dataset.orphan + '?')) return;          delete notes[orphan.dataset.orphan];
+          saveNotes();
+          return;
+        }
+        const sectionRow = event.target.closest('[data-section-jump]');
+        if (sectionRow) {
+          openSection(sectionRow.dataset.sectionJump);
+          return;
+        }
+        const row = event.target.closest('.note-row[data-id]');
+        if (!row) return;
+        const scope = row.dataset.scope || '';
+        // Jump to the deck the note was written for, not always deck A.
+        const instance = [...document.querySelectorAll('[data-ctl="' + row.dataset.id + '"]')]
+          .find((el) => sideOf(el) === scope);
+        selectControl(row.dataset.id, instance || null, true, scope);
+      });
+
+      $('sectionList').addEventListener('input', (event) => {
+        const field = event.target.closest('textarea[data-section]');
+        if (!field) return;
+        setSectionNote(field.dataset.section, field.value);
+        const card = field.closest('.section-card');
+        if (card) card.classList.toggle('has-note', field.value.trim() !== '');
+      });
+      $('sectionList').addEventListener('click', (event) => {
+        const clear = event.target.closest('button[data-clear-section]');
+        if (!clear) return;
+        const id = clear.dataset.clearSection;
+        setSectionNote(id, '');
+        const field = $('sectionList').querySelector('textarea[data-section="' + id + '"]');
+        if (field) {
+          field.value = '';
+          field.focus();
+        }
+        const card = clear.closest('.section-card');
+        if (card) card.classList.remove('has-note');
+      });
+
+      $('notesBrief').addEventListener('input', (event) => {
+        brief = event.target.value;
+        saveNotes();
+      });
+      $('notesClear').addEventListener('click', clearNotes);
+      $('notesCopy').addEventListener('click', copyBrief);
+      $('notesDownload').addEventListener('click', () => {
+        downloadFile('dex-mockup-brief-' + briefStamp() + '.md', buildBrief(), 'text/markdown');
+        flashNotes('Brief downloaded — save it as mockup/notes.md or paste it.');
+      });
+      $('notesBackup').addEventListener('click', () => {
+        downloadFile(
+          'dex-mockup-notes-' + briefStamp() + '.json',
+          JSON.stringify(
+            { version: 1, brief: brief, notes: notes, sections: sectionNotes, updatedAt: new Date().toISOString() },
+            null,
+            2
+          ),
+          'application/json'
+        );
+        flashNotes('Backup downloaded.');
+      });
+      $('notesRestore').addEventListener('click', () => $('notesFile').click());
+      $('notesFile').addEventListener('change', (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (file) restoreBackup(file);
+        event.target.value = '';
+      });
+
+      /* Selection is delegated from the canvas, so new markup only needs a
+         data-ctl attribute to become inspectable. */
+      $('ipad').addEventListener('click', (event) => {
+        if (swallowGridClick) {
+          swallowGridClick = false;
+          if (event.target.closest('.gwave')) return;
+        }
+        if (swallowScreenClick) {
+          swallowScreenClick = false;
+          if (event.target.closest('.zw')) return;
+        }
+        if (swallowDragClick) {
+          swallowDragClick = false;
+          if (event.target.closest('.mixctl, .fader-v')) return;
+        }
+        const side = sideOf(event.target);
+        if (side) focusedDeck = side;
+        const el = event.target.closest('[data-ctl]');
+        if (!el) return;
+        // A control that does something in the mockup should do it without
+        // also pulling the canvas aside; the inspector still updates if open.
+        selectControl(el.dataset.ctl, el, !event.target.closest('[onclick]'));
+      });
+
+      window.addEventListener('keydown', (event) => {
+        const tag = (event.target && event.target.tagName) || '';
+        // Escape has to work from the panel's own search field and the grid
+        // sheet, so it is handled before the text-input guard.
+        if (event.key === 'Escape') {
+          if (help) {
+            event.preventDefault();
+            openHelp(null);
+          } else if (libOpen && libView.moreFor !== null) {
+            event.preventDefault();
+            openMore(null);
+          } else if (screen === 'shortcuts' || TAP_SCREENS.includes(screen) || screen === 'error') {
+            event.preventDefault();
+            setScreen('console');
+          } else if (gridOpen) {
+            event.preventDefault();
+            closeGrid();
+          } else if (cueOpen.A || cueOpen.B) {
+            event.preventDefault();
+            cueOpen.A = cueOpen.B = false;
+            cueDelete.A = cueDelete.B = false;
+            render();
+          } else if (volOpen) {
+            event.preventDefault();
+            toggleVol(false);
+          } else if (panelOpen) {
+            event.preventDefault();
+            setPanel(false);
+          } else if (selected) {
+            selected = null;
+            selectedEl = null;
+            paintSelection();
+            paintHotspots();
+            renderCard();
+            renderPanel();
+          }
+          return;
+        }
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (event.key === 'f' || event.key === 'F') setMap(!mapOn);
+      });
+
+      /* scale the 1194x834 canvas to fit the browser window */
+      function fit() {
+        const el = $('ipad');
+        const bar = document.querySelector('.study');
+        if (bar) document.documentElement.style.setProperty('--bar', bar.offsetHeight + 'px');
+        const reserve = panelOpen && panelIsDocked() ? 392 : 0;
+        const s = Math.min(1, (window.innerWidth - 40 - reserve) / 1194, (window.innerHeight - bar.offsetHeight - 58) / (834 + stretch));
+        const scale = Math.round(s * 1000) / 1000;
+        el.style.transform = 'scale(' + scale + ')';
+        // The transform does not shrink the layout box, so the frame carries
+        // the scaled size and keeps the canvas centred beside the panel.
+        const frame = $('frame');
+        frame.style.width = Math.round(1194 * scale) + 'px';
+        frame.style.height = Math.round((834 + stretch) * scale) + 'px';
+        paintHotspots();
+      }
+      window.addEventListener('resize', fit);
+
+      loadNotes();
+      $('notesBrief').value = brief;
+      render();
+      renderPanel();
+      renderCard();
+      updateStatus();
+      setView('controls');
+      $('cmapFoot').textContent = CMAP.controls.length + ' controls · from controls.json';
+      fit();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,764 @@
+{
+  "version": 1,
+  "targets": {
+    "bpmExactPct": 0.9,
+    "octavePct": 1,
+    "gridMedianMs": 12,
+    "gridP95Ms": 25,
+    "gridDriftMs": 25,
+    "downbeatHitPct": 0.9,
+    "barHitPct": 0.9,
+    "keyExactPct": 0.6,
+    "keyTop3Pct": 0.8,
+    "lufsTolerance": 0.5,
+    "bpmToleranceBpm": 0.5
+  },
+  "tracks": [
+    {
+      "id": "3627758_Presence_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/3627758_Presence_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 136,
+        "key": "D minor",
+        "lufs": -8.6,
+        "downbeatsSec": [
+          29.998,
+          58.235,
+          150,
+          354.706
+        ]
+      }
+    },
+    {
+      "id": "3921464_Buzz_On_Original_Mix",
+      "file": "audio/Psytrance/3921464_Buzz_On_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 137,
+        "key": "F major",
+        "lufs": -10,
+        "downbeatsSec": [
+          59.563,
+          87.592,
+          199.708,
+          353.869
+        ]
+      }
+    },
+    {
+      "id": "4056201_Prog_Effect_Original_Mix",
+      "file": "audio/Psytrance/4056201_Prog_Effect_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "key": "G# minor",
+        "lufs": -9.7,
+        "downbeatsSec": [
+          15.652,
+          29.565,
+          238.26,
+          349.562
+        ]
+      }
+    },
+    {
+      "id": "4109307_Generic_Drugs_Original_Mix",
+      "file": "audio/Psytrance/4109307_Generic_Drugs_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 135,
+        "key": "A minor",
+        "lufs": -7.9,
+        "downbeatsSec": [
+          3.556,
+          17.778,
+          195.555,
+          302.222
+        ]
+      }
+    },
+    {
+      "id": "4161658_Become_One_Original_Mix",
+      "file": "audio/Psytrance/4161658_Become_One_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "lufs": -9.1
+      }
+    },
+    {
+      "id": "4161659_Frequency_Original_Mix",
+      "file": "audio/Psytrance/4161659_Frequency_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "key": "D# minor",
+        "lufs": -9.1,
+        "downbeatsSec": [
+          27.826,
+          41.737,
+          198.261,
+          351.304
+        ],
+        "bpm": 138,
+        "bpmSource": "marks"
+      },
+      "notes": "No BPM tag; the hand marks give 138.000."
+    },
+    {
+      "id": "4161661_Psychedelics_Original_Mix",
+      "file": "audio/Psytrance/4161661_Psychedelics_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 135,
+        "key": "E major",
+        "lufs": -8.1
+      }
+    },
+    {
+      "id": "4290645_I_Only_Smoke_DaVinci_Code_Remix",
+      "file": "audio/Psytrance/4290645_I_Only_Smoke_DaVinci_Code_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "key": "E minor",
+        "lufs": -8.7,
+        "downbeatsSec": [
+          69.565,
+          111.304,
+          208.696,
+          333.913
+        ]
+      }
+    },
+    {
+      "id": "741105_Drugs_and_Stuff_D_Nox___Beckers_Remix",
+      "file": "audio/Psytrance/741105_Drugs_and_Stuff_D_Nox___Beckers_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 127,
+        "key": "A minor",
+        "lufs": -9.6,
+        "downbeatsSec": [
+          15.181,
+          185.26,
+          260.851
+        ]
+      }
+    },
+    {
+      "id": "8867740_The_Raven_Original_Mix",
+      "file": "audio/Psytrance/8867740_The_Raven_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 144,
+        "key": "G minor",
+        "lufs": -7.9
+      }
+    },
+    {
+      "id": "8905463_Eden_Original_Mix",
+      "file": "audio/Psytrance/8905463_Eden_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 147,
+        "key": "G major",
+        "lufs": -6.9
+      }
+    },
+    {
+      "id": "8933634_Secret_Story_Original_Mix",
+      "file": "audio/Psytrance/8933634_Secret_Story_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "A major",
+        "lufs": -6.3,
+        "downbeatsSec": [
+          26.483,
+          52.965,
+          198.621,
+          357.517
+        ]
+      }
+    },
+    {
+      "id": "9006219_Revival_Original_Mix",
+      "file": "audio/Psytrance/9006219_Revival_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 146,
+        "key": "A# major",
+        "lufs": -8.1
+      }
+    },
+    {
+      "id": "9009019_Clickbait_Original_Mix",
+      "file": "audio/Psytrance/9009019_Clickbait_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "D# minor",
+        "lufs": -8.6
+      }
+    },
+    {
+      "id": "9085057_Colliding_Orbits_Ital_Remix",
+      "file": "audio/Psytrance/9085057_Colliding_Orbits_Ital_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 143,
+        "key": "G# major",
+        "lufs": -6.9,
+        "downbeatsSec": [
+          53.706,
+          80.56,
+          295.385,
+          429.65
+        ]
+      }
+    },
+    {
+      "id": "9278482_A_Brief_History_Of_Goa_Trance_Astral_Projection_Original_Mix",
+      "file": "audio/Psytrance/9278482_A_Brief_History_Of_Goa_Trance_Astral_Projection_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "F minor",
+        "lufs": -6.3
+      }
+    },
+    {
+      "id": "9311902_Connected_Original_Mix",
+      "file": "audio/Psytrance/9311902_Connected_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "F# major",
+        "lufs": -7
+      }
+    },
+    {
+      "id": "9318041_Drink_Drunk_Junkie_Original_Mix",
+      "file": "audio/Psytrance/9318041_Drink_Drunk_Junkie_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 146,
+        "key": "G major",
+        "lufs": -7.5,
+        "downbeatsSec": [
+          7.085,
+          39.96,
+          210.92,
+          316.126
+        ]
+      }
+    },
+    {
+      "id": "9408625_Dream_Of_Reality_Original_Mix",
+      "file": "audio/Psytrance/9408625_Dream_Of_Reality_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 144,
+        "key": "A# major",
+        "lufs": -7.4,
+        "downbeatsSec": [
+          40,
+          66.667,
+          213.333,
+          386.667
+        ]
+      }
+    },
+    {
+      "id": "9459393_Mahadeva_Power_Source___Innerzone_Remix",
+      "file": "audio/Psytrance/9459393_Mahadeva_Power_Source___Innerzone_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "F major",
+        "lufs": -6.4,
+        "downbeatsSec": [
+          66.206,
+          172.137,
+          264.827,
+          436.965
+        ]
+      }
+    },
+    {
+      "id": "9498627_Next_Destination_Original_Mix",
+      "file": "audio/Psytrance/9498627_Next_Destination_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "A# major",
+        "lufs": -6.2
+      }
+    },
+    {
+      "id": "343056_Rascar_Capac_Original_Mix",
+      "file": "audio/Psytrance/Logic Bomb - Sonic Algebra/343056_Rascar_Capac_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 146,
+        "key": "D# minor",
+        "lufs": -8.8
+      }
+    },
+    {
+      "id": "343057_Mov_Ax_Original_Mix",
+      "file": "audio/Psytrance/Logic Bomb - Sonic Algebra/343057_Mov_Ax_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "A# major",
+        "lufs": -8.4
+      }
+    },
+    {
+      "id": "343058_Sonic_Algebra_Original_Mix",
+      "file": "audio/Psytrance/Logic Bomb - Sonic Algebra/343058_Sonic_Algebra_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "G minor",
+        "lufs": -9.3
+      }
+    },
+    {
+      "id": "343059_Jack_In_The_Box_Original_Mix",
+      "file": "audio/Psytrance/Logic Bomb - Sonic Algebra/343059_Jack_In_The_Box_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "D# minor",
+        "lufs": -7.5,
+        "downbeatsSec": [
+          28.548,
+          81.513,
+          313.238,
+          394.341
+        ]
+      }
+    },
+    {
+      "id": "343060_Videodrome_Original_Mix",
+      "file": "audio/Psytrance/Logic Bomb - Sonic Algebra/343060_Videodrome_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 146,
+        "key": "A# major",
+        "lufs": -8.5
+      }
+    },
+    {
+      "id": "343061_Reverser_Original_Mix",
+      "file": "audio/Psytrance/Logic Bomb - Sonic Algebra/343061_Reverser_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 130,
+        "key": "D major",
+        "lufs": -9.7,
+        "downbeatsSec": [
+          118.533,
+          207.143,
+          384.381
+        ]
+      }
+    },
+    {
+      "id": "343062_Ansi_Original_Mix",
+      "file": "audio/Psytrance/Logic Bomb - Sonic Algebra/343062_Ansi_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 143,
+        "key": "E minor",
+        "lufs": -8.8
+      }
+    },
+    {
+      "id": "343063_Life_Is_A_Progressbar_Original_Mix",
+      "file": "audio/Psytrance/Logic Bomb - Sonic Algebra/343063_Life_Is_A_Progressbar_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 148,
+        "key": "G minor",
+        "lufs": -9.8,
+        "downbeatsSec": [
+          104.119,
+          117.09,
+          237.09,
+          454.389
+        ],
+        "bpmSource": "marks"
+      },
+      "notes": "Tagged 99 BPM; the hand marks give 148.000."
+    },
+    {
+      "id": "343064_Insanity_Instantly_Original_Mix",
+      "file": "audio/Psytrance/Logic Bomb - Sonic Algebra/343064_Insanity_Instantly_Original_Mix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 145,
+        "key": "F minor",
+        "lufs": -9.2,
+        "downbeatsSec": [
+          39.753,
+          119.2,
+          226.786,
+          385.683
+        ]
+      }
+    },
+    {
+      "id": "4381391_Nice_Day_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381391_Nice_Day_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 137,
+        "key": "G minor",
+        "camelot": "6A",
+        "lufs": -7.6,
+        "downbeatsSec": [
+          31.977,
+          67.014,
+          154.605,
+          336.795
+        ]
+      }
+    },
+    {
+      "id": "4381392_Across_the_Sea_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381392_Across_the_Sea_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "key": "E minor",
+        "camelot": "9A",
+        "lufs": -8.1
+      }
+    },
+    {
+      "id": "4381393_Shadow_of_a_Smile_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381393_Shadow_of_a_Smile_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "key": "A# minor",
+        "camelot": "3A",
+        "lufs": -8
+      }
+    },
+    {
+      "id": "4381394_Expect_What_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381394_Expect_What_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "key": "G# minor",
+        "camelot": "1A",
+        "lufs": -8.2
+      }
+    },
+    {
+      "id": "4381395_Purity_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381395_Purity_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "key": "D minor",
+        "camelot": "7A",
+        "lufs": -7.5,
+        "downbeatsSec": [
+          14.985,
+          56.725,
+          307.159,
+          404.55
+        ]
+      }
+    },
+    {
+      "id": "4381396_Presence_Interactive_Noise_Album_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381396_Presence_Interactive_Noise_Album_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 136,
+        "key": "D minor",
+        "camelot": "7A",
+        "lufs": -8.5,
+        "downbeatsSec": [
+          2.654,
+          30.889,
+          228.536,
+          320.301
+        ]
+      }
+    },
+    {
+      "id": "4381397_Traveling_but_Not_Moving_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381397_Traveling_but_Not_Moving_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "key": "G minor",
+        "camelot": "6A",
+        "lufs": -7.7
+      }
+    },
+    {
+      "id": "4381398_Return_of_the_Jedi_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381398_Return_of_the_Jedi_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "key": "D minor",
+        "camelot": "7A",
+        "lufs": -7.8
+      }
+    },
+    {
+      "id": "4381399_Trap_Check_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381399_Trap_Check_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 138,
+        "key": "C# minor",
+        "camelot": "12A",
+        "lufs": -8,
+        "downbeatsSec": [
+          15.652,
+          57.391,
+          227.826,
+          346.084
+        ]
+      }
+    },
+    {
+      "id": "4381400_Who_Cares_Interactive_Noise_Remix",
+      "file": "audio/Psytrance/Memories - Interactive Noise /4381400_Who_Cares_Interactive_Noise_Remix.mp3",
+      "genre": "psytrance",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 136,
+        "key": "E minor",
+        "camelot": "9A",
+        "lufs": -8.1
+      }
+    },
+    {
+      "id": "4281349_I_Use_To_Dance_In_The_Rain_Original_Mix",
+      "file": "audio/Techno/4281349_I_Use_To_Dance_In_The_Rain_Original_Mix.mp3",
+      "genre": "house",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 124,
+        "key": "E major",
+        "lufs": -8.7,
+        "downbeatsSec": [
+          62.057,
+          93.023,
+          247.862,
+          388.185
+        ]
+      }
+    },
+    {
+      "id": "6022897_Luga_Original_Mix",
+      "file": "audio/Techno/6022897_Luga_Original_Mix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 125,
+        "key": "A major",
+        "lufs": -10.5,
+        "downbeatsSec": [
+          15.461,
+          184.422,
+          368.261
+        ]
+      }
+    },
+    {
+      "id": "6676288_Alien_Signal_Original_Mix",
+      "file": "audio/Techno/6676288_Alien_Signal_Original_Mix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 125,
+        "key": "A minor",
+        "lufs": -8.5,
+        "downbeatsSec": [
+          0,
+          108.004,
+          260.647,
+          390.246
+        ]
+      }
+    },
+    {
+      "id": "7585933_Dark_Rooms_Original_Mix",
+      "file": "audio/Techno/7585933_Dark_Rooms_Original_Mix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 125,
+        "key": "A minor",
+        "lufs": -7.8
+      }
+    },
+    {
+      "id": "7783758_Dirty_Groove_Original_Mix",
+      "file": "audio/Techno/7783758_Dirty_Groove_Original_Mix.mp3",
+      "genre": "house",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 123,
+        "key": "B minor",
+        "lufs": -7.6,
+        "downbeatsSec": [
+          15.711,
+          187.417,
+          343.515
+        ]
+      }
+    },
+    {
+      "id": "7877529_Mouth_To_Mouth_Dubfire_Remix",
+      "file": "audio/Techno/7877529_Mouth_To_Mouth_Dubfire_Remix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 126,
+        "key": "G# minor",
+        "lufs": -8.8
+      }
+    },
+    {
+      "id": "8033722_Terra_Joseph_Capriati_Remix",
+      "file": "audio/Techno/8033722_Terra_Joseph_Capriati_Remix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 124,
+        "key": "D minor",
+        "lufs": -8.4
+      }
+    },
+    {
+      "id": "8556621_Solace_Original_Mix",
+      "file": "audio/Techno/8556621_Solace_Original_Mix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 126,
+        "key": "A major",
+        "lufs": -8.7,
+        "downbeatsSec": [
+          15.24,
+          60.954,
+          289.526,
+          365.716
+        ]
+      }
+    },
+    {
+      "id": "8746648_Warehouse_Trip_Original_Mix",
+      "file": "audio/Techno/8746648_Warehouse_Trip_Original_Mix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 126,
+        "key": "D major",
+        "lufs": -7.8,
+        "downbeatsSec": [
+          15.337,
+          198.198,
+          381.052
+        ]
+      }
+    },
+    {
+      "id": "8752322_Our_Lights_Shine_Original_Mix",
+      "file": "audio/Techno/8752322_Our_Lights_Shine_Original_Mix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 126,
+        "key": "A# minor",
+        "lufs": -7.3,
+        "downbeatsSec": [
+          15.287,
+          243.86,
+          411.478
+        ]
+      }
+    },
+    {
+      "id": "8757915_Traffic_Original_Mix",
+      "file": "audio/Techno/8757915_Traffic_Original_Mix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 125,
+        "key": "A minor",
+        "lufs": -7,
+        "downbeatsSec": [
+          0.002,
+          122.881,
+          360.961
+        ]
+      }
+    },
+    {
+      "id": "8762531_Desire_Original_Mix",
+      "file": "audio/Techno/8762531_Desire_Original_Mix.mp3",
+      "genre": "auto",
+      "truth": {
+        "source": "beatport-id3",
+        "bpm": 127,
+        "key": "A minor",
+        "lufs": -8.4
+      }
+    }
+  ]
+}

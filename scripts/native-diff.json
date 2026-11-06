@@ -1,0 +1,557 @@
+{
+  "note": "The mockup against the native SwiftUI port, every screen: the mockup is the design and the port follows it. Remaining differences are the mockup's demo data the native demo doesn't carry (deck B's +1 key shift, CUE markers, 71% master), and glyph edges. 'aa' forgives glyph-edge anti-aliasing. 'budget' is a ratchet: lower it whenever a change brings the count down and never raise it to pass. home-overlays hides the synthetic demo waveforms on both sides so everything drawn over them is held to a tight budget; the demo strokes rasterise differently in Chromium and only count in home. home-tall checks the elastic height at its 4:3 limit.",
+  "out": "out/native-diff",
+  "css": ".platter-gap{animation:none!important}.head-status i{animation:none!important}",
+  "pairs": [
+    {
+      "name": "home",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen home --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 24550
+    },
+    {
+      "name": "home-overlays",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}.wave{display:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen home --waves 0 --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 7750
+    },
+    {
+      "name": "analysing",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('analysing');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen analysing --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 24700
+    },
+    {
+      "name": "library",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.zart').click();await new Promise(r=>setTimeout(r,400));[...document.querySelectorAll('.lib-row')].find(e => e.textContent.includes('Move On Up')).click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen library --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 13000
+    },
+    {
+      "name": "volume",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.vol-btn').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen volume --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 18450
+    },
+    {
+      "name": "trim",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.trimchip').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen trim --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 24800
+    },
+    {
+      "name": "band-low",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "[...document.querySelectorAll('.bandval')].find(e => e.textContent.includes('LOW')).click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen band-low --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 25000
+    },
+    {
+      "name": "hotcue",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "[...document.querySelectorAll('.pill')].find(e => e.textContent.includes('HOT CUE')).click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen hotcue --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 24800
+    },
+    {
+      "name": "grid",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.gridkey').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen grid --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 1650
+    },
+    {
+      "name": "firstrun",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('firstrun');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen firstrun --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 2350
+    },
+    {
+      "name": "error",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('error');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen error --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 21300
+    },
+    {
+      "name": "drop",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('drop');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen drop --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 22400
+    },
+    {
+      "name": "dropblocked",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('dropblocked');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen dropblocked --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 21800
+    },
+    {
+      "name": "shortcuts",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('shortcuts');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen shortcuts --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 1500
+    },
+    {
+      "name": "tap",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('tap');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen tap --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 2350
+    },
+    {
+      "name": "playlistmenu",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('playlistmenu');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen playlistmenu --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 11600
+    },
+    {
+      "name": "rename",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('rename');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen rename --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 11500
+    },
+    {
+      "name": "delete",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('delete');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen delete --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 12500
+    },
+    {
+      "name": "firstrun-library",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('firstrun');toggleLib();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen firstrun-library --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 1650
+    },
+    {
+      "name": "gridunsure",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('gridunsure');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen gridunsure --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 2150
+    },
+    {
+      "name": "gridalts",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('gridalts');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen gridalts --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 1950
+    },
+    {
+      "name": "gridunsure-library",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('gridunsure');document.querySelector('.gsheet-head .btn.done').click();await new Promise(r=>setTimeout(r,400));document.querySelector('.zart').click();await new Promise(r=>setTimeout(r,400));const list=document.querySelector('.lib-list');list.scrollTop=list.scrollHeight;if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen gridunsure-library --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 12950
+    },
+    {
+      "name": "gridhelp",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('gridhelp');if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen gridhelp --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 4200
+    },
+    {
+      "name": "taphelp",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "setScreen('tap');document.querySelector('.sheet-layer .btn.info').click();await new Promise(r=>setTimeout(r,300));if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen taphelp --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 3450
+    },
+    {
+      "name": "volumehelp",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('.vol-btn').click();await new Promise(r=>setTimeout(r,300));document.querySelector('.volpop .btn.info').click();await new Promise(r=>setTimeout(r,300));if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen volumehelp --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 1200
+    },
+    {
+      "name": "importing",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('importing')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen importing --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 24600
+    },
+    {
+      "name": "loading",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('loading')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen loading --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 12150
+    },
+    {
+      "name": "saving",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('saving')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen saving --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 24550
+    },
+    {
+      "name": "notsaved",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('notsaved')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen notsaved --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 24600
+    },
+    {
+      "name": "keysmissing",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('keysmissing')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen keysmissing --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 13150
+    },
+    {
+      "name": "findingkeys",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('findingkeys')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen findingkeys --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 13500
+    },
+    {
+      "name": "filemissing",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('filemissing')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen filemissing --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 12900
+    },
+    {
+      "name": "dropaudio",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('dropaudio')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen dropaudio --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 22450
+    },
+    {
+      "name": "dropfiles",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('dropfiles')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen dropfiles --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 22450
+    },
+    {
+      "name": "droplibrary",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('droplibrary')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen droplibrary --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 22450
+    },
+    {
+      "name": "tapidle",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('tapidle')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen tapidle --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 2250
+    },
+    {
+      "name": "tapnoinputs",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('tapnoinputs')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen tapnoinputs --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 2750
+    },
+    {
+      "name": "home-tall",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "window": [
+          1300,
+          1100
+        ],
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}.ipad{height:880.5px!important}",
+        "setup": "setStretch(66.5)"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen home --stretch 66.5 --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 30650
+    },
+    {
+      "name": "bothdecks",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('bothdecks')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen bothdecks --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 13050
+    },
+    {
+      "name": "trackmore",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('trackmore')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen trackmore --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 1800
+    },
+    {
+      "name": "trackremove",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('trackremove')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen trackremove --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 1800
+    },
+    {
+      "name": "trackagain",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('trackagain')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen trackagain --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 1800
+    }
+  ]
+}
