@@ -551,9 +551,10 @@ Summaries only; the gates are in the plan.
   the mixer faders' (251 pt, 215 of travel), with its readout and then TEMPO below
   it. The user asked for room
   around every control for big fingers. The keys' touch area reaches 2 pt past each
-  drawn edge, for 44 pt of height, not yet tried by finger. Open: shrinking the platter
-  from 262 to about 240 pt, proposed because it sits 10 pt under the keys and 8 pt over
-  the beat jump row; the user hasn't decided, so it stays 262.
+  drawn edge, for 44 pt of height, not yet tried by finger. The platter stays 262 pt
+  (the user's decision, 7 November 2026, "fine at this point"); shrinking it to about
+  240 pt had been proposed because it sits 10 pt under the keys and 8 pt over the beat
+  jump row.
 - The beat grid sheet (2 November 2026, signed off and ported): a drag moves the
   waveform, not the lines, as Traktor does on iPad. Zoom − + from 8 s to 250 ms,
   ◀ BEAT ▶ and a track strip to move along the track. Re-analyse asks twice.

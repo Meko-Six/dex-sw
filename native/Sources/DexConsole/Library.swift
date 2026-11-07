@@ -152,12 +152,8 @@ struct LibraryPane: View {
         } accessory: {
             if on && !renaming {
                 ActionGlyph(glyph: "⋯", on: menuOpen, size: 32) { setListMenu(menuOpen ? nil : entry.id) }
-                    .overlay(alignment: .topTrailing) {
-                        if menuOpen { playlistMenu(entry).offset(y: 36).fixedSize(horizontal: false, vertical: true) }
-                    }
             }
         }
-        .zIndex(menuOpen ? 2 : 0)
         .live(snapshot) { item in
             item.contextMenu {
                 Button("Rename") { open(entry.id); ui.renaming = entry.id }
@@ -168,6 +164,16 @@ struct LibraryPane: View {
                 return true
             }
         }
+        // The menu hangs below the row, so it sits outside the row's context menu and drop target:
+        // on iPad those only take touches inside the row, which left Rename and Delete dead.
+        // Its top is 36 pt under the 32 pt key's, which is centred in the 40 pt row and 9 pt in from its end.
+        .overlay(alignment: .topTrailing) {
+            if menuOpen {
+                playlistMenu(entry).fixedSize(horizontal: false, vertical: true)
+                    .offset(x: -9, y: 40)
+            }
+        }
+        .zIndex(menuOpen ? 2 : 0)
     }
 
     /// Rename, or delete on the second tap; the tracks stay in the library.
