@@ -132,6 +132,24 @@ The user asked for this on 7 November. State:
     loading deck shows a silent meter and TRIM 0.0. `diff:native` is within budget on all 42 screens, budgets unchanged.
   - Not yet seen or heard on a device.
 
+## Control map — 8 November 2026
+
+`npm run check:controls` now runs in CI's `verify` job, after the unit tests. It
+regenerates the map and fails if the mockup has a `data-ctl` that `controls.json`
+doesn't describe, if a described control isn't drawn, or if a `controls.json` edit was
+committed without regenerating `CONTROL-MAP.md` and `controls.data.js`. The cross-check
+alone passes when the generated files are stale, which is why it is paired with
+`git diff --exit-code`.
+
+Two ids are gone: `lib.loadA` and `lib.loadB`. They described Electron's library deck
+panel, where a deck's title read TAP TO LOAD. Neither the mockup nor the native app
+draws that panel — the native app taps a row and then the deck's art, already mapped as
+`deck.load` — so there was no title to anchor, and inventing one would have been worse.
+Add them back only if the title load returns to the mockup as a real control. The deck
+letter's focus gesture is now anchored (`deck.focus`, on both deck cards), and the
+header's status pill and CAN'T LOAD alert are described (`console.status`,
+`console.error`), for 99 controls: 82 live, 5 partial, 12 planned.
+
 ## Where things stand — 5 November 2026
 
 - **Electron is frozen; native Swift is the app being built.** Electron (`src/`)
@@ -667,6 +685,7 @@ are ignored and stay local.
 
 ```sh
 npm test                     # Electron unit tests
+npm run check:controls       # mockup anchors against controls.json, generated map current
 npm run build                # typecheck + bundles
 npm run check:runtime        # production Electron integration
 swift test --package-path native
