@@ -177,6 +177,15 @@
       "source": "src/renderer/App.tsx"
     },
     {
+      "id": "console.status",
+      "group": "console",
+      "label": "ANALYSING · IMPORTING status pill",
+      "kind": "readout",
+      "status": "live",
+      "does": "The header's progress pill while the library works: a spinner, ANALYSING 3 / 12 or IMPORTING or FINDING KEYS 3 / 4, the track it is on, and a hairline that fills as it works through the list. It is absent when nothing is running.",
+      "source": "native/Sources/DexConsole/Head.swift"
+    },
+    {
       "id": "console.chips",
       "group": "console",
       "label": "SYNC · MASTER · playing chips",
@@ -185,6 +194,15 @@
       "does": "Status only, no click, in the header: which deck is synced, which deck is the tempo master, and whether either deck is running.",
       "note": "These read like buttons. That is worth fixing in the layout — a chip that does nothing should not look tappable.",
       "source": "src/renderer/App.tsx"
+    },
+    {
+      "id": "console.error",
+      "group": "console",
+      "label": "CAN'T LOAD alert",
+      "kind": "block",
+      "status": "live",
+      "does": "A red bar under the header when a track cannot be loaded, naming the file and saying why — for example that it isn't on disk any more — with a ✕ that dismisses it. It also clears itself after a few seconds.",
+      "source": "native/Sources/DexConsole/Pops.swift"
     },
     {
       "id": "console.beatfx",
@@ -822,24 +840,6 @@
       "status": "live",
       "does": "Closes the library and returns to the mixer. Esc does the same.",
       "source": "native/Sources/DexConsole/Library.swift"
-    },
-    {
-      "id": "lib.loadA",
-      "group": "library",
-      "label": "deck A title (tap to load)",
-      "kind": "button",
-      "status": "live",
-      "does": "In the library's deck panel, deck A's title is its load button: select a row, and it reads TAP TO LOAD; tap it to load the track. A playing deck refuses (PLAYING · PAUSE TO LOAD). Rows also drag onto it.",
-      "source": "src/renderer/ui/LibraryDecks.tsx"
-    },
-    {
-      "id": "lib.loadB",
-      "group": "library",
-      "label": "deck B title (tap to load)",
-      "kind": "button",
-      "status": "live",
-      "does": "As deck A's, for deck B.",
-      "source": "src/renderer/ui/LibraryDecks.tsx"
     },
     {
       "id": "lib.bpm",

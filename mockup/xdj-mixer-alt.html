@@ -898,7 +898,7 @@
           return `
             <div class="zcard" data-deck="${d.letter}" data-side="${d.letter}" style="--accent:${accentOf(d.letter)}">
               <div class="ztitle" data-ctl="console.screen.card">
-                <span class="zdeck">${d.letter}</span>
+                <span class="zdeck" data-ctl="deck.focus">${d.letter}</span>
                 <span class="note">${NOTE_ICON}</span>
                 <span class="zname">${title}</span>
                 <span class="zartist">${artist}</span>
@@ -2154,7 +2154,7 @@
         return `
             <div class="zcard empty" data-deck="${d.letter}" data-side="${d.letter}" style="--accent:${accentOf(d.letter)}">
               <div class="ztitle" data-ctl="console.screen.card">
-                <span class="zdeck">${d.letter}</span>
+                <span class="zdeck" data-ctl="deck.focus">${d.letter}</span>
                 <span class="note">${NOTE_ICON}</span>
                 <span class="zname">${isLoading(d) ? 'Loading…' : 'No track loaded'}</span>
                 <span class="zartist"></span>

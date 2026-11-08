@@ -191,6 +191,16 @@ window.DEX_CONTROLS = {
       "n": 13
     },
     {
+      "id": "console.status",
+      "group": "console",
+      "label": "ANALYSING · IMPORTING status pill",
+      "kind": "readout",
+      "status": "live",
+      "does": "The header's progress pill while the library works: a spinner, ANALYSING 3 / 12 or IMPORTING or FINDING KEYS 3 / 4, the track it is on, and a hairline that fills as it works through the list. It is absent when nothing is running.",
+      "source": "native/Sources/DexConsole/Head.swift",
+      "n": 14
+    },
+    {
       "id": "console.chips",
       "group": "console",
       "label": "SYNC · MASTER · playing chips",
@@ -199,7 +209,17 @@ window.DEX_CONTROLS = {
       "does": "Status only, no click, in the header: which deck is synced, which deck is the tempo master, and whether either deck is running.",
       "note": "These read like buttons. That is worth fixing in the layout — a chip that does nothing should not look tappable.",
       "source": "src/renderer/App.tsx",
-      "n": 14
+      "n": 15
+    },
+    {
+      "id": "console.error",
+      "group": "console",
+      "label": "CAN'T LOAD alert",
+      "kind": "block",
+      "status": "live",
+      "does": "A red bar under the header when a track cannot be loaded, naming the file and saying why — for example that it isn't on disk any more — with a ✕ that dismisses it. It also clears itself after a few seconds.",
+      "source": "native/Sources/DexConsole/Pops.swift",
+      "n": 16
     },
     {
       "id": "console.beatfx",
@@ -209,7 +229,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "AUTO, TAP, REVERB, ECHO, FLANGER from the XDJ-RR. Nothing implemented: Dex has no effects beyond the three EQ bands and the sweep filter, and no FX send bus.",
       "source": "src/renderer/audio/eq.ts",
-      "n": 15
+      "n": 17
     },
     {
       "id": "console.browse",
@@ -219,7 +239,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "rekordbox-style on-device browser. Dex has no in-deck browse; the library sheet with its A / B load buttons is the equivalent.",
       "inPlan": "xdj",
-      "n": 16
+      "n": 18
     },
     {
       "id": "console.menu",
@@ -229,7 +249,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "Hardware utility menu (output routing, MIDI, preferences). Dex exposes the output mode as a single top-bar toggle and has no menu.",
       "inPlan": "xdj",
-      "n": 17
+      "n": 19
     },
     {
       "id": "deck.load",
@@ -239,7 +259,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "The + on each deck card. Opens a file picker and adds the chosen files to the library, loading the last one onto this deck. Dropping files on a deck does the same.",
       "source": "src/renderer/ui/Console.tsx",
-      "n": 18
+      "n": 20
     },
     {
       "id": "deck.library",
@@ -249,7 +269,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Opens the library sheet over the mixer, without changing the loaded track.",
       "source": "src/renderer/ui/DeckPanel.tsx",
-      "n": 19
+      "n": 21
     },
     {
       "id": "deck.focus",
@@ -259,7 +279,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "The deck letter on each info card. Tapping anywhere on a deck makes it the focused deck, and the keyboard shortcuts follow the focus: Space, M, L, [ and ] act on it.",
       "source": "src/renderer/ui/DeckPanel.tsx",
-      "n": 20
+      "n": 22
     },
     {
       "id": "deck.platter",
@@ -269,7 +289,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Drag around the record to scrub precisely: 90° moves half a beat, one full turn moves two beats. Clockwise moves forward; counterclockwise moves back. Sensitivity follows BPM and stays the same across track lengths and window sizes. The centre ignores small pointer movements. Manual platter movement retains fractional beats while SYNC is armed. The fixed radial marks in the center have a two-mark gap that follows playback, CUE and jog position, and freezes when paused.",
       "source": "src/renderer/console/Chassis.tsx",
-      "n": 21
+      "n": 23
     },
     {
       "id": "deck.cue",
@@ -280,7 +300,7 @@ window.DEX_CONTROLS = {
       "does": "Pre-listens this deck on the cue bus without touching the master output. It is a toggle, not a momentary button, and it is the same state as the channel CUE in the centre mixer.",
       "shortcut": "M",
       "source": "src/renderer/ui/Platter.tsx",
-      "n": 22
+      "n": 24
     },
     {
       "id": "deck.eqtoggle",
@@ -290,7 +310,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Swaps the deck face between the spinning platter and the four tall tone faders. In the app the EQ key lives in the centre hub; the mockup moves it onto the face next to the control it switches.",
       "source": "src/renderer/App.tsx",
-      "n": 23
+      "n": 25
     },
     {
       "id": "deck.tags",
@@ -301,7 +321,7 @@ window.DEX_CONTROLS = {
       "does": "On each deck card, beside the overview: Camelot key, grid confidence, master or sync, vinyl and active loop length. All derived from the engine snapshot and the library.",
       "note": "Six chips in a 24 pt strip is the densest text in the app. The confidence % is the least useful mid-mix.",
       "source": "src/renderer/ui/Console.tsx",
-      "n": 24
+      "n": 26
     },
     {
       "id": "deck.state",
@@ -311,7 +331,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Each screen lane's label: deck, BPM at the current tempo, and playing / cued / empty.",
       "source": "src/renderer/ui/Console.tsx",
-      "n": 25
+      "n": 27
     },
     {
       "id": "tone.filter",
@@ -321,7 +341,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Sweep filter as a horizontal bipolar slider above each channel: left low-pass, right high-pass, centre off; the label reads LP / HP and the cutoff. Same curve as src/shared/curves.ts. Double-tap centres it.",
       "source": "src/renderer/ui/Mixer.tsx",
-      "n": 26
+      "n": 28
     },
     {
       "id": "tone.low",
@@ -331,7 +351,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "LOW cut fader beside the other deck's LOW, so a bass swap is two neighbouring faders. Isolator band below 220 Hz (Linkwitz-Riley 24 dB/oct, src/shared/isolator.ts). Top of the travel is flat (0 dB); the travel only cuts: −3 dB at 80%, −6 at 60%, −12 at 40%, −24 at 20%, −∞ at the foot. Relative drag (no jump), double-tap returns to 0 dB, drag sideways off the fader for ¼ then ⅒ speed (the readout says FINE).",
       "source": "src/renderer/ui/Mixer.tsx",
-      "n": 27
+      "n": 29
     },
     {
       "id": "tone.mid",
@@ -341,7 +361,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "MID cut fader: isolator band 220 Hz – 3.5 kHz. Top of the travel is flat (0 dB); the travel only cuts: −3 dB at 80%, −6 at 60%, −12 at 40%, −24 at 20%, −∞ at the foot. Relative drag (no jump), double-tap returns to 0 dB, drag sideways off the fader for ¼ then ⅒ speed (the readout says FINE).",
       "source": "src/renderer/ui/Mixer.tsx",
-      "n": 28
+      "n": 30
     },
     {
       "id": "tone.high",
@@ -351,7 +371,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "HI cut fader: isolator band above 3.5 kHz. Top of the travel is flat (0 dB); the travel only cuts: −3 dB at 80%, −6 at 60%, −12 at 40%, −24 at 20%, −∞ at the foot. Relative drag (no jump), double-tap returns to 0 dB, drag sideways off the fader for ¼ then ⅒ speed (the readout says FINE).",
       "source": "src/renderer/ui/Mixer.tsx",
-      "n": 29
+      "n": 31
     },
     {
       "id": "tone.tempo",
@@ -361,7 +381,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "On the outer edge of each deck. Tempo ±16%; down is faster, as on a CDJ. Pitch is preserved while KEY is on; turn KEY off for vinyl behaviour. Double-tap resets to 0%. No readout under the fader: the tempo shows in the track window.",
       "source": "src/renderer/ui/Console.tsx",
-      "n": 30
+      "n": 32
     },
     {
       "id": "pads.loop",
@@ -371,7 +391,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Loop stepper readout, in beats (1 … 64), in large type. Tap starts a loop at that size, quantised to the grid; while it runs the whole widget lights like a lit CUE key (orange border, orange legend, dark orange tint). The main waveform highlights its actual start, end and beat count in yellow, with a matching track-overview marker. Drag the yellow region to move the whole loop in beat steps while preserving its length and playback phase; left/right arrows move a focused loop by one beat. Tap the readout again to leave the loop.",
       "source": "src/renderer/console/Chassis.tsx",
-      "n": 31
+      "n": 33
     },
     {
       "id": "pads.halve",
@@ -382,7 +402,7 @@ window.DEX_CONTROLS = {
       "does": "Loop stepper: halve the size. A running loop follows straight away.",
       "shortcut": "Shift + L",
       "source": "src/renderer/ui/LoopStepper.tsx",
-      "n": 32
+      "n": 34
     },
     {
       "id": "pads.double",
@@ -392,7 +412,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Loop stepper: double the size. A running loop follows straight away.",
       "source": "src/renderer/ui/LoopStepper.tsx",
-      "n": 33
+      "n": 35
     },
     {
       "id": "pads.exit",
@@ -403,7 +423,7 @@ window.DEX_CONTROLS = {
       "does": "Leaves the loop on its end boundary rather than wherever the finger lands, so the mix stays on the grid.",
       "shortcut": "L",
       "source": "src/renderer/ui/DeckPanel.tsx",
-      "n": 34
+      "n": 36
     },
     {
       "id": "transport.play",
@@ -414,7 +434,7 @@ window.DEX_CONTROLS = {
       "does": "Starts or pauses this deck. The deck auto-pauses when the track reaches the end.",
       "shortcut": "1 / 2, or Space",
       "source": "src/renderer/ui/Transport.tsx",
-      "n": 35
+      "n": 37
     },
     {
       "id": "transport.cue",
@@ -425,7 +445,7 @@ window.DEX_CONTROLS = {
       "does": "CDJ cue point, beside PLAY. Paused: sets the cue point. Playing: returns to it and stops. Held while paused on it: plays until released; PLAY while held keeps playing. Auto-cue on load is the first downbeat; a red CUE marker shows it on the waveforms. Key C.",
       "shortcut": "M",
       "source": "src/renderer/ui/Transport.tsx",
-      "n": 36
+      "n": 38
     },
     {
       "id": "transport.sync",
@@ -436,7 +456,7 @@ window.DEX_CONTROLS = {
       "does": "A setting of the deck, not the track: it can be armed on an empty deck, stays on across loads, is remembered between sessions, and both decks can have it. A synced deck that is not master takes the master's tempo as soon as a track is in, and its CUE preview and PLAY start on the master's closest beat (at most half a beat either side of the cue). While both play, a ±0.25% trim keeps removing drift. Moving a follower's tempo fader turns its SYNC off.",
       "shortcut": "S",
       "source": "src/renderer/audio/engine.ts",
-      "n": 37
+      "n": 39
     },
     {
       "id": "transport.master",
@@ -447,7 +467,7 @@ window.DEX_CONTROLS = {
       "does": "The tempo reference that synced decks follow. It moves to whichever deck is playing on its own, as on a CDJ, so a synced deck always follows the deck that is playing; press it to choose. Moving the master's tempo carries its followers along. Exactly one deck is master at a time.",
       "shortcut": "Shift + S",
       "source": "src/renderer/audio/engine.ts",
-      "n": 38
+      "n": 40
     },
     {
       "id": "transport.key",
@@ -457,7 +477,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Key lock, on by default: tempo changes leave pitch alone. Turn it off for vinyl mode and the tag row switches to 'vinyl pitch'.",
       "source": "src/renderer/ui/DeckPanel.tsx",
-      "n": 39
+      "n": 41
     },
     {
       "id": "transport.grid",
@@ -467,7 +487,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Opens the beat-grid sheet for this deck. Same sheet as the GRID key on the screen.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 40
+      "n": 42
     },
     {
       "id": "grid.readouts",
@@ -477,7 +497,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Detected tempo, how much the detector trusts the grid, and the grid's downbeat offset in milliseconds. The offset is folded at the bar, not the beat: a value larger than one beat is how the grid records which beat is the downbeat.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 41
+      "n": 43
     },
     {
       "id": "grid.wave",
@@ -488,7 +508,7 @@ window.DEX_CONTROLS = {
       "does": "The track's waveform at full detail, with a line on every beat and a heavier line and bar number every four. Dragging moves the waveform and the lines stay still, setting the grid's offset; the result folds into one bar on release. A live playhead crosses it.",
       "note": "The window is fixed when the sheet opens so the view does not move during a drag; close and reopen to recentre it. Bar lines assume 4/4.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 42
+      "n": 44
     },
     {
       "id": "grid.zoom",
@@ -498,7 +518,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "source": "src/renderer/ui/GridSheet.tsx",
       "does": "Zooms the waveform in steps from 8 seconds across down to 250 ms, about its centre, so the attack of a beat can be seen.",
-      "n": 43
+      "n": 45
     },
     {
       "id": "grid.beatstep",
@@ -508,7 +528,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "source": "src/renderer/ui/GridSheet.tsx",
       "does": "Centres the grid line before or after the middle of the window.",
-      "n": 44
+      "n": 46
     },
     {
       "id": "grid.overview",
@@ -518,7 +538,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "source": "src/renderer/ui/GridSheet.tsx",
       "does": "The whole track under the waveform, marking the window. Tap or drag to move the window along the track, for checking the grid at the start and the end.",
-      "n": 45
+      "n": 47
     },
     {
       "id": "grid.setdownbeat",
@@ -528,7 +548,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Arms the waveform, then a press on the first beat of a bar re-phases the grid so that beat is bar 1. The offset is recomputed modulo the bar, correcting a rotated downbeat in one gesture instead of a count of 1 ms nudges. The button turns accent-coloured while armed.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 46
+      "n": 48
     },
     {
       "id": "grid.tap",
@@ -538,7 +558,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Tap three or more times with the beat; the average interval sets the BPM, clamped to 60–200, at 50% confidence because a tap is a human estimate. Gaps longer than 2.6 seconds are ignored.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 47
+      "n": 49
     },
     {
       "id": "grid.bpmdown",
@@ -548,7 +568,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Trims the grid tempo by 0.1 BPM. Use it when the detector is close but the beat markers drift over a long mix.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 48
+      "n": 50
     },
     {
       "id": "grid.bpmup",
@@ -558,7 +578,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Raises the grid tempo by 0.1 BPM.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 49
+      "n": 51
     },
     {
       "id": "grid.nudgeback",
@@ -569,7 +589,7 @@ window.DEX_CONTROLS = {
       "does": "Slides the whole grid 1 ms earlier without changing tempo. The offset is folded at the bar, so nudging never rotates the downbeat. The arrow keys do the same on the focused deck, with Shift for 10 ms steps.",
       "shortcut": "← / →",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 50
+      "n": 52
     },
     {
       "id": "grid.nudgefwd",
@@ -579,7 +599,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Slides the whole grid 1 ms later without changing tempo, preserving the bar phase.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 51
+      "n": 53
     },
     {
       "id": "grid.halve",
@@ -589,7 +609,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Reinterprets the grid at half time: same music, twice the beat period. Use it when the detector locked onto double-time hats and the markers look twice as dense as the music.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 52
+      "n": 54
     },
     {
       "id": "grid.double",
@@ -599,7 +619,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Reinterprets the grid at double time. Use it when the markers look half as dense as the music.",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 53
+      "n": 55
     },
     {
       "id": "grid.alternates",
@@ -609,7 +629,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "The tempos the analysis turned down, each with its own downbeat and its ratio to the current grid. A tap swaps one in; the reading it replaces joins the row. Headed amber \"Not sure of this tempo · it may be\" when the track is flagged as an uncertain tempo, which also turns the confidence readout and the library's grid cell amber with a ?.",
       "source": "src/renderer/console/Sheets.tsx",
-      "n": 54
+      "n": 56
     },
     {
       "id": "grid.close",
@@ -620,7 +640,7 @@ window.DEX_CONTROLS = {
       "does": "Closes the sheet; Esc does the same. There is nothing to apply or cancel because every edit is already written to the deck and the library entry.",
       "shortcut": "Esc",
       "source": "src/renderer/ui/GridSheet.tsx",
-      "n": 55
+      "n": 57
     },
     {
       "id": "xdj.jogmode",
@@ -630,7 +650,7 @@ window.DEX_CONTROLS = {
       "status": "partial",
       "does": "Vinyl / jog-mode switch. Dex's closest equivalent is the KEY toggle: key lock off makes pitch follow the tempo. There is no slip mode and no jog sensitivity.",
       "inPlan": "xdj",
-      "n": 56
+      "n": 58
     },
     {
       "id": "xdj.temporange",
@@ -640,7 +660,7 @@ window.DEX_CONTROLS = {
       "status": "partial",
       "does": "Range selector (±6 / 10 / 16 / WIDE). Dex has one range: ±16%.",
       "inPlan": "xdj",
-      "n": 57
+      "n": 59
     },
     {
       "id": "xdj.mastertempo",
@@ -650,7 +670,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "Applies one tempo to both decks from a single control. Not built; each deck has its own tempo and SYNC bridges them.",
       "inPlan": "xdj",
-      "n": 58
+      "n": 60
     },
     {
       "id": "xdj.hotcue",
@@ -661,7 +681,7 @@ window.DEX_CONTROLS = {
       "does": "A 4 × 2 bank under the platter, as on Traktor, with a HOT CUES label and DELETE. An empty pad has a blue outline; a set pad is solid blue and shows its time. An empty pad captures the playhead, a set pad jumps to it; DELETE turns set pads into erasers until it is pressed again or nothing is left. Saved per track.",
       "source": "src/renderer/ui/HotCuePanel.tsx",
       "inPlan": "xdj",
-      "n": 59
+      "n": 61
     },
     {
       "id": "xdj.beatloop",
@@ -671,7 +691,7 @@ window.DEX_CONTROLS = {
       "status": "partial",
       "does": "Auto beat loop. Dex's loop pads already do this, quantised to the grid — the labelling is what differs.",
       "inPlan": "xdj",
-      "n": 60
+      "n": 62
     },
     {
       "id": "xdj.sliploop",
@@ -681,7 +701,7 @@ window.DEX_CONTROLS = {
       "status": "partial",
       "does": "A loop that keeps the underlying position running. Dex's ROLL is the closest thing; there is no separate slip mode.",
       "inPlan": "xdj",
-      "n": 61
+      "n": 63
     },
     {
       "id": "xdj.beatjump",
@@ -693,7 +713,7 @@ window.DEX_CONTROLS = {
       "shortcut": "Q / W deck A, O / P deck B",
       "inPlan": "xdj",
       "source": "src/renderer/console/Chassis.tsx",
-      "n": 62
+      "n": 64
     },
     {
       "id": "xdj.inout",
@@ -703,7 +723,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "Manual loop in and out points, plus re-loop. Dex loops are grid-quantised lengths with no in/out marks.",
       "inPlan": "xdj",
-      "n": 63
+      "n": 65
     },
     {
       "id": "xdj.cuecall",
@@ -713,7 +733,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "Stored cue and loop memory, recall and delete. Not built; nothing about a track's cue points is persisted.",
       "inPlan": "xdj",
-      "n": 64
+      "n": 66
     },
     {
       "id": "xdj.shift",
@@ -723,7 +743,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "Hardware modifier that doubles the function of every other key. No equivalent; held ROLL is Dex's only momentary control.",
       "inPlan": "xdj",
-      "n": 65
+      "n": 67
     },
     {
       "id": "xdj.mic",
@@ -733,7 +753,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "Mic input with talk-over ducking. There is no microphone path into the master and no routing UI for one.",
       "inPlan": "xdj",
-      "n": 66
+      "n": 68
     },
     {
       "id": "xdj.record",
@@ -743,7 +763,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "Master recording and track marks. Nothing is recorded; the only capture path (the input tap) is analysis-only and never connected to the output.",
       "inPlan": "xdj",
-      "n": 67
+      "n": 69
     },
     {
       "id": "xdj.channellevel",
@@ -755,7 +775,7 @@ window.DEX_CONTROLS = {
       "note": "Drawn as a ghost block in both plans. Adding it needs an engine gain node per deck before it can be a real control.",
       "inPlan": "xdj",
       "source": "src/renderer/ui/Mixer.tsx",
-      "n": 68
+      "n": 70
     },
     {
       "id": "xdj.phones",
@@ -765,7 +785,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "Headphone volume. Dex has cue mix and split/4-channel routing, but no cue level.",
       "inPlan": "xdj",
-      "n": 69
+      "n": 71
     },
     {
       "id": "mixer.bpm",
@@ -775,7 +795,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "The master deck's detected BPM and track name. Master is whichever deck the MASTER key is on; the dot takes that deck's accent colour.",
       "source": "src/renderer/App.tsx",
-      "n": 70
+      "n": 72
     },
     {
       "id": "mixer.meter",
@@ -785,7 +805,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "The middle two of the four meters in the centre strip: the master's left and right peaks after VOLUME and before the limiter, on the same −30 to +6 dBFS scale as A and B. Red starts at 0 dBFS, where the limiter is working, so two hot decks fully open go into the red. The engine keeps each side's highest sample until the meters read it, so no peak is missed. The bar rises at once and falls 20 dB a second; the top segment holds for 2 s.",
       "source": "native/Sources/CDexEngine/DexEngine.cpp",
-      "n": 71
+      "n": 73
     },
     {
       "id": "mixer.chmeter",
@@ -795,7 +815,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "The outer two of the four meters in the centre strip: each deck's peak after TRIM, EQ and FILTER, before LEVEL and the crossfader, as on a Pioneer mixer, on the master's −30 to +6 dBFS scale. Set TRIM by it whatever the faders are doing, even with LEVEL down; the master meters show what actually goes in. Same fall and hold as the master meters.",
       "source": "native/Sources/CDexEngine/DexEngine.cpp",
-      "n": 72
+      "n": 74
     },
     {
       "id": "mixer.cue",
@@ -805,7 +825,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "CUE under each channel's LEVEL fader: pre-listen that deck in the headphones (M). In the library's deck panel the same switch is the headphone key beside PLAY · CUE.",
       "source": "src/renderer/ui/Mixer.tsx",
-      "n": 73
+      "n": 75
     },
     {
       "id": "mixer.eq",
@@ -815,7 +835,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Opens that deck's tone overlay on its own deck face. The hub's A / B EQ keys do the same thing; the mockup draws both.",
       "source": "src/renderer/App.tsx",
-      "n": 74
+      "n": 76
     },
     {
       "id": "mixer.crossfader",
@@ -825,7 +845,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Crossfader at the foot of the mixer. Each deck stays fully open until the centre and fades only across the far half, as a club mixer's cut curve: centred, LEVEL alone sets the mix. Relative drag, double-tap centres it.",
       "source": "native/Sources/DexCore/Transport.swift",
-      "n": 75
+      "n": 77
     },
     {
       "id": "rail.master",
@@ -835,7 +855,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "In the VOLUME popover. Master output, 0 to 1.2, default 0.85.",
       "source": "src/renderer/App.tsx",
-      "n": 76
+      "n": 78
     },
     {
       "id": "rail.cuemix",
@@ -845,7 +865,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "In the VOLUME popover. Blends the headphones from the cued deck to the master.",
       "source": "src/renderer/App.tsx",
-      "n": 77
+      "n": 79
     },
     {
       "id": "lib.search",
@@ -855,7 +875,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Filters the list as you type, case-insensitive, across title, key name, Camelot code and BPM. Typing a Camelot code such as 4A matches that key exactly. It takes focus when the sheet opens and the header shows how many tracks match.",
       "source": "src/renderer/ui/LibrarySheet.tsx",
-      "n": 78
+      "n": 80
     },
     {
       "id": "lib.addfiles",
@@ -865,7 +885,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Adds audio files to the library and loads the last one onto the last focused deck. mp3, flac, wav, aiff, aif, m4a, aac, ogg and opus are accepted; BPM, offset and waveform peaks are analysed on ingest.",
       "source": "src/renderer/state/library.ts",
-      "n": 79
+      "n": 81
     },
     {
       "id": "lib.addfolder",
@@ -875,7 +895,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Scans a folder recursively, up to 3000 files, sorted by path, and analyses each one in a worker off the UI thread.",
       "source": "src/renderer/state/library.ts",
-      "n": 80
+      "n": 82
     },
     {
       "id": "lib.more",
@@ -885,7 +905,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "At the end of each row: opens the track's details (artists, album, genre, BPM, key, length and release date where available), its playlists to switch on and off, re-analyse and remove.",
       "source": "native/Sources/DexConsole/Library.swift",
-      "n": 81
+      "n": 83
     },
     {
       "id": "lib.findkeys",
@@ -895,7 +915,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Shown when tracks have no key yet, with how many. Reads only the key of each, one at a time, so grids and hot cues edited by hand stay. FINDING KEYS shows progress in the header.",
       "source": "native/Sources/DexAudio/NativeLibrary.swift",
-      "n": 82
+      "n": 84
     },
     {
       "id": "lib.done",
@@ -905,26 +925,6 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Closes the library and returns to the mixer. Esc does the same.",
       "source": "native/Sources/DexConsole/Library.swift",
-      "n": 83
-    },
-    {
-      "id": "lib.loadA",
-      "group": "library",
-      "label": "deck A title (tap to load)",
-      "kind": "button",
-      "status": "live",
-      "does": "In the library's deck panel, deck A's title is its load button: select a row, and it reads TAP TO LOAD; tap it to load the track. A playing deck refuses (PLAYING · PAUSE TO LOAD). Rows also drag onto it.",
-      "source": "src/renderer/ui/LibraryDecks.tsx",
-      "n": 84
-    },
-    {
-      "id": "lib.loadB",
-      "group": "library",
-      "label": "deck B title (tap to load)",
-      "kind": "button",
-      "status": "live",
-      "does": "As deck A's, for deck B.",
-      "source": "src/renderer/ui/LibraryDecks.tsx",
       "n": 85
     },
     {
