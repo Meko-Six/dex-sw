@@ -99,21 +99,23 @@ struct TrimPop: View {
     let actions: ConsoleActions
 
     var body: some View {
-        let id = deck.id, value = (deck.trimDb + 12) / 24
+        let id = deck.id, value = (deck.trimDb + 12) / 24, auto = deck.autoTrimDb ?? 0
         PopBox {
             PopHead(title: "Trim \(id)", help: .trim, actions: actions) { actions.setMixPop(nil) }
             HStack(spacing: 10) {
                 GeometryReader { geometry in
                     HorizontalFader(position: value, thumbWidth: 40, label: nil)
-                        .relativeDrag("\(id)-trim", horizontal: true, travel: geometry.size.width - 40, value: value, reset: 0.5) {
+                        .relativeDrag("\(id)-trim", horizontal: true, travel: geometry.size.width - 40, value: value,
+                                      reset: (auto + 12) / 24) {
+                            // Snaps to AUTO within 0.25 dB.
                             let db = (($0 * 24 - 12) * 10).rounded() / 10
-                            actions.deck.setTrim(id, abs(db) < 0.25 ? 0 : db)
+                            actions.deck.setTrim(id, abs(db - auto) < 0.25 ? auto : db)
                         }
                 }
                 .frame(height: 44)
                 Label(MixerMath.formatTrim(deck.trimDb) + " dB", .cond(16, tracking: 0.64))
                     .foregroundStyle(Color(hex: 0xB6B6BB)).frame(width: 58, alignment: .trailing)
-                SheetButton(title: "Reset", height: 44) { actions.deck.setTrim(id, 0) }
+                SheetButton(title: "Reset", height: 44) { actions.deck.setTrim(id, auto) }
             }
         }
         .frame(width: 300, height: 124)

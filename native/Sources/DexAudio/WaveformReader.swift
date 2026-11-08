@@ -10,10 +10,13 @@ public struct WaveformOverview: Sendable {
     public let waveform: TrackWaveform?
     /// Nil when the read was asked not to look for the key.
     public let key: TrackKey?
+    /// Nil for a cached overview, which doesn't decode the audio.
+    public let loudness: TrackLoudness?
     public init(duration: Double, peaks: [Float], decodedFrames: Int64, bufferCapacity: UInt32,
-                detection: DetectedGrid, waveform: TrackWaveform? = nil, key: TrackKey? = nil) {
+                detection: DetectedGrid, waveform: TrackWaveform? = nil, key: TrackKey? = nil, loudness: TrackLoudness? = nil) {
         self.duration = duration; self.peaks = peaks; self.decodedFrames = decodedFrames
         self.bufferCapacity = bufferCapacity; self.detection = detection; self.waveform = waveform; self.key = key
+        self.loudness = loudness
     }
 }
 
@@ -42,6 +45,7 @@ public enum WaveformReader {
         var peaks = [Float](repeating: 0, count: bins)
         let rhythm = analyzeRhythm && Double(file.length) / format.sampleRate >= 6 ? RhythmReader(format: format) : nil
         let key = analyzeKey ? KeyReader(format: format, frames: file.length, capacity: chunkFrames) : nil
+        let loudness = LoudnessMeter(sampleRate: format.sampleRate)
         var cursor: Int64 = 0
         while cursor < file.length {
             try Task.checkCancellation()
@@ -53,6 +57,7 @@ public enum WaveformReader {
             }
             try rhythm?.consume(buffer)
             key?.consume(buffer)
+            loudness.consume(buffer)
             try envelope.consume(buffer)
             for frame in 0..<Int(buffer.frameLength) {
                 let bin = min(bins - 1, Int(Double(cursor + Int64(frame)) / Double(file.length) * Double(bins)))
@@ -65,7 +70,30 @@ public enum WaveformReader {
         }
         return WaveformOverview(duration: Double(cursor) / format.sampleRate, peaks: peaks,
                                 decodedFrames: cursor, bufferCapacity: chunkFrames, detection: try rhythm?.detect() ?? .unavailable,
-                                waveform: try envelope.finish(frames: cursor), key: key?.finish())
+                                waveform: try envelope.finish(frames: cursor), key: key?.finish(), loudness: loudness.finish())
+    }
+
+    /// The loudness alone, for tracks imported before the library measured it.
+    public static func readLoudness(url: URL, chunkFrames: UInt32 = 16_384) throws -> TrackLoudness {
+        try Task.checkCancellation()
+        let file = try AVAudioFile(forReading: url)
+        let format = file.processingFormat
+        guard file.length > 0, format.sampleRate > 0, (1...2).contains(format.channelCount),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: chunkFrames) else {
+            throw ReadError.unsupportedAudio
+        }
+        let meter = LoudnessMeter(sampleRate: format.sampleRate)
+        var cursor: Int64 = 0
+        while cursor < file.length {
+            try Task.checkCancellation()
+            try autoreleasepool {
+                try file.read(into: buffer, frameCount: UInt32(min(Int64(chunkFrames), file.length - cursor)))
+            }
+            guard buffer.frameLength > 0 else { throw ReadError.unsupportedAudio }
+            meter.consume(buffer)
+            cursor += Int64(buffer.frameLength)
+        }
+        return meter.finish()
     }
 
     /// The key alone, for tracks imported before the library analysed keys.
@@ -91,6 +119,15 @@ public enum WaveformReader {
         return key.finish()
     }
     public enum ReadError: Error { case invalidBudget, unsupportedAudio }
+}
+
+extension LoudnessMeter {
+    func consume(_ buffer: AVAudioPCMBuffer) {
+        guard let channels = buffer.floatChannelData else { return }
+        let frames = Int(buffer.frameLength)
+        consume(left: UnsafeBufferPointer(start: channels[0], count: frames),
+                right: buffer.format.channelCount > 1 ? UnsafeBufferPointer(start: channels[1], count: frames) : nil)
+    }
 }
 
 /// Feeds the key analysis the channel average, as `toMono` does, through one

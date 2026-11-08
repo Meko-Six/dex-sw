@@ -56,8 +56,7 @@ final class StageTests: XCTestCase {
     }
 
     func testMixerReadoutsMatchElectronDemo() {
-        let a = ConsoleState.demoHome.decks[0], b = ConsoleState.demoHome.decks[1]
-        XCTAssertEqual(MixerMath.formatDb(MixerMath.lowSumDb(a, b, crossfader: 0.5)), "−3.0")
+        let b = ConsoleState.demoHome.decks[1]
         XCTAssertEqual(MixerMath.formatDb(MixerMath.faderDb(b.eq.low)), "−43.8")
         XCTAssertEqual(MixerMath.formatDb(MixerMath.faderDb(b.eq.mid)), "−6.0")
         XCTAssertEqual(MixerMath.formatDb(MixerMath.faderDb(b.eq.high)), "−3.0")

@@ -79,6 +79,12 @@ final class EngineCore: @unchecked Sendable {
         refresh()
         return hasState ? 20 * log10(max(1e-6, Double(state.masterRms))) : -120
     }
+    /// The meters' newest values; takes the master peaks gathered since the last call.
+    func readMeters() -> DexMeterReading {
+        var reading = DexMeterReading()
+        dex_engine_read_meters(raw, &reading)
+        return reading
+    }
     func deckState(_ index: Int) -> DexDeckState { index == 0 ? state.deck.0 : state.deck.1 }
     /// The soonest a landing can come out: the block after the newest one, never in the past.
     func soonest(after now: Double) -> Double {

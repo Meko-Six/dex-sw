@@ -107,7 +107,9 @@ actor LibraryStorage {
         track.duration.isFinite && track.duration > 0 && track.hotCues.count == 8 &&
         track.hotCues.allSatisfy { $0 == nil || ($0!.isFinite && $0! >= 0 && $0! <= track.duration) } &&
         track.alternatives.allSatisfy { $0.bpm.isFinite && $0.bpm > 0 && $0.offsetMs.isFinite && $0.salience.isFinite } &&
-        (track.key.map { $0.confidence.isFinite && (0...1).contains($0.confidence) } ?? true)
+        (track.key.map { $0.confidence.isFinite && (0...1).contains($0.confidence) } ?? true) &&
+        (track.loudness.map { $0.integrated.isFinite && $0.main.isFinite && $0.peak.isFinite } ?? true) &&
+        (track.trimDb.map { $0.isFinite && abs($0) <= 12 } ?? true)
     }
     private func encode<T: Encodable>(_ value: T) throws -> Data {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
@@ -186,7 +188,8 @@ actor LibraryStorage {
                                      title: source.deletingPathExtension().lastPathComponent, duration: scanned.duration,
                                      grid: scanned.detection.grid, gridUncertain: scanned.detection.uncertain,
                                      alternatives: scanned.detection.alternatives, hotCues: Array(repeating: nil, count: 8), importedAt: Date(),
-                                     key: scanned.key, artist: tags.artist, tagTitle: tags.title, details: tags.details)
+                                     key: scanned.key, artist: tags.artist, tagTitle: tags.title, details: tags.details,
+                                     loudness: scanned.loudness)
         let committed: LibraryTrack = try transaction {
             var next = catalog!
             let selected = next.tracks.first(where: { $0.fingerprint == copied.hash }) ?? candidate
@@ -211,6 +214,13 @@ actor LibraryStorage {
         let url = audioDirectory.appendingPathComponent(track.filename)
         guard files.fileExists(atPath: url.path) else { throw LibraryError.missingAudio }
         return try await worker.readKey(url)
+    }
+    /// Measures a library track's loudness from its audio; the caller saves it.
+    func readLoudness(_ id: UUID) async throws -> TrackLoudness {
+        guard let track = try open().first(where: { $0.id == id }) else { throw LibraryError.missingTrack }
+        let url = audioDirectory.appendingPathComponent(track.filename)
+        guard files.fileExists(atPath: url.path) else { throw LibraryError.missingAudio }
+        return try await worker.readLoudness(url)
     }
     /// Reads a library track's tags and saves its cover; the caller saves the names.
     func readTags(_ id: UUID) async throws -> TagReading {
@@ -350,6 +360,9 @@ private actor LibraryAudioWorker {
     }
     func readKey(_ url: URL) throws -> TrackKey {
         try autoreleasepool { try WaveformReader.readKey(url: url) }
+    }
+    func readLoudness(_ url: URL) throws -> TrackLoudness {
+        try autoreleasepool { try WaveformReader.readLoudness(url: url) }
     }
     func tags(_ url: URL, cover: URL) -> TagReading {
         autoreleasepool {

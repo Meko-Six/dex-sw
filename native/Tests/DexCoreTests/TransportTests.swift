@@ -119,10 +119,18 @@ final class TransportTests: XCTestCase {
         XCTAssertEqual(four.resized(to: 8, around: 5).startBeat, 2, "Growing keeps loop-in")
         XCTAssertEqual(four.resized(to: 2, around: .nan), LoopRegion(grid: grid, position: 1, lengthBeats: 2))
     }
-    func testEqualPowerAndTempoLimits() {
-        for step in 0...100 {
-            let (a, b) = MixMath.crossfade(Double(step) / 100)
-            XCTAssertEqual(a * a + b * b, 1, accuracy: 1e-9)
+    func testCrossfaderIsFullOnBothSidesUntilTheCentreAndTempoLimits() {
+        XCTAssertTrue(MixMath.crossfade(0) == (1, 0))
+        XCTAssertTrue(MixMath.crossfade(0.5) == (1, 1), "centred, both decks are fully open")
+        XCTAssertTrue(MixMath.crossfade(1) == (0, 1))
+        XCTAssertEqual(MixMath.crossfade(0.75).0, cos(.pi / 4), accuracy: 1e-12)
+        XCTAssertEqual(MixMath.crossfade(0.25).1, cos(.pi / 4), accuracy: 1e-12)
+        var previous = MixMath.crossfade(0)
+        for step in 1...100 {
+            let gains = MixMath.crossfade(Double(step) / 100)
+            XCTAssertLessThanOrEqual(gains.0, previous.0); XCTAssertGreaterThanOrEqual(gains.1, previous.1)
+            if step <= 50 { XCTAssertEqual(gains.0, 1) } else { XCTAssertEqual(gains.1, 1) }
+            previous = gains
         }
         XCTAssertEqual(MixMath.tempoRate(master: 100, follower: 190), 0.84)
         XCTAssertEqual(MixMath.tempoRate(master: 190, follower: 100), 1.16)

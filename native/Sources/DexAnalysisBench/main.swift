@@ -48,6 +48,10 @@ struct DexAnalysisBench {
                 let result = try WaveformReader.read(url: url, analyzeKey: true)
                 var record: [String: Any] = ["id": id, "seconds": Date().timeIntervalSince(start),
                                             "uncertain": result.detection.uncertain, "duration": result.duration]
+                if let loudness = result.loudness {
+                    record["lufs"] = loudness.integrated; record["mainLufs"] = loudness.main
+                    record["peakDb"] = loudness.peak; record["autoTrim"] = loudness.autoTrim()
+                }
                 if let key = result.key {
                     record["key"] = key.name ?? NSNull(); record["camelot"] = key.camelot ?? NSNull()
                     record["keyConfidence"] = key.confidence

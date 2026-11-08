@@ -173,6 +173,13 @@ typedef struct {
 
 /// Copies the newest published block. False if nothing has been rendered yet.
 bool dex_engine_read_state(DexEngine *engine, DexEngineState *state);
+
+typedef struct {
+    float deck[2];   // the highest |sample| each deck sent into the master (after LEVEL and the crossfader), either side
+    float master[2]; // the master's highest |sample|, left and right, after VOLUME and before the limiter
+} DexMeterReading;
+/// What the mixer's meters show: peaks since the last call, which takes them. One reader.
+void dex_engine_read_meters(DexEngine *engine, DexMeterReading *out);
 /// Where a deck is at `hostNow` less `delaySeconds`, extrapolated from the block in `state`.
 /// Stops advancing soon after the last block, so a stalled engine freezes the display.
 double dex_engine_position_at(const DexEngineState *state, int deck, uint64_t hostNow, double hostTicksPerSecond, double delaySeconds);

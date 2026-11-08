@@ -55,9 +55,9 @@ enum Layout {
     /// SYNC · MASTER · KEY · HOT CUE run the full width of the deck, centred on
     /// the TRIM row and 40 pt tall on purpose, The tempo fader starts 23 pt under them,
     /// a finger's room, and its foot lines up with the mixer faders' foot (150 + 228),
-    /// with its readout and then TEMPO below it.
+    /// with TEMPO below it. Faders carry no readout: the cap's place says where it is.
     static let deckKey = (y: CGFloat(64), w: CGFloat(78), h: CGFloat(40), gap: CGFloat(6))
-    static let tempoColumn = (y: CGFloat(127), h: CGFloat(251 + 34))
+    static let tempoColumn = (y: CGFloat(127), h: CGFloat(251 + 17))
     static let platter = (y: CGFloat(114), size: CGFloat(262))
     static let rowY: CGFloat = 446
     static let key: CGFloat = 66
@@ -254,7 +254,7 @@ private struct DeckKey: View {
     }
 }
 
-/// `.col`: the tempo fader over its readout over TEMPO.
+/// `.col`: the tempo fader over TEMPO.
 private struct TempoColumn: View {
     let deck: String
     let rate: Double
@@ -268,7 +268,6 @@ private struct TempoColumn: View {
                     .relativeDrag("\(deck)-tempo", travel: geometry.size.height - 2 - 34, value: MixerMath.tempoToFader(rate),
                                   reset: 0.5) { set(MixerMath.faderToTempo($0)) }
             }
-            Label(MixerMath.tempoText(rate), .cond(12, tracking: 0.72)).foregroundStyle(Color(hex: 0xB6B6BB)).frame(height: 12)
             Label("TEMPO", .cond(12, tracking: 0.96)).foregroundStyle(Palette.silk).frame(height: 12)
         }
     }
@@ -590,17 +589,18 @@ private struct Mixer: View {
 
     var body: some View {
         let a = state.decks[0], b = state.decks[1]
-        let sum = MixerMath.lowSumDb(a, b, crossfader: state.crossfader)
-        let sumBar = sum == -.infinity ? 0 : max(0, min(100, (sum + 24) / 30 * 100))
         ZStack(alignment: .topLeading) {
             Group {
             Channel(deck: a, link: state.linkLows, actions: actions)
-            BandValue(name: "LOW Σ", value: MixerMath.formatDb(sum),
-                      colour: sum >= 3 ? Color(hex: 0xFF6A52) : sum > 1 ? Color(hex: 0xFFC531) : Color(hex: 0xB6B6BB))
-                .place(Layout.at(574, Layout.row.val.0, 46, Layout.row.val.1))
-            LiveMeter(fallback: state.meterDb) { db in Meter(fill: max(0, min(100, (db + 48) / 48 * 100)), marker: nil) }
-                .place(Layout.at(578, Layout.row.fader.0, 7, Layout.row.fader.1))
-            Meter(fill: sumBar, marker: 80).place(Layout.at(589, Layout.row.fader.0, 27, Layout.row.fader.1))
+            // A · L · R · B (`meterHtml`): each 8 pt wide under its name.
+            ForEach(MeterBar.columns, id: \.id) { column in
+                Label(column.id, .cond(12, tracking: 0)).foregroundStyle(Palette.silk)
+                    .place(Layout.at(column.x - 4, Layout.row.val.0, 16, Layout.row.val.1))
+                LiveMeters(fallback: state.meters) { meters in
+                    MeterBar(id: column.id, level: meters.level[column.id], hold: meters.hold[column.id])
+                }
+                .place(Layout.at(column.x, Layout.row.fader.0, 8, Layout.row.fader.1))
+            }
             DotKey(lines: ["LINK", "LOWS"], indent: 1.68, colours: state.linkLows ? .lit(0xFF8A00) : .off,
                    dot: state.linkLows ? Palette.led : Color(hex: 0x43434A), action: actions.toggleLinkLows)
                 .place(Layout.at(575, Layout.row.kill.0, 44, Layout.row.kill.1))
@@ -630,12 +630,15 @@ private struct Channel: View {
         let level = Layout.column(id, .level)
         ZStack(alignment: .topLeading) {
             Button { actions.openTrim(id) } label: {
+                // `.trimchip.auto`: lit green, AUTO, while the trim is the measured one.
+                let auto = deck.trimIsAuto, colours: KeyColours = auto ? .lit(0x35D06B) : .off
                 VStack(spacing: 4) {
-                    Label("TRIM", .cond(12, tracking: 0.96)).padding(.leading, 2.4).foregroundStyle(Palette.silk).frame(height: 12)
-                    Label(MixerMath.formatTrim(deck.trimDb), .cond(14, tracking: 0.56)).foregroundStyle(Color(hex: 0xCDCDD3)).frame(height: 14)
+                    Label(auto ? "AUTO" : "TRIM", .cond(12, tracking: 0.96)).padding(.leading, 2.4)
+                        .foregroundStyle(auto ? Color(hex: 0x7EE0A2) : Palette.silk).frame(height: 12)
+                    Label(MixerMath.formatTrim(deck.trimDb), .cond(14, tracking: 0.56)).foregroundStyle(colours.legend).frame(height: 14)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .box(fill: Color(hex: 0x151517), border: .white.opacity(0.13), radius: 3)
+                .box(fill: colours.face, border: colours.border, radius: 3)
             }
             .buttonStyle(.plain)
             .place(Layout.at(id == "A" ? 372 : 762, Layout.row.top.0, 60, Layout.row.top.1))
@@ -648,13 +651,10 @@ private struct Channel: View {
                 let (x, w) = Layout.column(id, column)
                 let position = column == .level ? deck.level : band(column)
                 let killed = column != .level && kill(column)
-                let db = MixerMath.faderDb(position)
                 let key = "\(id)-\(column.rawValue)", speed = touches.speeds[key]
                 let name = column == .level ? "LEVEL" : column == .high ? "HI" : column == .mid ? "MID" : "LOW"
-                BandValue(name: speed.map { $0 < 1 ? ($0 > 0.2 ? "FINE ¼" : "FINE ⅒") : name } ?? name,
-                          value: killed ? "KILL" : MixerMath.formatDb(db),
-                          colour: killed ? Color(hex: 0xFF6A52) : db < -0.05 ? Color(hex: 0xFFB45E) : Color(hex: 0xB6B6BB),
-                          live: speed != nil, fine: (speed ?? 1) < 1)
+                BandName(name: speed.map { $0 < 1 ? ($0 > 0.2 ? "FINE ¼" : "FINE ⅒") : name } ?? name,
+                         live: speed != nil, fine: (speed ?? 1) < 1)
                     .onTapGesture { if column != .level { actions.openBand(column.rawValue) } }
                     .place(Layout.at(x - 3, Layout.row.val.0, w + 6, Layout.row.val.1))
                 ChannelFader(position: position, accentLine: column == .level || column == .low ? Palette.accent(id) : nil,
@@ -733,24 +733,19 @@ func filterLabel(_ knob: Double) -> String {
     return (knob < 0 ? "LP " : "HP ") + hz
 }
 
-/// `.bandval`: the band's name over its dB, above each fader.
-private struct BandValue: View {
+/// `.bandval` above a fader: the band's name only. The cap's place says where it is.
+private struct BandName: View {
     let name: String
-    let value: String
-    let colour: Color
     /// `.live` while its fader is dragged; `.fine` once the drag slows.
     var live = false
     var fine = false
 
     var body: some View {
-        VStack(spacing: 5) {
-            // text-indent .2em pushes the name right of centre.
-            Label(name, .cond(12, tracking: 0.96)).padding(.leading, 2.4).foregroundStyle(fine ? Color(hex: 0xFFAB40) : Palette.silk).frame(height: 12)
-            Label(value, .cond(13, tracking: 0.52)).foregroundStyle(colour).frame(height: 13)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .box(fill: live ? Color(hex: 0x0A0A0B) : .clear, border: live ? Color(hex: 0x303036) : .clear, radius: 2)
-        .contentShape(Rectangle())
+        // text-indent .2em pushes the name right of centre.
+        Label(name, .cond(12, tracking: 0.96)).padding(.leading, 2.4).foregroundStyle(fine ? Color(hex: 0xFFAB40) : Palette.silk).frame(height: 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .box(fill: live ? Color(hex: 0x0A0A0B) : .clear, border: live ? Color(hex: 0x303036) : .clear, radius: 2)
+            .contentShape(Rectangle())
     }
 }
 
@@ -855,46 +850,50 @@ private struct DotFace: View {
     }
 }
 
-/// `.meter-v`: a segmented green-to-red bar (4 pt lit, 2 pt dark) filled to
-/// `fill` percent, with an optional white marker at `marker` percent.
-private struct Meter: View {
-    let fill: Double
-    let marker: Double?
+/// `.meter-v`: one of the four meters, lit in 6 pt segments (4 lit, 2 dark)
+/// from the foot, with the held segment above.
+struct MeterBar: View {
+    let id: String
+    let level: Double
+    let hold: Double
+
+    static let columns: [(id: String, x: CGFloat)] = [("A", 575), ("L", 588), ("R", 598), ("B", 611)]
 
     var body: some View {
         GeometryReader { geometry in
             let inner = CGSize(width: geometry.size.width - 2, height: geometry.size.height - 2)
-            // The bar box is 72% of the meter from the top (an over-constrained
-            // CSS rule), clipped from its top to `fill`.
-            let bar = inner.height * 0.72
-            let clip = bar * (1 - fill / 100)
+            // Whole segments only (`paintMeters`).
+            let lit = { (value: Double) in Int((Meters.percent(value) / 100 * inner.height / 6).rounded(.down)) }
+            let segments = lit(level), held = lit(hold)
             ZStack(alignment: .topLeading) {
                 Canvas { context, size in
-                    var y = size.height
+                    let top = size.height - CGFloat(segments) * 6
                     var stripes = Path()
-                    while y > 0 {
-                        stripes.addRect(CGRect(x: 0, y: max(0, y - 4), width: size.width, height: min(4, y)))
+                    var y = size.height
+                    while y > top {
+                        stripes.addRect(CGRect(x: 0, y: max(top, y - 4), width: size.width, height: min(4, y - top)))
                         y -= 6
                     }
                     var visible = context
-                    visible.clip(to: Path(CGRect(x: 0, y: clip, width: size.width, height: size.height - clip)))
                     visible.clip(to: stripes)
+                    let stops: [Gradient.Stop] = [
+                        .init(color: Color(hex: 0x25A859), location: 0), .init(color: Color(hex: 0x25A859), location: 0.55),
+                        .init(color: Color(hex: 0xD8A029), location: 0.68), .init(color: Color(hex: 0xD9662A), location: 0.78),
+                        .init(color: Color(hex: 0xD03A2C), location: 0.84)]
                     visible.fill(Path(CGRect(origin: .zero, size: size)), with: .linearGradient(
-                        Gradient(stops: [.init(color: Color(hex: 0x25A859), location: 0), .init(color: Color(hex: 0x25A859), location: 0.64),
-                                         .init(color: Color(hex: 0xD8A029), location: 0.78), .init(color: Color(hex: 0xD9662A), location: 0.9),
-                                         .init(color: Color(hex: 0xD03A2C), location: 1)]),
-                        startPoint: CGPoint(x: 0, y: size.height), endPoint: .zero))
+                        Gradient(stops: stops), startPoint: CGPoint(x: 0, y: size.height), endPoint: .zero))
+                    if held > segments {
+                        context.fill(Path(CGRect(x: 0, y: size.height - CGFloat(held - 1) * 6 - 4, width: size.width, height: 4)),
+                                     with: .color(Color(hex: 0xD6D6DB)))
+                    }
                 }
-                .frame(width: inner.width, height: bar)
+                .frame(width: inner.width, height: inner.height)
             }
-            .frame(width: inner.width, height: inner.height, alignment: .topLeading)
-            .clipped()
             .offset(x: 1, y: 1)
-            if let marker {
-                Color.white.opacity(0.7).frame(width: geometry.size.width, height: 1)
-                    .offset(y: inner.height * (1 - marker / 100))
-            }
         }
         .box(fill: Color(hex: 0x0A0A0B), border: Color(hex: 0x26262A), radius: 1)
+        .accessibilityElement()
+        .accessibilityLabel(id == "A" || id == "B" ? "Deck \(id) level" : id == "L" ? "Master left" : "Master right")
+        .accessibilityValue(level <= MeterLevels.floor ? "Silent" : String(format: "%.0f dB", level))
     }
 }

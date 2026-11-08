@@ -195,6 +195,16 @@ struct DexEngine {
     Limiter limiter;
     DexRouterState *router = nullptr;
     std::atomic<float> volumeTarget{1};
+    // The meters, for dex_engine_read_meters: the highest sample each deck sent into the master,
+    // and the master's per side before the limiter, since the meters were last read.
+    std::atomic<float> meterDeck[2] = {0.0f, 0.0f};
+    std::atomic<float> meterPeak[2] = {0.0f, 0.0f};
+
+    /// Raises a meter to `value` unless it's already higher. Only the reader's exchange competes.
+    static void raise(std::atomic<float> &meter, float value) {
+        float held = meter.load(std::memory_order_relaxed);
+        while (value > held && !meter.compare_exchange_weak(held, value, std::memory_order_relaxed)) {}
+    }
     float volume = 1;
     float masterPeak = 0, masterRms = 0;
 
@@ -843,12 +853,16 @@ struct DexEngine {
             const float target = d.levelTarget.load(std::memory_order_relaxed) * d.crossfadeTarget.load(std::memory_order_relaxed);
             float gain = d.gain;
             const float glide = (float)levelGlide;
+            float sent = 0; // the channel meter: what this deck puts into the master, after LEVEL and the crossfader
             for (int k = 0; k < frames; ++k) {
                 gain += (target - gain) * glide;
-                masterBus[0][k] += d.bus[0][k] * gain;
-                masterBus[1][k] += d.bus[1][k] * gain;
+                const float left = d.bus[0][k] * gain, right = d.bus[1][k] * gain;
+                masterBus[0][k] += left;
+                masterBus[1][k] += right;
+                sent = std::max(sent, std::max(std::fabs(left), std::fabs(right)));
             }
             d.gain = std::fabs(target - gain) < 1e-5f ? target : gain;
+            raise(meterDeck[d.index], sent);
         }
         {
             const float target = volumeTarget.load(std::memory_order_relaxed);
@@ -860,6 +874,11 @@ struct DexEngine {
                 masterBus[1][k] *= gain;
             }
             volume = std::fabs(target - gain) < 1e-5f ? target : gain;
+        }
+        for (int c = 0; c < 2; ++c) {
+            float side = 0;
+            for (int k = 0; k < frames; ++k) side = std::max(side, std::fabs(masterBus[c][k]));
+            raise(meterPeak[c], side);
         }
         limiter.process(masterBus[0], masterBus[1], frames);
         float peak = 0, power = 0;
@@ -1163,6 +1182,13 @@ void dex_engine_snap_levels(DexEngine *e) {
 }
 
 bool dex_engine_read_state(DexEngine *e, DexEngineState *state) { return e->published.read(*state); }
+
+void dex_engine_read_meters(DexEngine *e, DexMeterReading *out) {
+    for (int i = 0; i < 2; ++i) {
+        out->deck[i] = e->meterDeck[i].exchange(0, std::memory_order_relaxed);
+        out->master[i] = e->meterPeak[i].exchange(0, std::memory_order_relaxed);
+    }
+}
 
 double dex_engine_position_at(const DexEngineState *state, int deck, uint64_t hostNow, double hostTicksPerSecond, double delaySeconds) {
     const DexDeckState &d = state->deck[deck];

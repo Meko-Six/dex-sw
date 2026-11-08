@@ -136,7 +136,7 @@
       "label": "stacked zoom waveform",
       "kind": "gesture",
       "status": "live",
-      "does": "Both decks' waveforms, full width, one over the other, under one fixed white playhead at 50%. Drag either lane to scroll its waveform; the cue marker moves with it.",
+      "does": "Both decks' waveforms, full width, one over the other, under one fixed white playhead at 50%. Drag either lane to scroll its waveform; the cue marker moves with it. In the native app a flick carries on after release, the same track distance at any zoom, and a touch catches it.",
       "note": "The mockup's single screen is the biggest departure from the current app layout; the app shares the line rule, not the surface.",
       "source": "src/renderer/ui/Waveform.tsx"
     },
@@ -329,7 +329,7 @@
       "label": "TEMPO",
       "kind": "slider",
       "status": "live",
-      "does": "On the outer edge of each deck. Tempo ±16%; down is faster, as on a CDJ. Pitch is preserved while KEY is on; turn KEY off for vinyl behaviour. Double-tap resets to 0%.",
+      "does": "On the outer edge of each deck. Tempo ±16%; down is faster, as on a CDJ. Pitch is preserved while KEY is on; turn KEY off for vinyl behaviour. Double-tap resets to 0%. No readout under the fader: the tempo shows in the track window.",
       "source": "src/renderer/ui/Console.tsx"
     },
     {
@@ -709,11 +709,20 @@
     {
       "id": "mixer.meter",
       "group": "mixer",
-      "label": "master meter",
-      "kind": "readout",
+      "label": "master meters L · R",
+      "kind": "meter",
       "status": "live",
-      "does": "Master RMS level, polled every 60 ms, drawn as a thin bar between the two channels and again in the Volume popover. The limiter (−3 dB threshold, 20:1) sits before it.",
-      "source": "src/renderer/App.tsx"
+      "does": "The middle two of the four meters in the centre strip: the master's left and right peaks after VOLUME and before the limiter, on the same −30 to +6 dBFS scale as A and B. Red starts at 0 dBFS, where the limiter is working, so two hot decks fully open go into the red. The engine keeps each side's highest sample until the meters read it, so no peak is missed. The bar rises at once and falls 20 dB a second; the top segment holds for 2 s.",
+      "source": "native/Sources/CDexEngine/Meters.h"
+    },
+    {
+      "id": "mixer.chmeter",
+      "group": "mixer",
+      "label": "channel meters A · B",
+      "kind": "meter",
+      "status": "live",
+      "does": "The outer two of the four meters in the centre strip: the peak of what each deck sends into the master, after TRIM, EQ, FILTER, LEVEL and the crossfader, on the master's −30 to +6 dBFS scale. Pull LEVEL down or crossfade a deck out and its meter follows. Same fall and hold as the master meters.",
+      "source": "native/Sources/CDexEngine/Meters.h"
     },
     {
       "id": "mixer.cue",
@@ -739,8 +748,8 @@
       "label": "crossfader",
       "kind": "slider",
       "status": "live",
-      "does": "Equal-power crossfader at the foot of the mixer. Relative drag, double-tap centres it.",
-      "source": "src/renderer/ui/Mixer.tsx"
+      "does": "Crossfader at the foot of the mixer. Each deck stays fully open until the centre and fades only across the far half, as a club mixer's cut curve: centred, LEVEL alone sets the mix. Relative drag, double-tap centres it.",
+      "source": "native/Sources/DexCore/Transport.swift"
     },
     {
       "id": "rail.master",
@@ -920,8 +929,8 @@
       "label": "TRIM",
       "kind": "popover",
       "status": "live",
-      "does": "Input gain, set once per track, before the EQ (so the headphones hear it). The chip shows the value; tap it for a popover with a ±12 dB slider and RESET.",
-      "source": "src/renderer/ui/Mixer.tsx"
+      "does": "Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO: a track loads at the trim that brings its main groove to −10 LUFS (ITU BS.1770 loudness, measured at import; older tracks are measured in the background), and the chip lights green and reads AUTO. Moving it remembers that trim for the track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO and forgets it.",
+      "source": "native/Sources/DexCore/Loudness.swift"
     },
     {
       "id": "alt.link",
@@ -933,21 +942,12 @@
       "source": "src/renderer/ui/Mixer.tsx"
     },
     {
-      "id": "alt.lowsum",
-      "group": "mixer",
-      "label": "LOW Σ",
-      "kind": "meter",
-      "status": "live",
-      "does": "Both decks' low band summed as if the kicks were in phase, after trim, LEVEL and crossfader. 0 dB is one full low alone; amber from +1 dB, red from +3 dB: two basslines stacking into the limiter.",
-      "source": "src/shared/mixer.ts"
-    },
-    {
       "id": "alt.bandsheet",
       "group": "mixer",
       "label": "band sheet",
       "kind": "popover",
       "status": "planned",
-      "does": "Tap a band readout: that band for BOTH decks on 300 pt horizontal sliders, with both kills (and LINK for LOW). For long, slow rides. Not in the app yet."
+      "does": "Tap a band name above its fader: that band for BOTH decks on 300 pt horizontal sliders, with both kills (and LINK for LOW). For long, slow rides. Not in the app yet."
     },
     {
       "id": "lib.playlists",

@@ -74,9 +74,13 @@ public struct HotCueTiming: Sendable, Equatable {
 }
 
 public enum MixMath {
+    /// The crossfader's gains for A and B. Each deck stays full until the centre and fades only
+    /// across the far half, on a quarter cosine, as a club mixer's cut curve does: centred, both
+    /// decks are fully open and LEVEL alone sets the mix (agreed 8 November 2026).
     public static func crossfade(_ position: Double) -> (Double, Double) {
-        let angle = min(1, max(0, position)) * .pi / 2
-        return (cos(angle), sin(angle))
+        let x = min(1, max(0, position))
+        func side(_ past: Double) -> Double { past <= 0 ? 1 : past >= 1 ? 0 : cos(past * .pi / 2) }
+        return (side(2 * x - 1), side(1 - 2 * x))
     }
     public static func tempoRate(master: Double, follower: Double) -> Double {
         min(1.16, max(0.84, master / max(1e-6, follower)))

@@ -72,6 +72,11 @@ public final class NativeDeck: ObservableObject {
     @Published public var keyLock = true { didSet { updateTempo() } }
     @Published public var level: Float = 0.8 { didSet { updateGain() } }
     @Published public var trimDB: Float = 0 { didSet { updateBands() } }
+    /// AUTO for the loaded track: the trim that brings it to the target loudness. Nil until measured.
+    @Published public private(set) var autoTrimDB: Float?
+    /// Whether a load sets the trim (the DJ's own for the track, else AUTO). The console turns it on;
+    /// off, a load leaves the trim alone, so audio tests hear tracks at unity.
+    public var trimsOnLoad = false
     @Published public var lowDB: Float = 0 { didSet { updateBands() } }
     @Published public var midDB: Float = 0 { didSet { updateBands() } }
     @Published public var highDB: Float = 0 { didSet { updateBands() } }
@@ -324,6 +329,10 @@ public final class NativeDeck: ObservableObject {
                 self.followMasterTempo()
                 if self.isMaster { self.partner?.followMasterTempo() }
                 self.hotCues = metadata?.hotCues ?? Array(repeating: nil, count: 8)
+                // AUTO trim: the DJ's own trim for this track if they set one, else the measured one.
+                let loudness = metadata?.loudness ?? overview.loudness
+                self.autoTrimDB = loudness.map { Float($0.autoTrim()) }
+                if self.trimsOnLoad { self.trimDB = Float(metadata?.trimDb ?? loudness?.autoTrim() ?? 0) }
                 self.updateCueGrid()
                 self.clearLoop()
                 self.loading = false
@@ -822,6 +831,7 @@ public final class NativeDeck: ObservableObject {
         file = nil
         waveform = nil; peaks = []
         libraryTrackID = nil
+        autoTrimDB = nil
         tags = .none
         scopedURL?.stopAccessingSecurityScopedResource()
         scopedURL = nil

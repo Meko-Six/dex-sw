@@ -35,6 +35,12 @@ public struct LibraryTrack: Codable, Identifiable, Equatable, Sendable {
     public var tagTitle: String? = nil
     /// Nil until the tags have been read; older tracks fill in the background.
     public var details: TrackDetails? = nil
+    /// How loud the track sounds, for AUTO trim. Nil until measured; older tracks fill in the background.
+    public var loudness: TrackLoudness? = nil
+    /// The trim the DJ chose for this track, in dB. Nil plays it at AUTO.
+    public var trimDb: Double? = nil
+    /// The trim a deck starts this track at: the DJ's own, else AUTO.
+    public var startingTrim: Double { trimDb ?? loudness?.autoTrim() ?? 0 }
     /// "Artist — Title" from the tags, else the file name: `trackLabel` in library.ts.
     public var label: String { tagTitle.map { title in artist.map { "\($0) — \(title)" } ?? title } ?? title }
     var detection: DetectedGrid { DetectedGrid(grid: grid, uncertain: gridUncertain, alternatives: alternatives) }
@@ -54,12 +60,16 @@ struct LibraryMutation: Sendable {
     struct Cue: Sendable { let slot: Int; let value: Double? }
     struct Key: Sendable { let value: TrackKey? }
     struct Names: Sendable { let artist: String?; let title: String?; let details: TrackDetails? }
+    struct Loudness: Sendable { let value: TrackLoudness? }
+    struct Trim: Sendable { let value: Double? }
     let id: UUID
     var grid: Grid?
     var cues: [Cue]
     var key: Key?
     var names: Names?
-    var isEmpty: Bool { grid == nil && cues.isEmpty && key == nil && names == nil }
+    var loudness: Loudness?
+    var trim: Trim?
+    var isEmpty: Bool { grid == nil && cues.isEmpty && key == nil && names == nil && loudness == nil && trim == nil }
     init(from old: LibraryTrack, to new: LibraryTrack) {
         id = old.id
         grid = old.grid != new.grid || old.gridUncertain != new.gridUncertain || old.alternatives != new.alternatives
@@ -68,6 +78,8 @@ struct LibraryMutation: Sendable {
         key = old.key != new.key ? Key(value: new.key) : nil
         names = old.artist != new.artist || old.tagTitle != new.tagTitle || old.details != new.details
             ? Names(artist: new.artist, title: new.tagTitle, details: new.details) : nil
+        loudness = old.loudness != new.loudness ? Loudness(value: new.loudness) : nil
+        trim = old.trimDb != new.trimDb ? Trim(value: new.trimDb) : nil
     }
     func merging(_ newer: LibraryMutation?) -> LibraryMutation {
         guard let newer else { return self }
@@ -75,6 +87,8 @@ struct LibraryMutation: Sendable {
         if let grid = newer.grid { result.grid = grid }
         if let key = newer.key { result.key = key }
         if let names = newer.names { result.names = names }
+        if let loudness = newer.loudness { result.loudness = loudness }
+        if let trim = newer.trim { result.trim = trim }
         for cue in newer.cues { result.cues.removeAll { $0.slot == cue.slot }; result.cues.append(cue) }
         return result
     }
@@ -83,6 +97,8 @@ struct LibraryMutation: Sendable {
         if let grid { result.grid = grid.value; result.gridUncertain = grid.uncertain; result.alternatives = grid.alternatives }
         if let key { result.key = key.value }
         if let names { result.artist = names.artist; result.tagTitle = names.title; result.details = names.details }
+        if let loudness { result.loudness = loudness.value }
+        if let trim { result.trimDb = trim.value }
         for cue in cues where result.hotCues.indices.contains(cue.slot) { result.hotCues[cue.slot] = cue.value }
         return result
     }

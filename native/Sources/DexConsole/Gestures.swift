@@ -46,8 +46,8 @@ import UIKit
 }
 
 @MainActor public final class MeterClock: ObservableObject {
-    /// Master level, dBFS, read about 15 times a second like the Electron meter.
-    @Published public var db: Double?
+    /// The four meters, read each display frame while there's something to show; nil at rest.
+    @Published public var meters: Meters?
     public init() {}
 }
 
@@ -131,10 +131,10 @@ struct Live<Content: View>: View {
     }
 }
 
-/// `content` with the live master level, or `fallback` without a clock.
-struct LiveMeter<Content: View>: View {
-    let fallback: Double
-    @ViewBuilder let content: (Double) -> Content
+/// `content` with the live meters, or `fallback` without a clock.
+struct LiveMeters<Content: View>: View {
+    let fallback: Meters
+    @ViewBuilder let content: (Meters) -> Content
     @Environment(\.consoleClock) private var clock
 
     var body: some View {
@@ -143,10 +143,10 @@ struct LiveMeter<Content: View>: View {
 
     private struct Clocked: View {
         @ObservedObject var clock: MeterClock
-        let fallback: Double
-        let content: (Double) -> Content
+        let fallback: Meters
+        let content: (Meters) -> Content
 
-        var body: some View { content(clock.db ?? fallback) }
+        var body: some View { content(clock.meters ?? fallback) }
     }
 }
 

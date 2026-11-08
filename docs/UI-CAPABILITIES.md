@@ -93,7 +93,7 @@ Everything below was read out of the source, not from the README. Status codes:
 
 **Not built (NONE)** — all of these exist on the XDJ-RR:
 
-- TRIM **AUTO** (match loudness): `src/shared/loudness.ts` exists but is not run on ingest yet.
+- TRIM **AUTO** (match loudness): built in the native app (`native/Sources/DexCore/Loudness.swift`, measured at import, 7 November 2026). Electron's `src/shared/loudness.ts` is still unused, as Electron is frozen.
 - The mockup's **band sheet** (tap a band readout for a long fader covering both decks).
 - Per-deck **level meter** (Dex meters the master only).
 - **Headphone level** knob (Dex has the cue *mix* but no cue/headphone volume).

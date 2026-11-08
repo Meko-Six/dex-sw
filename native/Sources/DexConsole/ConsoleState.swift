@@ -86,6 +86,10 @@ public struct ConsoleState: Equatable, Sendable {
         public var kills = Kills()
         public var level = 1.0
         public var trimDb = 0.0
+        /// AUTO: the trim that brings this track to the target loudness. Nil until measured.
+        public var autoTrimDb: Double?
+        /// The chip reads AUTO while the trim is the measured one (`.trimchip.auto`).
+        public var trimIsAuto: Bool { autoTrimDb.map { $0 != 0 && abs(trimDb - $0) < 0.05 } ?? false }
         /// −1 (low-pass) … 0 (off) … 1 (high-pass).
         public var filter = 0.0
         /// The channel's headphone CUE.
@@ -267,8 +271,8 @@ public struct ConsoleState: Equatable, Sendable {
     public var spanSec: Double = 12
     public var crossfader = 0.5
     public var linkLows = false
-    /// Master peak, dBFS.
-    public var meterDb = -120.0
+    /// The centre strip's meters when no clock drives them: snapshots and previews.
+    public var meters = Meters.silent
     /// Master output, 0 … 1.2.
     public var masterVolume = 1.0
     /// The headphones' blend, cued deck (0) to master (1).
@@ -436,14 +440,18 @@ extension ConsoleState {
                  durationSec: 384, position: 384 - 72.418, loop: Loop(startBeat: 688, lengthBeats: 8), wave: .demo(seed: 7),
                  title: "Everlight (Extended Mix)", artist: "Tiesto, Mathame", art: .split(0x2B4F7A, 0xD0703A),
                  keyLock: true, camelot: "8A", hotCues: [32.0, 104.7, nil, 261.5, nil, nil, nil, nil])
-                .with { $0.headphoneCue = true },
+                .with { $0.headphoneCue = true; $0.trimDb = -1.4; $0.autoTrimDb = -1.4 },
             Deck(id: "B", trackID: "demo-1", syncLocked: true, grid: Grid(bpm: 130, offsetMs: 247.3, confidence: 0.88),
                  durationSec: 418, position: 0.91, cuePoint: 0.9, wave: .demo(seed: 21),
                  title: "Ocean", artist: "Patrick Topping", art: .split(0x0F5E63, 0x9AD3C4),
                  rate: 1.0231, camelot: "4A", hotCues: [31.0, nil, 135.0, nil, nil, nil, nil, nil])
-                .with { $0.eq = Bands(low: 0.06, mid: 0.6, high: 0.8); $0.loopBeats = 16 }
+                .with { $0.eq = Bands(low: 0.06, mid: 0.6, high: 0.8); $0.loopBeats = 16; $0.trimDb = 1.2; $0.autoTrimDb = 1.2 }
         ])
         state.masterVolume = 0.816
+        // The mockup's still meters (`METER.still`): A playing alone near the top, B cued and silent,
+        // the master A through VOLUME.
+        state.meters = Meters(level: MeterLevels(a: -2.0, l: -3.8, r: -4.3, b: MeterLevels.floor),
+                              hold: MeterLevels(a: -1.0, l: -2.8, r: -3.2, b: MeterLevels.floor))
         state.library = demoLibrary
         return state
     }()
@@ -512,6 +520,7 @@ extension ConsoleState {
             }
         }
         state.library = Library()
+        state.meters = .silent
     }
 
     /// Deck A's track with the tempos the analysis turned down, its grid open.
@@ -553,6 +562,7 @@ extension ConsoleState {
             $0.eq = loaded.eq; $0.level = loaded.level; $0.filter = loaded.filter; $0.loopBeats = loaded.loopBeats
         }
         state.status = LibraryStatus(label: "ANALYSING")
+        state.meters.level.b = MeterLevels.floor; state.meters.hold.b = MeterLevels.floor
     }
 
     /// Screens the mockup's picker added after the Electron freeze. Their

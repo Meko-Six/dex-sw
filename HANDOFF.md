@@ -84,6 +84,48 @@ old engine". Merged to `main` on 6 November, with the old engine removed. Result
   code, because nothing has been pushed. The clips from gate 2 are in `out/engine-clips/` in the main checkout, not in
   git.
 
+## Mixer: readouts, AUTO trim and meters — 7 November 2026
+
+The user asked for this on 7 November. State:
+
+- **Fader readouts removed** from LEVEL, HI, MID, LOW and TEMPO, in the mockup and the app ("not really a thing on
+  any professional dj equipment"). TRIM keeps its number. The band names stay and still open the band sheet, which keeps
+  its dB values; TEMPO moved up under its fader, whose length is unchanged.
+- **AUTO trim is built in the app, not yet heard.** `DexCore/Loudness.swift` measures ITU BS.1770 loudness at import
+  (Accelerate biquads, about 0.007 s per 32 s of audio in a debug build); older tracks are measured quietly in the background
+  at launch (`readMissingLoudness`). A track loads at the trim that brings its **main groove** (the loudest half of its 3 s
+  stretches) to **−10 LUFS**, within ±12 dB, and the chip lights green and reads AUTO. Moving TRIM remembers it for the track
+  (`LibraryTrack.trimDb`, saved half a second after the trim rests); RESET, a double-tap or snapping within 0.25 dB returns to
+  AUTO and forgets it. Only the console turns trimming on load on (`NativeDeck.trimsOnLoad`), so audio tests stay at unity.
+- **Bench, 52 tracks in `accuracy/audio/`:** every one peaks at 0.0 dBFS; main groove −9.3 to −5.0 LUFS (median −6.8),
+  whole-track −10.5 to −6.2; AUTO trims −0.7 to −5.0 dB, none boosted. So everything plays about 3 dB quieter than before
+  and the master goes up to match. The −10 target and main-groove choice are the user's to confirm by ear.
+- **Listening check, waiting for the user:** pairs at AUTO, judged matched or not, by ear (the meters show peaks, not loudness). Luga vs A Brief History Of Goa Trance
+  (4.3 dB apart untrimmed: does AUTO work at all?); Buzz On vs Drink Drunk Junkie (main groove says 1.1 dB apart, whole
+  track says 2.5: which measure is right?); Luga vs Traffic (techno, 3.4 dB apart).
+- **Meters and crossfader, 8 November.** Four meters in the centre strip, A · L · R · B, replacing LOW Σ (gone from the
+  mockup, `Chassis.swift` and `MixerMath`). First built with A and B as loudness before the faders; the user rejected that
+  ("not usual"): a meter must show what actually goes in, as set by LEVEL, and two decks fully open should overload the
+  master. So, agreed 8 November:
+  - **All four are peaks on one scale, −30 to +6 dBFS.** A and B are the peak each deck sends into the master, after TRIM,
+    EQ, FILTER, LEVEL and the crossfader. L and R are the master after VOLUME and **before** the limiter; red from 0 dBFS
+    means the limiter is working (ceiling 0.99). Instant rise, 20 dB/s fall, 2 s held segment (`MeterBallistics`). No AUTO
+    target line; AUTO still matches loudness on load.
+  - **The crossfader is full on both sides until the centre** and fades only across the far half on a quarter cosine
+    (`MixMath.crossfade`, mockup `xfGains`). It was equal-power, −3 dB each at centre, which with AUTO's cuts kept two full
+    decks from ever overloading. The user mixes both ways: crossfader with EQ, or crossfader centred and LEVEL. A curve
+    choice could come later if smooth crossfader blends suffer.
+  - Engine: the mix loop keeps each deck's and each master side's highest sample since the last `dex_engine_read_meters`,
+    which takes them. Tests: `EngineMeterTests` (a sine reads its level; LEVEL, the crossfader and TRIM move the channel
+    meter; left-only lights only L; two hot decks read over +3 dBFS while the output stays limited; a burst waits for the
+    read).
+  - App: `ConsoleModel.updateMeters` reads about 60 times a second while anything shows, ten when all is silent, into
+    `ConsoleClock.meter`, so only the strip redraws. The old 15 Hz master RMS read is gone (`NativeMixer.meterDb` stays
+    for its test). The old meter only ever filled 72% of its height (a stale CSS rule, copied into the port); both gone.
+  - Without demo audio, the mockup and snapshot states show still levels (A playing alone, B cued and silent); an empty or
+    loading deck shows a silent meter and TRIM 0.0. `diff:native` is within budget on all 42 screens, budgets unchanged.
+  - Not yet seen or heard on a device.
+
 ## Where things stand — 5 November 2026
 
 - **Electron is frozen; native Swift is the app being built.** Electron (`src/`)
@@ -561,6 +603,12 @@ Summaries only; the gates are in the plan.
 - Removing a track from the library is refused while a deck holds it (agreed 2
   November 2026): load another track there first.
 - Layout makes room for new widgets; never cram.
+- Faders carry no number readout (7 November 2026): the cap's place shows where it is. TRIM keeps its number.
+- Mixer meters (8 November 2026): A · L · R · B together in the centre strip, LOW Σ dropped, all peaks on one scale.
+  A and B after LEVEL and the crossfader (what goes in), master before the limiter, so two full decks overload it.
+- Crossfader (8 November 2026): both decks full at centre, fading only across the far half.
+- AUTO trim (7 November 2026): loudness-matched on load, aiming to be right for most tracks; a hand-set trim is
+  remembered per track. Target and measure pending the user's listening check.
 - ROLL is removed and loop dragging is deferred. Both are future ideas in
   [IDEAS](docs/IDEAS.md).
 - Waveform drag is audible vinyl scrubbing with inertia. A deck resumes only if

@@ -166,7 +166,11 @@ _ = Task { @MainActor in
         let now = ProcessInfo.processInfo.systemUptime
         if options["--ticker"] == "1" { for (index, id) in ids.enumerated() { clock.deck(id).position = position(index, at: now) } }
         tick += 1
-        if tick % 2 == 0, options["--ticker"] == "1" { clock.meter.db = -12 - 6 * sin(now) }
+        if options["--ticker"] == "1" {
+            let swing = -12 - 6 * sin(now)
+            let levels = MeterLevels(a: swing, l: swing + 6, r: swing + 5, b: swing - 3)
+            clock.meter.meters = Meters(level: levels, hold: levels)
+        }
         // The EQ keeps moving on both decks, as a DJ's hands would.
         for (index, deck) in decks.enumerated() {
             let swing = Float(sin(now * 1.3 + Double(index)))

@@ -24,6 +24,7 @@ struct DexNativeApp: App {
                 .task {
                     await library.open()
                     await library.readMissingTags()
+                    await library.readMissingLoudness()
                 }
                 .modifier(LibrarySceneObserver(phase: scenePhase, library: library, mixer: mixer, console: console))
         }

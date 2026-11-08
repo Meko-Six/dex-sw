@@ -47,11 +47,12 @@ final class ConsoleModel: ObservableObject {
     private var changes: Set<AnyCancellable> = []
     private var rebuildQueued = false
     private var ticker: Task<Void, Never>?
+    private var meterTask: Task<Void, Never>?
     private var active = true
 
     init(mixer: NativeMixer, library: NativeLibrary) {
         self.mixer = mixer; self.library = library
-        for deck in decks { applyFaders(deck) }
+        for deck in decks { applyFaders(deck); deck.trimsOnLoad = true }
         Publishers.MergeMany(mixer.objectWillChange, mixer.a.objectWillChange, mixer.b.objectWillChange, library.objectWillChange)
             .sink { [weak self] _ in self?.queueRebuild() }
             .store(in: &changes)
@@ -80,6 +81,7 @@ final class ConsoleModel: ObservableObject {
     func setActive(_ value: Bool) {
         active = value
         updateTicker()
+        updateMeters()
     }
 
     // MARK: State
@@ -117,6 +119,7 @@ final class ConsoleModel: ObservableObject {
         if next.alert != state.alert { timeAlert(next.alert) }
         if next != state { state = next }
         updateTicker()
+        updateMeters()
     }
 
     /// The first problem the engine or library reports, until put away.
@@ -188,6 +191,7 @@ final class ConsoleModel: ObservableObject {
         state.kills = ConsoleState.Kills(low: deck.kills.low, mid: deck.kills.mid, high: deck.kills.high)
         state.level = faders[id]!.level
         state.trimDb = Double(deck.trimDB)
+        state.autoTrimDb = deck.autoTrimDB.map(Double.init)
         state.filter = deck.filter
         state.headphoneCue = deck.headphoneCue
         state.loopBeats = deck.loopBeats
@@ -219,14 +223,39 @@ final class ConsoleModel: ObservableObject {
                     guard let self else { return }
                     mixer.a.refreshPosition(); mixer.b.refreshPosition()
                     tick += 1
-                    if tick % 2 == 0 { clock.meter.db = mixer.meterDb }
                     do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
                 }
             }
         } else if !running, let ticker {
             ticker.cancel()
             self.ticker = nil
-            clock.meter.db = nil
+        }
+    }
+
+    /// The four meters, read every display frame (about 60 Hz) while anything shows, and ten
+    /// times a second when all is quiet. The engine holds peaks until they're read, so a slow
+    /// read misses nothing; nil hands the strip back to the silent state.
+    private func updateMeters() {
+        if active, meterTask == nil {
+            meterTask = Task { [weak self] in
+                var ballistics = MeterBallistics()
+                var last = ProcessInfo.processInfo.systemUptime
+                while !Task.isCancelled {
+                    guard let self else { return }
+                    let now = ProcessInfo.processInfo.systemUptime
+                    let read = mixer.readMeters()
+                    ballistics.update(MeterLevels(a: read.a, l: read.l, r: read.r, b: read.b), dt: now - last, now: now)
+                    last = now
+                    let quiet = ballistics.meters == .silent
+                    let shown: Meters? = quiet ? nil : ballistics.meters
+                    if clock.meter.meters != shown { clock.meter.meters = shown }
+                    do { try await Task.sleep(for: .milliseconds(quiet ? 100 : 16)) } catch { return }
+                }
+            }
+        } else if !active, let meterTask {
+            meterTask.cancel()
+            self.meterTask = nil
+            clock.meter.meters = nil
         }
     }
 
@@ -483,11 +512,23 @@ final class ConsoleModel: ObservableObject {
         Task { await library.importFiles(files) }
     }
 
-    /// TRIM: ±12 dB in 0.1 dB steps, snapping to 0 within 0.25.
+    /// TRIM: ±12 dB in 0.1 dB steps, snapping to AUTO (or 0 before the track is
+    /// measured) within 0.25. The library remembers it for the track; AUTO forgets it.
     func setTrim(_ id: String, _ db: Double) {
+        let deck = deck(id), auto = deck.autoTrimDB.map(Double.init) ?? 0
         let value = (min(12, max(-12, db)) * 10).rounded() / 10
-        deck(id).trimDB = Float(abs(value) < 0.25 ? 0 : value)
+        let snapped = abs(value - auto) < 0.25 ? auto : value
+        deck.trimDB = Float(snapped)
+        // Saved once the trim rests, not on every move of a drag.
+        trimSaves[id]?.cancel()
+        guard let track = deck.libraryTrackID else { return }
+        trimSaves[id] = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled, let self else { return }
+            library.setTrim(track, deck.autoTrimDB == nil && snapped == 0 ? nil : snapped)
+        }
     }
+    private var trimSaves: [String: Task<Void, Never>] = [:]
 
     /// One wrapper per decoded cover, so the state compares it by identity.
     private var covers: [String: (image: CGImage, cover: ConsoleState.Cover)] = [:]

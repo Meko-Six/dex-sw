@@ -543,13 +543,6 @@ html, body {
   background: color-mix(in srgb, var(--led) 15%, #151517); color: #ffab40;
   border-color: color-mix(in srgb, var(--led) 58%, #26262b);
 }
-.meter-v { border-radius: 1px; background: #0a0a0b; border: 1px solid #26262a; overflow: hidden; }
-.meter-v i {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 72%;
-  background: linear-gradient(0deg, #25a859 0 64%, #d8a029 78%, #d9662a 90%, #d03a2c 100%);
-  -webkit-mask-image: repeating-linear-gradient(0deg, #000 0 4px, transparent 4px 6px);
-  mask-image: repeating-linear-gradient(0deg, #000 0 4px, transparent 4px 6px);
-}
 .chan-btn {
   appearance: none; border-radius: 2px; border: 1px solid rgba(255, 255, 255, .13);
   background: #151517; color: #cdcdd3;
@@ -667,17 +660,20 @@ html, body {
 .trimchip span { font: 700 14px/1 var(--font-cond); letter-spacing: .04em; }
 .trimchip.auto b { color: #7ee0a2; }
 
-/* centre column: master peak and the worst-case low sum, segmented like the master meter */
+/* centre column: A · L · R · B, all peaks on one scale, −30 to +6 dBFS. A and B
+   are what each deck sends into the master; L and R the master before the
+   limiter, so red (over 0 dBFS) is the limiter at work. Segments are 4 pt lit,
+   2 pt dark; the held segment stays lit for 2 s. */
 .meter-v { border-radius: 1px; background: #0a0a0b; border: 1px solid #26262a; overflow: hidden; }
 .meter-v i {
   position: absolute; inset: 0;
-  background: linear-gradient(0deg, #25a859 0 64%, #d8a029 78%, #d9662a 90%, #d03a2c 100%);
+  background: linear-gradient(0deg, #25a859 0 55%, #d8a029 68%, #d9662a 78%, #d03a2c 84%);
   clip-path: inset(calc(100% - var(--h, 0%)) 0 0 0);
   -webkit-mask-image: repeating-linear-gradient(0deg, #000 0 4px, transparent 4px 6px);
   mask-image: repeating-linear-gradient(0deg, #000 0 4px, transparent 4px 6px);
-  transition: clip-path .06s linear;
 }
-.meter-v .u { position: absolute; left: -1px; right: -1px; height: 1px; background: rgba(255, 255, 255, .7); z-index: 1; }
+.meter-v .hold { position: absolute; left: 0; right: 0; height: 4px; bottom: var(--hold, -4px); background: #d6d6db; }
+.meter-name { font: 700 12px/36px var(--font-cond); color: var(--silk); text-align: center; pointer-events: none; }
 
 /* anchored popovers: TRIM (set and forget) and the band sheet (one band, both decks) */
 .mixpop {

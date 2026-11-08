@@ -85,6 +85,14 @@ public final class NativeMixer: ObservableObject {
     /// The output's RMS over its latest block, dBFS (the Electron router's
     /// `readLevelDb`); −120 before any audio.
     public var meterDb: Double { core.meterDb }
+    /// The centre strip's four meters, as peaks in dBFS since the last read: A and B what each deck
+    /// sends into the master (after LEVEL and the crossfader), L and R the master after VOLUME and
+    /// before the limiter. −∞ is silence. One reader: each read takes the peaks.
+    public func readMeters() -> (a: Double, l: Double, r: Double, b: Double) {
+        let reading = core.readMeters()
+        func db(_ x: Float) -> Double { x > 0 ? 20 * log10(Double(x)) : -.infinity }
+        return (db(reading.deck.0), db(reading.master.0), db(reading.master.1), db(reading.deck.1))
+    }
 
     public convenience init(library: NativeLibrary? = nil) {
         self.init(library: library, mutedAfterEngine: false)

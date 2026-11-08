@@ -35,6 +35,7 @@ public final class NativeLibrary: ObservableObject {
     private var importTask: Task<Void, Never>?
     private var keyTask: Task<Void, Never>?
     private var tagTask: Task<Void, Never>?
+    private var loudnessTask: Task<Void, Never>?
     private struct ImportFlight {
         let id: UUID
         let task: Task<PreparedLibraryTrack, Error>
@@ -129,7 +130,7 @@ public final class NativeLibrary: ObservableObject {
         await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
         importTask = nil; importing = false
     }
-    public func handleMemoryPressure() { importTask?.cancel(); keyTask?.cancel(); tagTask?.cancel() }
+    public func handleMemoryPressure() { importTask?.cancel(); keyTask?.cancel(); tagTask?.cancel(); loudnessTask?.cancel() }
     /// Tracks the key analysis has not run on yet.
     public var tracksNeedingKeys: Int { tracks.filter { $0.key == nil }.count }
     /// FIND KEYS: reads the key of every track without one, one at a time.
@@ -173,6 +174,37 @@ public final class NativeLibrary: ObservableObject {
         await task.value
         tagTask = nil
     }
+    /// Measures the loudness of tracks saved before AUTO trim, one at a time
+    /// and quietly: a file that can't be read now is tried again next launch.
+    public func readMissingLoudness() async {
+        do { try await ensureOpen() } catch { return }
+        guard loudnessTask == nil else { return }
+        let pending = tracks.filter { $0.loudness == nil }.map(\.id)
+        guard !pending.isEmpty else { return }
+        let task = Task(priority: .utility) { [weak self] in
+            for id in pending {
+                guard !Task.isCancelled, let self, let loudness = try? await storage.readLoudness(id) else { continue }
+                setLoudness(id, loudness)
+            }
+        }
+        loudnessTask = task
+        await task.value
+        loudnessTask = nil
+    }
+    /// TRIM moved by hand: remembered for the track. Nil, or the AUTO value, plays it at AUTO again.
+    public func setTrim(_ id: UUID, _ db: Double?) {
+        guard let index = tracks.firstIndex(where: { $0.id == id }) else { return }
+        let old = tracks[index]
+        var updated = old
+        let auto = old.loudness?.autoTrim()
+        updated.trimDb = db.flatMap { abs($0 - (auto ?? 0)) < 0.05 ? nil : (abs($0) <= 12 && $0.isFinite ? $0 : nil) }
+        commit(old, updated)
+    }
+    private func setLoudness(_ id: UUID, _ loudness: TrackLoudness) {
+        guard let old = tracks.first(where: { $0.id == id }) else { return }
+        var updated = old; updated.loudness = loudness
+        commit(old, updated)
+    }
     /// A track's saved cover, if it has one.
     public func coverURL(_ track: LibraryTrack) -> URL? {
         track.details?.hasCover == true ? storage.coverURL(track.id) : nil
@@ -208,6 +240,7 @@ public final class NativeLibrary: ObservableObject {
             updated.gridUncertain = result.overview.detection.uncertain
             updated.alternatives = result.overview.detection.alternatives
             updated.key = result.overview.key
+            updated.loudness = result.overview.loudness ?? old.loudness
             updated.artist = old.artist ?? result.tags.artist
             updated.tagTitle = old.tagTitle ?? result.tags.title
             updated.details = result.tags.details

@@ -140,7 +140,7 @@ final class LaneMotionTests: XCTestCase {
         XCTAssertEqual(heard, 1)
         clock.lane("B").set(3, publish: true)
         clock.deck("A").position = 4
-        clock.meter.db = -6
+        clock.meter.meters = .silent
         XCTAssertEqual(heard, 1)
         XCTAssertTrue(clock.lane("A") === clock.lane("A"))
         withExtendedLifetime(listening) {}

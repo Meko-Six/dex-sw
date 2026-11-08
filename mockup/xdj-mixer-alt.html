@@ -338,7 +338,7 @@
         </select>
       </label>
       <span class="spacer"></span>
-      <span class="note">cut faders · tap KILL to latch, hold for momentary · drag sideways for fine · tap a readout for the band sheet</span>
+      <span class="note">cut faders · tap KILL to latch, hold for momentary · drag sideways for fine · tap a band name for the band sheet</span>
     </div>
 
     <div class="stage">
@@ -549,8 +549,8 @@
          The starting state is a long blend in progress: A is the playing
          track, B is coming in with its LOW down, MID and HIGH partly cut. */
       const MIX = {
-        A: { trim: 0, auto: -1.4, lufs: -7.6, level: 1, high: 1, mid: 1, low: 1, filter: 0.5, kill: { high: false, mid: false, low: false } },
-        B: { trim: 0, auto: 1.2, lufs: -10.2, level: 1, high: 0.8, mid: 0.6, low: 0.06, filter: 0.5, kill: { high: false, mid: false, low: false } },
+        A: { trim: -1.4, auto: -1.4, lufs: -7.6, level: 1, high: 1, mid: 1, low: 1, filter: 0.5, kill: { high: false, mid: false, low: false } },
+        B: { trim: 1.2, auto: 1.2, lufs: -10.2, level: 1, high: 0.8, mid: 0.6, low: 0.06, filter: 0.5, kill: { high: false, mid: false, low: false } },
         xfade: 0.5,
         link: false
       };
@@ -1077,9 +1077,9 @@
       /* SYNC · MASTER · KEY · HOT CUE run the full width of the deck, centred
          on the TRIM row and 40 pt tall on purpose. The tempo fader starts 23 pt
          under them, a finger's room, and its foot lines up with the mixer
-         faders' foot (ROW.fader: 150 + 228), with its readout and then TEMPO
-         below it. The platter fills the space under the
-         keys, and CUE, PLAY and the loop widget run along the bottom in the
+         faders' foot (ROW.fader: 150 + 228), with TEMPO below it. Faders
+         carry no readout: the cap's place says where it is, as on hardware.
+         The platter fills the space under the keys, and CUE, PLAY and the loop widget run along the bottom in the
          same order on both decks. */
       const DECK_KEY = { y: 64, w: 78, h: 40, gap: 6 };
       const TEMPO_TOP = DECK_KEY.y + DECK_KEY.h + 23;
@@ -1107,9 +1107,8 @@
           ${pill(1, key === 'A' && !off ? 'master on' : 'master', 'transport.master', 'MASTER', off)}
           ${pill(2, d.keyLock ? 'on' : '', 'transport.key', 'KEY')}
           ${pill(3, cueOpen[key] ? 'on' : '', 'xdj.hotcue', 'HOT CUE', `onclick="toggleHotCues('${key}')" ${off}`)}
-          <div class="col at" style="${at(x.tempo - 24, TEMPO_TOP, 48, ROW.fader[0] + ROW.fader[1] - TEMPO_TOP + 34)}">
+          <div class="col at" style="${at(x.tempo - 24, TEMPO_TOP, 48, ROW.fader[0] + ROW.fader[1] - TEMPO_TOP + 17)}">
             ${faderV('tone.tempo', off ? 50 : 50 - parseFloat(d.tempo.replace('−', '-')) * 100 / 32, true)}
-            <span class="eq-val mono">${off ? '+0.00%' : d.tempo}</span>
             <span class="eq-name">TEMPO</span>
           </div>
           <div class="face-platter at" style="${at(x.platter - PLATTER.size / 2, PLATTER.y, PLATTER.size, PLATTER.size)}">
@@ -1148,7 +1147,10 @@
       const colX = (key, col) => { const [x, w] = COLS[col]; return [key === 'A' ? x : 1194 - x - w, w]; };
       const ROW = { top: [62, 44], val: [110, 36], fader: [150, 228], kill: [384, 44], xf: [455, 48] };
       const CAP = 24;
-      const xfGains = () => [Math.cos((MIX.xfade * Math.PI) / 2), Math.sin((MIX.xfade * Math.PI) / 2)];
+      /* Each deck stays full until the centre and fades only across the far
+         half: centred, both are fully open and LEVEL alone sets the mix. */
+      const xfSide = (past) => (past <= 0 ? 1 : past >= 1 ? 0 : Math.cos(past * Math.PI / 2));
+      const xfGains = () => [xfSide(2 * MIX.xfade - 1), xfSide(1 - 2 * MIX.xfade)];
 
       /* Dex's sweep filter (src/shared/curves.ts) on a 0–1 slider. */
       function filterAt(pos) {
@@ -1163,16 +1165,47 @@
         return (f.type === 'lowpass' ? 'LP ' : 'HP ') + fmtHz(f.frequency);
       }
 
-      /* Worst case: both lows in phase, after trim, LEVEL and crossfader.
-         0 dB is one track's full low on its own. */
-      function lowSumDb() {
-        const [ga, gb] = xfGains();
-        const part = (key, g) => {
-          const d = MIX[key];
-          return d.kill.low ? 0 : gainAt(d.low) * gainAt(d.level) * Math.pow(10, d.trim / 20) * g;
-        };
-        const sum = part('A', ga) + part('B', gb);
-        return sum <= 0 ? -Infinity : 20 * Math.log10(sum);
+      /* ---------- meters: A · L · R · B in the centre strip ----------
+         All four are peaks on one scale, −30 to +6 dBFS, so the channels read
+         against the master. A and B: what each deck sends into the master,
+         after TRIM, EQ, FILTER, LEVEL and the crossfader. L and R: the master
+         after VOLUME and before the limiter; red is over 0 dBFS, where the
+         limiter is working, so two hot decks fully open go into the red. The
+         bar rises at once and falls 20 dB a second; the top segment holds
+         for 2 s (agreed 8 November 2026). */
+      const METER = {
+        cols: [['A', 575], ['L', 588], ['R', 598], ['B', 611]],
+        w: 8,
+        /* What the meters show without demo audio: A playing alone near the
+           top, B cued and silent, the master A through VOLUME. */
+        still: { A: -2.0, L: -3.8, R: -4.3, B: -90 },
+        stillHold: { A: -1.0, L: -2.8, R: -3.2, B: -90 },
+        level: {}, hold: {}, holdAt: {}
+      };
+      const meterPct = (v) => Math.max(0, Math.min(100, ((v + 30) / 36) * 100));
+      function meterHtml() {
+        return METER.cols.map(([id, x]) => `
+            <span class="meter-name at" style="${at(x - 4, ROW.val[0], METER.w + 8, ROW.val[1])}">${id}</span>
+            <div class="meter-v at" data-ctl="${id === 'A' || id === 'B' ? 'mixer.chmeter' : 'mixer.meter'}" data-meter="${id}"
+              style="${at(x, ROW.fader[0], METER.w, ROW.fader[1])}"><i></i><b class="hold"></b></div>`).join('');
+      }
+      /* Bars and held segments, snapped to the 6 pt segment pitch. */
+      function paintMeters() {
+        const live = AUDIO.ctx && AUDIO.ctx.state === 'running';
+        for (const [id] of METER.cols) {
+          const el = document.querySelector(`#chassis [data-meter="${id}"]`);
+          if (!el) continue;
+          const inner = el.clientHeight || ROW.fader[1] - 2;
+          const lit = (v) => Math.floor((meterPct(v) / 100) * inner / 6);
+          /* Without demo audio an empty deck's meter is silent, and the master's
+             too when neither deck holds a track. */
+          const quiet = id === 'A' || id === 'B' ? isEmpty(DECKS[id]) : isEmpty(DECKS.A) && isEmpty(DECKS.B);
+          const level = live ? METER.level[id] ?? -90 : quiet ? -90 : METER.still[id];
+          const hold = live ? METER.hold[id] ?? -90 : quiet ? -90 : METER.stillHold[id];
+          const segs = lit(level), held = lit(hold);
+          el.querySelector('i').style.setProperty('--h', (segs * 6 / inner * 100).toFixed(2) + '%');
+          el.querySelector('.hold').style.setProperty('--hold', held > segs ? (held - 1) * 6 + 'px' : '-4px');
+        }
       }
 
       function cutFader(key, col) {
@@ -1190,7 +1223,7 @@
         const [x, w] = colX(key, col);
         const action = col === 'level' ? 'void 0' : `openBand('${col}')`;
         return `<button class="bandval at" data-val="${key}-${col}" data-ctl="${col === 'level' ? 'xdj.channellevel' : 'alt.bandsheet'}" onclick="${action}"
-          style="${at(x - 3, ROW.val[0], w + 6, ROW.val[1])}"><b>${BAND_NAME[col]}</b><span></span></button>`;
+          style="${at(x - 3, ROW.val[0], w + 6, ROW.val[1])}"><b>${BAND_NAME[col]}</b></button>`;
       }
 
       const killPad = (key, band, style, cls = '') =>
@@ -1220,7 +1253,7 @@
           <div class="row">
             <div class="fx mixctl" data-ctl="alt.trim" data-deck="${key}" data-param="trimpos" data-axis="x" style="position:relative;flex:1;height:44px;--pos:${((d.trim + 12) / 24).toFixed(4)}"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>
             <span class="val" data-trimval="${key}"></span>
-            <button class="btn" onclick="setTrim('${key}', 0)">RESET</button>
+            <button class="btn" onclick="setTrim('${key}', MIX['${key}'].auto)">RESET</button>
           </div>
         </div>`;
       }
@@ -1244,9 +1277,7 @@
         return `
           <section class="mixer">
             ${renderChannel('A')}
-            <button class="bandval sumval at" data-ctl="alt.lowsum" onclick="void 0" style="${at(574, ROW.val[0], 46, ROW.val[1])}"><b>LOW Σ</b><span id="lowsumVal"></span></button>
-            <div class="meter-v at" data-ctl="mixer.meter" title="Master peak" style="${at(578, ROW.fader[0], 7, ROW.fader[1])}"><i id="mmeterBar"></i></div>
-            <div class="meter-v at" data-ctl="alt.lowsum" style="${at(589, ROW.fader[0], 27, ROW.fader[1])}"><i id="lowsumBar"></i><span class="u" style="bottom:80%"></span></div>
+            ${meterHtml()}
             <button class="linkbtn at" data-ctl="alt.link" onclick="toggleLink()" style="${at(575, ROW.kill[0], 44, ROW.kill[1])}">LINK<br>LOWS</button>
             ${renderChannel('B')}
             <span class="xside at keep" style="${at(452, ROW.xf[0] + 12, 14, 24)};line-height:24px">A</span>
@@ -1269,13 +1300,8 @@
         document.querySelectorAll('#chassis [data-val]').forEach((el) => {
           const [key, col] = el.dataset.val.split('-');
           const d = MIX[key];
-          const killed = col !== 'level' && d.kill[col];
-          const db = dbAt(d[col]);
           const drag = activeDrag(key, col);
-          el.querySelector('span').textContent = killed ? 'KILL' : fmtDb(db);
           el.querySelector('b').textContent = drag && drag.speed < 1 ? (drag.speed > 0.2 ? 'FINE ¼' : 'FINE ⅒') : BAND_NAME[col];
-          el.classList.toggle('killed', killed);
-          el.classList.toggle('cut', !killed && db < -0.05);
           el.classList.toggle('live', Boolean(drag));
           el.classList.toggle('fine', Boolean(drag && drag.speed < 1));
         });
@@ -1293,22 +1319,17 @@
         });
         document.querySelectorAll('#chassis [data-flabel]').forEach((el) => { el.textContent = filterLabel(MIX[el.dataset.flabel].filter); });
         document.querySelectorAll('#chassis [data-trim]').forEach((el) => {
+          /* An empty or loading deck has no track to measure: TRIM 0.0. */
+          const empty = isEmpty(DECKS[el.dataset.trim]);
           const d = MIX[el.dataset.trim];
-          const auto = d.trim === d.auto && d.auto !== 0;
+          const auto = !empty && d.trim === d.auto && d.auto !== 0;
           el.classList.toggle('auto', auto);
           el.querySelector('b').textContent = auto ? 'AUTO' : 'TRIM';
-          el.querySelector('span').textContent = fmtTrim(d.trim);
+          el.querySelector('span').textContent = fmtTrim(empty ? 0 : d.trim);
         });
         document.querySelectorAll('#chassis [data-trimval]').forEach((el) => { el.textContent = fmtTrim(MIX[el.dataset.trimval].trim) + ' dB'; });
         document.querySelectorAll('#chassis .linkbtn').forEach((el) => el.classList.toggle('on', MIX.link));
-        const sum = lowSumDb();
-        const bar = document.getElementById('lowsumBar');
-        const val = document.getElementById('lowsumVal');
-        if (bar && val) {
-          bar.style.setProperty('--h', (sum === -Infinity ? 0 : Math.max(0, Math.min(100, ((sum + 24) / 30) * 100))) + '%');
-          val.textContent = fmtDb(sum);
-          val.className = sum >= 3 ? 'over' : sum > 1 ? 'warn' : '';
-        }
+        paintMeters();
         applyAudio();
       }
 
@@ -1321,11 +1342,13 @@
         const c = Math.max(0, Math.min(1, v));
         if (p === 'xfade') MIX.xfade = c;
         else if (p === 'trimpos') {
+          /* Snaps to AUTO, the trim Dex measured for this track, within 0.25 dB. */
           const t = Math.round((c * 24 - 12) * 10) / 10;
-          MIX[key].trim = Math.abs(t) < 0.25 ? 0 : t;
+          MIX[key].trim = Math.abs(t - MIX[key].auto) < 0.25 ? MIX[key].auto : t;
         } else MIX[key][p] = c;
       }
       const RESET = { xfade: 0.5, filter: 0.5, trimpos: 0.5 };
+      const resetOf = (key, p) => (p === 'trimpos' ? (MIX[key].auto + 12) / 24 : RESET[p]);
 
       function openBand(band) { if (swallowDragClick) return; mixPop = { kind: 'band', band }; render(); }
       function openTrim(key) { mixPop = { kind: 'trim', deck: key }; render(); }
@@ -1905,8 +1928,9 @@
         trim: {
           title: 'Trim',
           rows: [
-            ['Trim', 'Input gain for the track. Set it once when the track loads, then mix on the faders.'],
-            ['Reset', 'Back to 0 dB.']
+            ['AUTO', 'Dex sets the trim when a track loads, so every track plays as loud as the last.'],
+            ['Trim', 'Change it if a track still sounds off. Dex remembers your trim for that track.'],
+            ['Reset', 'Back to AUTO.']
           ]
         },
         band: {
@@ -2425,7 +2449,7 @@
           // Double-tap resets: bands and LEVEL to 0 dB, filter / crossfader / trim to centre.
           const t = performance.now();
           if (lastTap.el === d.el && t - lastTap.t < 320) {
-            setP(d.key, d.param, RESET[d.param] ?? 1);
+            setP(d.key, d.param, resetOf(d.key, d.param) ?? 1);
             lastTap = { el: null, t: 0 };
           } else {
             lastTap = { el: d.el, t };
@@ -2459,8 +2483,8 @@
       /* ---------- demo audio ----------
          Two synthetic 4-bar loops at 128 BPM. The kicks land on the same
          beats and in phase, which is the worst case for stacking. Chain per
-         deck: trim → 3-band isolator → sweep filter → LEVEL → equal-power
-         crossfader → master → limiter. The isolator mirrors the app's
+         deck: trim → 3-band isolator → sweep filter → LEVEL → crossfader
+         (both full at centre) → master → limiter. The isolator mirrors the app's
          EqChain (src/renderer/audio/eq.ts, src/shared/isolator.ts). */
       const XO_LOW = 220;
       const XO_HIGH = 3500;
@@ -2609,21 +2633,33 @@
       }
 
       function meterLoop() {
-        const buf = new Float32Array(AUDIO.analyser.fftSize);
-        const tick = () => {
-          AUDIO.analyser.getFloatTimeDomainData(buf);
+        const peakBuf = new Float32Array(AUDIO.meters.L.fftSize);
+        const peakOf = (an) => {
+          an.getFloatTimeDomainData(peakBuf);
           let peak = 0;
-          for (const s of buf) peak = Math.max(peak, Math.abs(s));
-          const db = 20 * Math.log10(Math.max(1e-6, peak));
-          const bar = document.getElementById('mmeterBar');
-          if (bar) {
-            bar.style.setProperty('--h', Math.max(0, Math.min(100, ((db + 48) / 48) * 100)) + '%');
-            bar.parentElement.dataset.peak = db.toFixed(1);
-            bar.parentElement.dataset.gr = AUDIO.limiter.reduction.toFixed(1);
+          for (const s of peakBuf) peak = Math.max(peak, Math.abs(s));
+          return peak;
+        };
+        let last = performance.now();
+        const tick = (now) => {
+          const dt = Math.min(0.1, (now - last) / 1000);
+          last = now;
+          const read = {};
+          // A channel meter reads the louder side; L and R one side each.
+          for (const key of ['A', 'B']) read[key] = 20 * Math.log10(Math.max(1e-6, ...AUDIO.meters[key].map(peakOf)));
+          for (const side of ['L', 'R']) read[side] = 20 * Math.log10(Math.max(1e-6, peakOf(AUDIO.meters[side])));
+          for (const id of Object.keys(read)) {
+            const prev = METER.level[id] ?? -90;
+            METER.level[id] = read[id] >= prev ? read[id] : Math.max(read[id], prev - 20 * dt);
+            if (METER.level[id] >= (METER.hold[id] ?? -90) || now - (METER.holdAt[id] ?? 0) > 2000) {
+              METER.hold[id] = METER.level[id];
+              METER.holdAt[id] = now;
+            }
           }
+          paintMeters();
           requestAnimationFrame(tick);
         };
-        tick();
+        requestAnimationFrame(tick);
       }
 
       async function toggleAudio() {
@@ -2645,11 +2681,21 @@
           limiter.ratio.value = 20;
           limiter.attack.value = 0.002;
           limiter.release.value = 0.12;
-          const analyser = ctx.createAnalyser();
-          analyser.fftSize = 1024;
+          // L and R read the master before the limiter. The meters feed a
+          // silent sink, or the browser never runs them.
+          const sink = ctx.createGain();
+          sink.gain.value = 0;
+          sink.connect(ctx.destination);
+          const split = ctx.createChannelSplitter(2);
+          const meters = { L: ctx.createAnalyser(), R: ctx.createAnalyser() };
+          meters.L.fftSize = meters.R.fftSize = 2048;
+          master.connect(split);
+          split.connect(meters.L, 0);
+          split.connect(meters.R, 1);
+          meters.L.connect(sink);
+          meters.R.connect(sink);
           master.connect(limiter);
-          limiter.connect(analyser);
-          analyser.connect(ctx.destination);
+          limiter.connect(ctx.destination);
           const t0 = ctx.currentTime + 0.15;
           for (const [key, buffer] of [['A', la], ['B', lb]]) {
             const src = ctx.createBufferSource();
@@ -2668,11 +2714,17 @@
             iso.output.connect(filter);
             filter.connect(level);
             level.connect(xf);
+            // A and B: what the deck sends into the master, after LEVEL and the crossfader, per side.
+            const deckSplit = ctx.createChannelSplitter(2);
+            const sides = [ctx.createAnalyser(), ctx.createAnalyser()];
+            xf.connect(deckSplit);
+            sides.forEach((an, side) => { an.fftSize = 2048; deckSplit.connect(an, side); an.connect(sink); });
+            meters[key] = sides;
             xf.connect(master);
             AUDIO.decks[key] = { src, trim, iso, filter, level, xf };
             src.start(t0);
           }
-          AUDIO.analyser = analyser;
+          AUDIO.meters = meters;
           AUDIO.limiter = limiter;
           applyAudio();
           meterLoop();

@@ -70,8 +70,9 @@ the current state.
   a deck's title to load it. Playlists sit in a column on the left.
 - **Mixer** — a centre console laid out like the mockup: per channel TRIM,
   sweep filter, LEVEL and cut-only HI / MID / LOW faders with latching or
-  momentary kills, LINK LOWS for the bass swap and a LOW Σ meter for stacked
-  basslines; equal-power crossfader, master limiter and meter, split-cue
+  momentary kills, LINK LOWS for the bass swap, AUTO trim by loudness (native),
+  four peak meters (A, master L/R, B; native); a crossfader with both decks
+  full at centre (native; equal-power in Electron), master limiter, split-cue
   headphone monitoring (or 4-channel cue on an Aggregate Device). Master volume
   and cue mix live in the VOLUME popover.
 - **Decks** — both waveforms stacked on one screen at a shared scale, deck
