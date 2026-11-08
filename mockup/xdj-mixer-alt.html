@@ -1167,8 +1167,9 @@
 
       /* ---------- meters: A · L · R · B in the centre strip ----------
          All four are peaks on one scale, −30 to +6 dBFS, so the channels read
-         against the master. A and B: what each deck sends into the master,
-         after TRIM, EQ, FILTER, LEVEL and the crossfader. L and R: the master
+         against the master. A and B: each deck after TRIM, EQ and FILTER,
+         before LEVEL and the crossfader, as on a Pioneer mixer, so TRIM is
+         set by them whatever the faders are doing. L and R: the master
          after VOLUME and before the limiter; red is over 0 dBFS, where the
          limiter is working, so two hot decks fully open go into the red. The
          bar rises at once and falls 20 dB a second; the top segment holds
@@ -2714,10 +2715,10 @@
             iso.output.connect(filter);
             filter.connect(level);
             level.connect(xf);
-            // A and B: what the deck sends into the master, after LEVEL and the crossfader, per side.
+            // A and B: the deck before LEVEL and the crossfader, per side.
             const deckSplit = ctx.createChannelSplitter(2);
             const sides = [ctx.createAnalyser(), ctx.createAnalyser()];
-            xf.connect(deckSplit);
+            filter.connect(deckSplit);
             sides.forEach((an, side) => { an.fftSize = 2048; deckSplit.connect(an, side); an.connect(sink); });
             meters[key] = sides;
             xf.connect(master);

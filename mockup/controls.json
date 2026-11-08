@@ -713,7 +713,7 @@
       "kind": "meter",
       "status": "live",
       "does": "The middle two of the four meters in the centre strip: the master's left and right peaks after VOLUME and before the limiter, on the same −30 to +6 dBFS scale as A and B. Red starts at 0 dBFS, where the limiter is working, so two hot decks fully open go into the red. The engine keeps each side's highest sample until the meters read it, so no peak is missed. The bar rises at once and falls 20 dB a second; the top segment holds for 2 s.",
-      "source": "native/Sources/CDexEngine/Meters.h"
+      "source": "native/Sources/CDexEngine/DexEngine.cpp"
     },
     {
       "id": "mixer.chmeter",
@@ -721,8 +721,8 @@
       "label": "channel meters A · B",
       "kind": "meter",
       "status": "live",
-      "does": "The outer two of the four meters in the centre strip: the peak of what each deck sends into the master, after TRIM, EQ, FILTER, LEVEL and the crossfader, on the master's −30 to +6 dBFS scale. Pull LEVEL down or crossfade a deck out and its meter follows. Same fall and hold as the master meters.",
-      "source": "native/Sources/CDexEngine/Meters.h"
+      "does": "The outer two of the four meters in the centre strip: each deck's peak after TRIM, EQ and FILTER, before LEVEL and the crossfader, as on a Pioneer mixer, on the master's −30 to +6 dBFS scale. Set TRIM by it whatever the faders are doing, even with LEVEL down; the master meters show what actually goes in. Same fall and hold as the master meters.",
+      "source": "native/Sources/CDexEngine/DexEngine.cpp"
     },
     {
       "id": "mixer.cue",

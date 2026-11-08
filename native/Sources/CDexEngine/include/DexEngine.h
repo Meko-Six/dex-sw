@@ -175,7 +175,7 @@ typedef struct {
 bool dex_engine_read_state(DexEngine *engine, DexEngineState *state);
 
 typedef struct {
-    float deck[2];   // the highest |sample| each deck sent into the master (after LEVEL and the crossfader), either side
+    float deck[2];   // each deck's highest |sample| after TRIM, EQ and FILTER, before LEVEL and the crossfader, either side
     float master[2]; // the master's highest |sample|, left and right, after VOLUME and before the limiter
 } DexMeterReading;
 /// What the mixer's meters show: peaks since the last call, which takes them. One reader.

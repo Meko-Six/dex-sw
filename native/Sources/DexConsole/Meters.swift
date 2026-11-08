@@ -1,8 +1,8 @@
 import Foundation
 
 /// The four meters in the centre strip, A · L · R · B (`METER` in the mockup),
-/// all peaks in dBFS on one scale: A and B what each deck sends into the master,
-/// after LEVEL and the crossfader; L and R the master before the limiter.
+/// all peaks in dBFS on one scale: A and B each deck before its LEVEL fader
+/// and the crossfader (after TRIM, EQ and FILTER); L and R the master before the limiter.
 public struct MeterLevels: Equatable, Sendable {
     public var a, l, r, b: Double
     public init(a: Double, l: Double, r: Double, b: Double) { self.a = a; self.l = l; self.r = r; self.b = b }

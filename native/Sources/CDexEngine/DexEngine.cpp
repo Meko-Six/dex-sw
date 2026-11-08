@@ -195,7 +195,7 @@ struct DexEngine {
     Limiter limiter;
     DexRouterState *router = nullptr;
     std::atomic<float> volumeTarget{1};
-    // The meters, for dex_engine_read_meters: the highest sample each deck sent into the master,
+    // The meters, for dex_engine_read_meters: each deck's highest sample before its LEVEL fader,
     // and the master's per side before the limiter, since the meters were last read.
     std::atomic<float> meterDeck[2] = {0.0f, 0.0f};
     std::atomic<float> meterPeak[2] = {0.0f, 0.0f};
@@ -853,16 +853,15 @@ struct DexEngine {
             const float target = d.levelTarget.load(std::memory_order_relaxed) * d.crossfadeTarget.load(std::memory_order_relaxed);
             float gain = d.gain;
             const float glide = (float)levelGlide;
-            float sent = 0; // the channel meter: what this deck puts into the master, after LEVEL and the crossfader
+            float channel = 0; // the channel meter: after TRIM, EQ and FILTER, before LEVEL and the crossfader
             for (int k = 0; k < frames; ++k) {
                 gain += (target - gain) * glide;
-                const float left = d.bus[0][k] * gain, right = d.bus[1][k] * gain;
-                masterBus[0][k] += left;
-                masterBus[1][k] += right;
-                sent = std::max(sent, std::max(std::fabs(left), std::fabs(right)));
+                masterBus[0][k] += d.bus[0][k] * gain;
+                masterBus[1][k] += d.bus[1][k] * gain;
+                channel = std::max(channel, std::max(std::fabs(d.bus[0][k]), std::fabs(d.bus[1][k])));
             }
             d.gain = std::fabs(target - gain) < 1e-5f ? target : gain;
-            raise(meterDeck[d.index], sent);
+            raise(meterDeck[d.index], channel);
         }
         {
             const float target = volumeTarget.load(std::memory_order_relaxed);

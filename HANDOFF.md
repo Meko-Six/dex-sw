@@ -107,17 +107,23 @@ The user asked for this on 7 November. State:
   mockup, `Chassis.swift` and `MixerMath`). First built with A and B as loudness before the faders; the user rejected that
   ("not usual"): a meter must show what actually goes in, as set by LEVEL, and two decks fully open should overload the
   master. So, agreed 8 November:
-  - **All four are peaks on one scale, −30 to +6 dBFS.** A and B are the peak each deck sends into the master, after TRIM,
-    EQ, FILTER, LEVEL and the crossfader. L and R are the master after VOLUME and **before** the limiter; red from 0 dBFS
+  - **All four are peaks on one scale, −30 to +6 dBFS.** A and B are each deck's peak after TRIM, EQ and FILTER and
+    **before** LEVEL and the crossfader (changed the same day, see below). L and R are the master after VOLUME and **before** the limiter; red from 0 dBFS
     means the limiter is working (ceiling 0.99). Instant rise, 20 dB/s fall, 2 s held segment (`MeterBallistics`). No AUTO
     target line; AUTO still matches loudness on load.
   - **The crossfader is full on both sides until the centre** and fades only across the far half on a quarter cosine
     (`MixMath.crossfade`, mockup `xfGains`). It was equal-power, −3 dB each at centre, which with AUTO's cuts kept two full
     decks from ever overloading. The user mixes both ways: crossfader with EQ, or crossfader centred and LEVEL. A curve
     choice could come later if smooth crossfader blends suffer.
+  - **A and B moved back before the faders, 8 November.** After reading Expert DJ's gain-staging video
+    ("How To Set Your Volumes Like A Pro When DJing" on YouTube; the user's transcript isn't in the repo): trim so the loud part sits at the top green with peaks in the yellow, faders up,
+    then master, then amp), the user decided the channel meters belong before LEVEL, as on Pioneer mixers, so TRIM can
+    be set with LEVEL down. Still peaks on the one scale; the master meters show what actually goes in. Open from that
+    discussion: headroom. After AUTO a single deck at full LEVEL peaks −0.7 to −5 dBFS, just under red, so an EQ'd blend
+    can reach the limiter; a lower AUTO target (−12 to −14 LUFS) was proposed, to be measured on the 52 tracks first.
   - Engine: the mix loop keeps each deck's and each master side's highest sample since the last `dex_engine_read_meters`,
-    which takes them. Tests: `EngineMeterTests` (a sine reads its level; LEVEL, the crossfader and TRIM move the channel
-    meter; left-only lights only L; two hot decks read over +3 dBFS while the output stays limited; a burst waits for the
+    which takes them. Tests: `EngineMeterTests` (a sine reads its level; TRIM moves the channel meter, LEVEL and the
+    crossfader don't, though they move the master; left-only lights only L; two hot decks read over +3 dBFS while the output stays limited; a burst waits for the
     read).
   - App: `ConsoleModel.updateMeters` reads about 60 times a second while anything shows, ten when all is silent, into
     `ConsoleClock.meter`, so only the strip redraws. The old 15 Hz master RMS read is gone (`NativeMixer.meterDb` stays
@@ -605,7 +611,8 @@ Summaries only; the gates are in the plan.
 - Layout makes room for new widgets; never cram.
 - Faders carry no number readout (7 November 2026): the cap's place shows where it is. TRIM keeps its number.
 - Mixer meters (8 November 2026): A · L · R · B together in the centre strip, LOW Σ dropped, all peaks on one scale.
-  A and B after LEVEL and the crossfader (what goes in), master before the limiter, so two full decks overload it.
+  A and B before LEVEL and the crossfader, as on a Pioneer mixer, so TRIM is set by them; the master before the limiter,
+  so two full decks overload it.
 - Crossfader (8 November 2026): both decks full at centre, fading only across the far half.
 - AUTO trim (7 November 2026): loudness-matched on load, aiming to be right for most tracks; a hand-set trim is
   remembered per track. Target and measure pending the user's listening check.

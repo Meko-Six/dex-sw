@@ -2,8 +2,8 @@ import CDexEngine
 import Foundation
 import XCTest
 
-/// The mixer's four meters, all peaks: A and B what each deck sends into the master, after LEVEL and
-/// the crossfader; L and R the master before the limiter.
+/// The mixer's four meters, all peaks: A and B each deck before its LEVEL fader and the crossfader
+/// (after TRIM, EQ and FILTER); L and R the master before the limiter.
 final class EngineMeterTests: XCTestCase {
     let rate = 48_000.0
 
@@ -46,22 +46,29 @@ final class EngineMeterTests: XCTestCase {
         XCTAssertEqual(open.master[1], -12.04, accuracy: 0.3)
     }
 
-    /// LEVEL, the crossfader and TRIM all move the channel meter, as they move what goes in.
-    func testTheChannelMeterFollowsItsFaderTheCrossfaderAndTrim() {
+    /// The channel meter reads before the fader, so TRIM is set by it whatever LEVEL and the
+    /// crossfader are doing; the master still follows them.
+    func testTheChannelMeterReadsBeforeItsFaderAndAfterTrim() {
         let rig = Rig()
         rig.load(sine(level: 0.25))
         dex_engine_play(rig.engine, 0, nil)
-        let open = settled(rig).deck[0]
+        let open = settled(rig)
 
         dex_engine_set_fader(rig.engine, 0, 0.5, 1)
-        XCTAssertEqual(settled(rig).deck[0], open - 6.02, accuracy: 0.2, "LEVEL at half")
+        let half = settled(rig)
+        XCTAssertEqual(half.deck[0], open.deck[0], accuracy: 0.2, "LEVEL at half leaves the channel meter")
+        XCTAssertEqual(half.master[0], open.master[0] - 6.02, accuracy: 0.2, "and halves the master")
+        dex_engine_set_fader(rig.engine, 0, 0, 1)
+        let down = settled(rig)
+        XCTAssertEqual(down.deck[0], open.deck[0], accuracy: 0.2, "LEVEL down: the channel still reads, ready to trim")
+        XCTAssertLessThan(down.master[0], -60, "and nothing goes into the master")
         dex_engine_set_fader(rig.engine, 0, 1, 0)
         let cut = settled(rig)
-        XCTAssertLessThan(cut.deck[0], -60, "crossfaded out, nothing goes in")
+        XCTAssertEqual(cut.deck[0], open.deck[0], accuracy: 0.2, "crossfaded out: the channel still reads")
         XCTAssertLessThan(cut.master[0], -60)
         dex_engine_set_fader(rig.engine, 0, 1, 1)
         dex_engine_set_tone(rig.engine, 0, 1, 1, 1, Float(pow(10, 6.0 / 20)))
-        XCTAssertEqual(settled(rig).deck[0], open + 6, accuracy: 0.2, "TRIM +6")
+        XCTAssertEqual(settled(rig).deck[0], open.deck[0] + 6, accuracy: 0.2, "TRIM +6")
     }
 
     func testLeftAndRightAreMeteredApart() {
