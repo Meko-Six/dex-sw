@@ -235,7 +235,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen delete --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 12500
+      "budget": 12570
     },
     {
       "name": "firstrun-library",
@@ -248,7 +248,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen firstrun-library --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 1650
+      "budget": 2067
     },
     {
       "name": "gridunsure",
@@ -340,6 +340,20 @@
       },
       "aa": 40,
       "budget": 24600
+    },
+    {
+      "name": "importprogress",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}",
+        "setup": "setScreen('importprogress')"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen importprogress --scale {scale} --out {out}"
+      },
+      "only": [[221, 381, 939, 90]],
+      "aa": 40,
+      "budget": 476
     },
     {
       "name": "loading",

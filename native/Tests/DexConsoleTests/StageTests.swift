@@ -81,10 +81,19 @@ final class StageTests: XCTestCase {
 
     /// `icons/music.note.svg`'s path, by its bounds: the artwork inside the file's 15.01 × 24.75 viewBox.
     func testTheNoteFillsItsBox() {
-        let bounds = NoteShape().path(in: CGRect(origin: .zero, size: NoteShape.size)).boundingRect
+        let note = ConsoleGlyph.note
+        let bounds = note.path(in: CGRect(origin: .zero, size: note.size)).boundingRect
         XCTAssertEqual(bounds.minX, 0.28, accuracy: 0.01)
         XCTAssertEqual(bounds.maxX, 14.71, accuracy: 0.01)
         XCTAssertEqual(bounds.minY, 0.29, accuracy: 0.01)
         XCTAssertEqual(bounds.maxY, 24.48, accuracy: 0.01)
+    }
+
+    func testSheetGlyphBoundsMatchTheSVGs() {
+        for (glyph, width, height) in [(ConsoleGlyph.info, 12.68, 22.62), (.close, 16.76, 16.74)] {
+            let bounds = glyph.path(in: CGRect(origin: .zero, size: glyph.size)).boundingRect
+            XCTAssertEqual(bounds.width, width, accuracy: 0.05)
+            XCTAssertEqual(bounds.height, height, accuracy: 0.05)
+        }
     }
 }

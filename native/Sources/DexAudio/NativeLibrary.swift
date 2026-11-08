@@ -16,6 +16,36 @@ public final class NativeLibrary: ObservableObject {
     public var saveFailed: Bool { saveError != nil }
     @Published public private(set) var saving = false
     @Published public private(set) var importing = false
+    @Published public private(set) var pendingImports: [PendingImport] = []
+    public struct PendingImport: Identifiable, Sendable {
+        public let id: UUID
+        public let title: String
+        public fileprivate(set) var progress: ImportProgress
+        fileprivate let source: URL
+    }
+    public enum ImportProgress: Sendable {
+        case queued, opening, copying(Double), analysing(Double), saving
+
+        public var fraction: Double {
+            switch self {
+            case .queued: 0
+            case .opening: 0.03
+            case .copying(let fraction): 0.05 + 0.14 * fraction
+            case .analysing(let fraction): 0.20 + 0.70 * fraction
+            case .saving: 0.95
+            }
+        }
+
+        public var label: String {
+            switch self {
+            case .queued: "Queued"
+            case .opening: "Opening"
+            case .copying: "Copying"
+            case .analysing: "Analysing"
+            case .saving: "Saving"
+            }
+        }
+    }
     /// FIND KEYS' place in its run, nil when it isn't running.
     @Published public private(set) var findingKeys: KeyProgress?
     public struct KeyProgress: Equatable, Sendable {
@@ -32,7 +62,8 @@ public final class NativeLibrary: ObservableObject {
     private var writer: Task<Void, Never>?
     private var dirty: [UUID: LibraryMutation] = [:]
     private var inFlight: [UUID: LibraryMutation] = [:]
-    private var importTask: Task<Void, Never>?
+    private var importTasks: [UUID: Task<Void, Never>] = [:]
+    private var lastImportTask: Task<Void, Never>?
     private var keyTask: Task<Void, Never>?
     private var tagTask: Task<Void, Never>?
     private var loudnessTask: Task<Void, Never>?
@@ -41,7 +72,7 @@ public final class NativeLibrary: ObservableObject {
         let task: Task<PreparedLibraryTrack, Error>
         var waiters: Set<UUID>
     }
-    private var flights: [String: ImportFlight] = [:]
+    private var flights: [URL: ImportFlight] = [:]
 
     public init(directory: URL? = nil) {
         let name = Bundle.main.bundleURL.pathExtension == "app" ? "DexNative" : "DexNativePreview"
@@ -77,11 +108,18 @@ public final class NativeLibrary: ObservableObject {
         } catch { opening = nil; throw error }
     }
     func prepare(url: URL) async throws -> PreparedLibraryTrack {
-        try await ensureOpen()
         try Task.checkCancellation()
-        let key = url.standardizedFileURL.absoluteString
+        let key = url.standardizedFileURL
         if flights[key] == nil {
-            flights[key] = ImportFlight(id: UUID(), task: Task { try await storage.importFile(url) }, waiters: [])
+            let id = showImport(url)
+            let task = Task { [weak self, storage] in
+                guard let self else { throw CancellationError() }
+                try await ensureOpen()
+                return try await storage.importFile(url, id: id) { [weak self] progress in
+                    Task { @MainActor [weak self] in self?.updateImport(id, progress: progress) }
+                }
+            }
+            flights[key] = ImportFlight(id: id, task: task, waiters: [])
         }
         let waiter = UUID()
         flights[key]!.waiters.insert(waiter)
@@ -91,13 +129,34 @@ public final class NativeLibrary: ObservableObject {
             Task { @MainActor [weak self] in self?.releaseImport(key, flight: flight.id, waiter: waiter) }
         }
         try Task.checkCancellation()
+        hideImport(flight.id)
         return merge(prepared)
     }
-    private func releaseImport(_ key: String, flight: UUID, waiter: UUID) {
+    private func showImport(_ url: URL) -> UUID {
+        let source = url.standardizedFileURL
+        if let row = pendingImports.first(where: { $0.source == source }) { return row.id }
+        let row = pendingImport(source)
+        pendingImports.append(row)
+        return row.id
+    }
+    private func pendingImport(_ source: URL) -> PendingImport {
+        PendingImport(id: UUID(), title: source.deletingPathExtension().lastPathComponent, progress: .queued, source: source)
+    }
+    private func hideImport(_ id: UUID) {
+        if let index = pendingImports.firstIndex(where: { $0.id == id }) { pendingImports.remove(at: index) }
+    }
+    private func updateImport(_ id: UUID, progress: ImportProgress) {
+        guard let index = pendingImports.firstIndex(where: { $0.id == id }),
+              pendingImports[index].progress.fraction < progress.fraction else { return }
+        pendingImports[index].progress = progress
+    }
+    private func releaseImport(_ key: URL, flight: UUID, waiter: UUID) {
         guard var current = flights[key], current.id == flight else { return }
         current.waiters.remove(waiter)
-        if current.waiters.isEmpty { current.task.cancel(); flights[key] = nil }
-        else { flights[key] = current }
+        if current.waiters.isEmpty {
+            current.task.cancel(); flights[key] = nil
+            hideImport(flight)
+        } else { flights[key] = current }
     }
     var importWaiterCount: Int { flights.values.reduce(0) { $0 + $1.waiters.count } }
     var importedBytes: Int64 { get async { await storage.copiedBytes } }
@@ -114,10 +173,21 @@ public final class NativeLibrary: ObservableObject {
         return prepared
     }
     public func importFiles(_ urls: [URL]) async {
-        guard !importing else { return }
-        importing = true
-        let task = Task { [weak self] in
-            guard let self else { return }
+        guard !urls.isEmpty, !Task.isCancelled else { return }
+        if !importing { importing = true }
+        var sources = Set(pendingImports.map(\.source))
+        let queued = urls.map(\.standardizedFileURL).filter { sources.insert($0).inserted }.map(pendingImport)
+        pendingImports += queued
+        let pending = Set(queued.map(\.id))
+        let batch = UUID()
+        defer {
+            pendingImports.removeAll { pending.contains($0.id) && flights[$0.source] == nil }
+            importTasks[batch] = nil
+            if importTasks.isEmpty { lastImportTask = nil; importing = false }
+        }
+        let task = Task { [weak self, previous = lastImportTask] in
+            await previous?.value
+            guard let self, !Task.isCancelled else { return }
             var failures: [String] = []
             for url in urls {
                 do { try Task.checkCancellation(); _ = try await prepare(url: url) }
@@ -126,11 +196,14 @@ public final class NativeLibrary: ObservableObject {
             }
             operationError = failures.isEmpty ? nil : failures.joined(separator: "\n")
         }
-        importTask = task
+        importTasks[batch] = task
+        lastImportTask = task
         await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
-        importTask = nil; importing = false
     }
-    public func handleMemoryPressure() { importTask?.cancel(); keyTask?.cancel(); tagTask?.cancel(); loudnessTask?.cancel() }
+    public func handleMemoryPressure() {
+        for task in importTasks.values { task.cancel() }
+        keyTask?.cancel(); tagTask?.cancel(); loudnessTask?.cancel()
+    }
     /// Tracks the key analysis has not run on yet.
     public var tracksNeedingKeys: Int { tracks.filter { $0.key == nil }.count }
     /// FIND KEYS: reads the key of every track without one, one at a time.

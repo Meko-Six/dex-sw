@@ -211,8 +211,19 @@ public struct ConsoleState: Equatable, Sendable {
             public var trackIDs: [String]
             public init(id: String, name: String, trackIDs: [String] = []) { self.id = id; self.name = name; self.trackIDs = trackIDs }
         }
+        public struct PendingImport: Equatable, Sendable, Identifiable {
+            public let id: String
+            public let title: String
+            public let label: String
+            public let fraction: Double
+            public let art: Art?
+            public init(id: String, title: String, label: String, fraction: Double, art: Art? = nil) {
+                self.id = id; self.title = title; self.label = label; self.fraction = fraction; self.art = art
+            }
+        }
         public var tracks: [Track]
         public var playlists: [Playlist]
+        public var pendingImports: [PendingImport] = []
         /// The row picked for loading: tap a deck's art to load it.
         public var selected: String?
         /// Something is importing or analysing.
@@ -569,6 +580,15 @@ extension ConsoleState {
     /// reference is the mockup, not `?demo=mockup`.
     static let demosAfterFreeze: [String: ConsoleState] = [
         "importing": demoHome.with { $0.status = LibraryStatus(label: "IMPORTING") },
+        "importprogress": demoHome.with {
+            $0.status = LibraryStatus(label: "IMPORTING")
+            $0.libraryOpen = true
+            $0.library.busy = true
+            $0.library.pendingImports = [
+                Library.PendingImport(id: "import-1", title: "Night Drive", label: "Analysing", fraction: 0.62, art: .split(0x20242C, 0x20242C)),
+                Library.PendingImport(id: "import-2", title: "After Hours", label: "Queued", fraction: 0, art: .split(0x262A37, 0x262A37))
+            ]
+        },
         "loading": demoLoading,
         "saving": demoHome.with { $0.saveState = .saving },
         "notsaved": demoHome.with { $0.saveState = .error },

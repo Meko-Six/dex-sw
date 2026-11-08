@@ -168,6 +168,11 @@ final class ConsoleModel: ObservableObject {
         var state = ConsoleState.Library(tracks: tracks, playlists: library.playlists.map {
             ConsoleState.Library.Playlist(id: $0.id, name: $0.name, trackIDs: $0.trackIDs)
         }, selected: selected, busy: library.importing || library.findingKeys != nil || library.analysing != nil)
+        state.pendingImports = library.pendingImports.map { pending in
+            let id = pending.id.uuidString
+            return ConsoleState.Library.PendingImport(id: id, title: pending.title, label: pending.progress.label,
+                                                      fraction: pending.progress.fraction, art: placeholderArt(id))
+        }
         state.justMade = justMade
         return state
     }
@@ -504,12 +509,17 @@ final class ConsoleModel: ObservableObject {
 
     /// ADD FOLDER: every audio file in the folder and the folders under it.
     func importFolder(_ folder: URL) {
-        let scoped = folder.startAccessingSecurityScopedResource()
-        defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
-        let files = (FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.contentTypeKey])?.allObjects as? [URL] ?? [])
-            .filter { (try? $0.resourceValues(forKeys: [.contentTypeKey]).contentType?.conforms(to: .audio)) == true }
-            .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
-        Task { await library.importFiles(files) }
+        Task { [library] in
+            let scoped = folder.startAccessingSecurityScopedResource()
+            defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+            let files = await Task.detached(priority: .userInitiated) {
+                let contents = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.contentTypeKey])
+                return (contents?.allObjects as? [URL] ?? [])
+                    .filter { (try? $0.resourceValues(forKeys: [.contentTypeKey]).contentType?.conforms(to: .audio)) == true }
+                    .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+            }.value
+            await library.importFiles(files)
+        }
     }
 
     /// TRIM: ±12 dB in 0.1 dB steps, snapping to AUTO (or 0 before the track is

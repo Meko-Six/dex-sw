@@ -1,5 +1,6 @@
 import XCTest
 import AVFoundation
+import Combine
 @testable import DexAudio
 import DexCore
 
@@ -210,6 +211,34 @@ final class LibraryTests: XCTestCase {
         let remaining = try await storage.open()
         XCTAssertTrue(remaining.isEmpty)
         XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: directory.appendingPathComponent("Audio").path).isEmpty)
+    }
+
+    @MainActor
+    func testImportRowsShowQueuedFilesAndProgressUntilReady() async throws {
+        let root = try folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = try audio(in: root, seconds: 12)
+        let bad = root.appendingPathComponent("Bad.wav")
+        try Data("not audio".utf8).write(to: bad)
+        let library = NativeLibrary(directory: root.appendingPathComponent("Library"))
+
+        var queued: [NativeLibrary.PendingImport] = []
+        var progress: [Double] = []
+        let observation = library.$pendingImports.sink { rows in
+            if queued.isEmpty { queued = rows }
+            if let first = rows.first, first.id == queued.first?.id { progress.append(first.progress.fraction) }
+        }
+        defer { observation.cancel() }
+
+        await library.importFiles([source, bad])
+
+        XCTAssertEqual(queued.map(\.title), ["Original track", "Bad"])
+        XCTAssertEqual(queued.map { $0.progress.fraction }, [0, 0])
+        XCTAssertEqual(progress, progress.sorted())
+        XCTAssertTrue(progress.contains { $0 > 0.20 && $0 < 0.90 })
+        XCTAssertEqual(library.tracks.map(\.id), queued.prefix(1).map(\.id))
+        XCTAssertTrue(library.pendingImports.isEmpty)
+        XCTAssertTrue(library.error?.contains("Bad.wav") == true)
     }
 
     @MainActor

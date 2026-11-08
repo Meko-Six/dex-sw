@@ -303,6 +303,7 @@
           <option value="analysing">Analysing tracks</option>
           <option value="error">Error</option>
           <option value="importing">Importing files</option>
+          <option value="importprogress">Library · import progress</option>
           <option value="loading">Loading deck B</option>
           <option value="saving">Saving the library</option>
           <option value="notsaved">Library not saved</option>
@@ -627,6 +628,7 @@
         analysing: ['ANALYSING 3 / 12', 'Bicep — Glue', 25],
         loading: ['ANALYSING'],
         importing: ['IMPORTING'],
+        importprogress: ['IMPORTING'],
         findingkeys: ['FINDING KEYS 3 / 4', 'Mochakk — Jealous', 75]
       };
       function headStatusHtml() {
@@ -1017,7 +1019,7 @@
         return `<div class="mixpop cuepop at ${deleting ? 'deleting' : ''}" data-ctl="xdj.hotcue" data-side="${key}" style="${at(DECK_X[key].platter - 150, 132, 300, 236)};--accent:${accentOf(key)}">
             <h4>Hot cues ${key}
               <button class="cuebank-del ${deleting ? 'on' : ''}" onclick="toggleCueDelete('${key}')" ${HOT_CUES[key].some(Boolean) ? '' : 'disabled'}>${deleting ? 'KEEP' : 'DELETE'}</button>
-              <button class="btn ghost done" onclick="toggleHotCues('${key}')">Done</button>
+              ${closeBtn(`toggleHotCues('${key}')`)}
             </h4>
             <div class="cuebank-grid">
               ${HOT_CUES[key].map((cue, i) => cue
@@ -1250,7 +1252,7 @@
       function trimPop(key) {
         const d = MIX[key];
         return `<div class="mixpop at" data-side="${key}" style="${at(key === 'A' ? 372 : 522, 110, 300, 124)};--accent:${accentOf(key)}">
-          <h4>Trim ${key}${infoBtn('trim')}<button class="btn ghost done" onclick="closeMixPop()">Done</button></h4>
+          <h4>Trim ${key}${infoBtn('trim')}${closeBtn('closeMixPop()')}</h4>
           <div class="row">
             <div class="fx mixctl" data-ctl="alt.trim" data-deck="${key}" data-param="trimpos" data-axis="x" style="position:relative;flex:1;height:44px;--pos:${((d.trim + 12) / 24).toFixed(4)}"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>
             <span class="val" data-trimval="${key}"></span>
@@ -1267,7 +1269,7 @@
             ${killPad(key, band, 'width:52px;height:52px')}
           </div>`;
         return `<div class="mixpop at" style="${at(352, 62, 490, band === 'low' ? 252 : 196)}">
-          <h4>${BAND_NAME[band]} · both decks${infoBtn('band')}<button class="btn ghost done" onclick="closeMixPop()">Done</button></h4>
+          <h4>${BAND_NAME[band]} · both decks${infoBtn('band')}${closeBtn('closeMixPop()')}</h4>
           ${row('A')}${row('B')}
           ${band === 'low' ? `<div class="row"><button class="linkbtn" data-ctl="alt.link" onclick="toggleLink()" style="min-width:120px;min-height:44px">LINK LOWS</button></div>` : ''}
         </div>`;
@@ -1360,7 +1362,7 @@
       /* ---------- volume popover: master, cue mix, split cue ---------- */
       function renderVolume() {
         return `
-          <h3>Volume ${infoBtn('volume')}<button class="btn ghost done" onclick="toggleVol()">Done</button></h3>
+          <h3>Volume ${infoBtn('volume')}${closeBtn('toggleVol()')}</h3>
           <div class="vrow">
             <span class="tiny">master</span>
             ${faderH('rail.master', 68)}
@@ -1431,12 +1433,13 @@
       const ROW_ART = ['#f47131', '#f3362f', '#40bd5c', '#393f40', '#00bcf2', '#dce12d'];
       /* The title from the file's tags; the demo's names also carry the artist. */
       const titleOf = (t) => t.name.split(' — ').pop();
-      /* The condensed face has no ♭, so flats read as DJ software writes them: Bbm. */
+      /* Keep the short key notation used throughout the console. */
       const keyShort = (key) => key.replace('♭', 'b').replace(' minor', 'm').replace(' major', '');
       const decksOf = (t) => [...t.on];
       const isOnAir = (t) => decksOf(t).some((deck) => DECKS[deck].state === 'playing');
       /* icons/music.note.svg */
       const NOTE_ICON = '<svg viewBox="0 0 15.01 24.75" aria-hidden="true"><path d="M9.06,19.71c-.01,1.12-.28,1.7-1,2.55-.28.33-.56.65-.91.92-1.18.91-2.49,1.42-4,1.27-.7-.07-1.38-.39-1.92-.81-1.15-.9-1.2-2.51-.44-3.8.27-.46.64-.83,1.03-1.21,1.16-1.16,3.06-1.84,4.66-1.5.41.09.77.23,1.18.37l.06-.91.06-8.37.05-5.64.05-1.99c.09-.19.41-.33.59-.29.8.19.59,1.02,1.03,2.01.32.7.76,1.29,1.27,1.85l1.56,1.73c2.06,2.27,3.04,5.14,1.89,8.1-.29.74-.65,1.42-1.3,1.89-.21.1-.65-.13-.66-.36.12-.47.33-.88.48-1.34.29-.87.44-1.75.32-2.67-.2-1.49-.94-2.87-2.11-3.81-.54-.43-1.14-.71-1.79-1.01l-.05,7.32-.06,5.72Z"/></svg>';
+      const MORE_ICON = '<svg viewBox="0 0 18 4" aria-hidden="true"><circle cx="2" cy="2" r="2"/><circle cx="9" cy="2" r="2"/><circle cx="16" cy="2" r="2"/></svg>';
       /* The note, or the decks holding the track: white when loaded, a green arrow when playing. */
       function rowMarkHtml(t) {
         const decks = decksOf(t);
@@ -1447,10 +1450,23 @@
 
       function libRowsHtml() {
         const rows = libRows();
-        const list = playlistOf();
         if (screen === 'firstrun') return '<p class="lib-empty">No tracks yet. Add files or a folder, or drop audio onto a deck.</p>';
-        if (rows.length === 0) return `<p class="lib-empty">${libView.query || libView.key ? 'Nothing matches that search or key.' : 'This playlist is empty. Drag tracks onto it, or use MORE on a track.'}</p>`;
-        return rows.map((i) => {
+        const pending = screen === 'importprogress' ? [
+          ['Night Drive', 'Analysing', 62, '#20242c'], ['After Hours', 'Queued', 0, '#262a37']
+        ] : [];
+        if (!rows.length && !pending.length) return `<p class="lib-empty">${libView.query || libView.key ? 'Nothing matches that search or key.' : 'This playlist is empty. Drag tracks onto it, or use ⋯ on a track.'}</p>`;
+        return pending.map(([title, label, progress, colour]) => `
+              <div class="lib-row pending">
+                <span class="lib-art" style="--art:${colour}"></span>
+                <span class="lib-mark">${NOTE_ICON}</span>
+                <div class="lib-name">${title}</div>
+                <div class="lib-import">
+                  <span>${label}</span>
+                  <div class="lib-import-bar" role="progressbar" aria-label="${title}, ${label}" aria-valuenow="${progress}">
+                    <i style="width:${progress}%"></i>
+                  </div>
+                </div>
+              </div>`).join('') + rows.map((i) => {
           const t = libTrack(i);
           return `
               <div class="lib-row ${libView.selected === i ? 'selected' : ''} ${isOnAir(t) ? 'playing' : ''} ${t.missing ? 'missing' : ''}" onclick="selectRow(${i})">
@@ -1459,10 +1475,12 @@
                 <div class="lib-name">${titleOf(t)}${t.missing ? '<small>file missing</small>' : ''}</div>
                 <span class="lib-bpm" data-ctl="lib.bpm">${t.bpm}</span>
                 <span class="lib-dur">${t.dur}</span>
-                <span class="lib-key" data-ctl="lib.key" onclick="event.stopPropagation(); ${t.camelot === '—' ? '' : `filterKey('${t.camelot}')`}" ${t.camelot === '—' ? '' : `title="Show ${t.camelot} and its harmonic matches"`}>${camelotBadge(t.camelot, libView.key === t.camelot ? 'sel' : '')}</span>
-                <span class="lib-note">${keyShort(t.key)}</span>
+                <div class="lib-tonality">
+                  <span class="lib-key" data-ctl="lib.key" onclick="event.stopPropagation(); ${t.camelot === '—' ? '' : `filterKey('${t.camelot}')`}" ${t.camelot === '—' ? '' : `title="Show ${t.camelot} and its harmonic matches"`}>${camelotBadge(t.camelot, libView.key === t.camelot ? 'sel' : '')}</span>
+                  <span class="lib-note">${keyShort(t.key)}</span>
+                </div>
                 ${libGridHtml(i)}
-                <button class="lib-more" data-ctl="lib.more" onclick="event.stopPropagation(); openMore(${i})" title="Track details, playlists and re-analyse">MORE</button>
+                <button class="lib-more" data-ctl="lib.more" onclick="event.stopPropagation(); openMore(${i})" aria-label="Track details for ${escapeHtml(titleOf(t))}" title="Track details, playlists and re-analyse">${MORE_ICON}</button>
               </div>`;
         }).join('');
       }
@@ -1490,7 +1508,7 @@
         if (screen === 'firstrun') return '0 tracks';
         const total = playlistOf() ? playlistOf().tracks.length : LIBRARY.length;
         const shown = libRows().length;
-        return `${total} ${total === 1 ? 'track' : 'tracks'}${shown !== total ? ` · ${shown} shown` : ''}`;
+        return `${total} ${total === 1 ? 'track' : 'tracks'}${shown !== total ? ` · ${shown} shown` : ''}${screen === 'importprogress' ? ' · 2 importing' : ''}`;
       };
 
       /* Only the list, count and filter bar repaint while typing, so the search box keeps focus. */
@@ -1572,7 +1590,7 @@
             <button class="btn accent" data-ctl="lib.addfiles">Add files</button>
             <button class="btn" data-ctl="lib.addfolder">Add folder</button>
             ${infoBtn('library')}
-            <button class="btn ghost done" data-ctl="lib.done" onclick="toggleLib()">Done</button>
+            ${closeBtn('toggleLib()', 'lib.done')}
           </div>
           <div class="lib-body">
             <nav class="lib-side" data-ctl="lib.playlists">
@@ -1584,8 +1602,8 @@
             <div class="lib-main">
               <div class="lib-filter" id="libFilter">${libFilterHtml()}</div>
               <div class="lib-cols" data-ctl="lib.sort">
-                ${[['name', 'track'], ['bpm', 'bpm'], ['dur', 'time'], ['key', 'camelot'], [null, 'key'], ['grid', 'grid']].map(([col, label]) =>
-                  col ? `<button class="${libView.sort === col ? 'on' + (libView.dir < 0 ? ' desc' : '') : ''}" onclick="sortLibrary('${col}')">${label}</button>` : `<span>${label}</span>`).join('')}
+                ${[['name', 'track'], ['bpm', 'bpm'], ['dur', 'time'], ['key', 'key'], ['grid', 'grid']].map(([col, label]) =>
+                  `<button class="${libView.sort === col ? 'on' + (libView.dir < 0 ? ' desc' : '') : ''}" onclick="sortLibrary('${col}')">${label}</button>`).join('')}
                 <span></span>
               </div>
               <div class="lib-list" id="libList">${libRowsHtml()}</div>
@@ -1954,22 +1972,22 @@
           title: 'How the library works',
           rows: [
             ['Load', "Tap a track, then tap a deck's album art. Or drag the track onto the deck."],
-            ['Playlists', 'Drag a track onto a playlist, or switch it on in MORE on its row.'],
+            ['Playlists', 'Drag a track onto a playlist, or open its ⋯ button to change its playlists.'],
             ['Keys', 'Tap a key to show it and its harmonic matches.'],
             ['Sort', 'Tap a column heading.']
           ],
           foot: 'Files stay on this machine.'
         }
       };
-      const INFO_ICON = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="4.5" r="2.1"/><rect x="8" y="8" width="4" height="9.5" rx="1"/></svg>';
-      const infoBtn = (topic) => `<button class="btn ghost info" data-ctl="help.${topic}" onclick="event.stopPropagation(); openHelp('${topic}')" title="${HELP[topic].title}">${INFO_ICON}</button>`;
+      const infoBtn = (topic) => `<button class="btn icon-btn info" data-ctl="help.${topic}" onclick="event.stopPropagation(); openHelp('${topic}')" title="${HELP[topic].title}" aria-label="${HELP[topic].title}"><img src="../icons/info.svg" alt=""></button>`;
+      const closeBtn = (action, control) => `<button class="btn icon-btn done"${control ? ` data-ctl="${control}"` : ''} onclick="${action}" title="Close" aria-label="Close"><img src="../icons/close.svg" alt=""></button>`;
       function renderHelp() {
         const h = HELP[help];
         return `
           <div class="gsheet narrow help" data-ctl="help" onclick="event.stopPropagation()">
             <div class="gsheet-head">
               <h2>${h.title}</h2>
-              <button class="btn ghost done" onclick="openHelp(null)">Close</button>
+              ${closeBtn('openHelp(null)')}
             </div>
             <div class="help-rows">${h.rows.map(([term, text]) => `<div class="help-row"><b>${term}</b><span>${text}</span></div>`).join('')}</div>
             ${h.foot ? `<p class="help-foot">${h.foot}</p>` : ''}
@@ -1998,7 +2016,7 @@
             <div class="gsheet-head">
               <h2>Beat grid <span>· deck ${key}</span></h2>
               ${infoBtn('grid')}
-              <button class="btn ghost done" data-ctl="grid.close" onclick="closeGrid()">Close</button>
+              ${closeBtn('closeGrid()', 'grid.close')}
             </div>
             <div class="gstats" data-ctl="grid.readouts">
               <div class="gstat"><b id="gbpm">${g.bpm.toFixed(1)}</b><span>BPM</span></div>
@@ -2089,7 +2107,7 @@
          TAP states. */
       let screen = 'console';
       const PLAYLIST_SCREENS = ['playlistmenu', 'rename', 'delete'];
-      const LIB_SCREENS = [...PLAYLIST_SCREENS, 'keysmissing', 'findingkeys', 'filemissing', 'bothdecks', 'trackmore', 'trackremove', 'trackagain'];
+      const LIB_SCREENS = [...PLAYLIST_SCREENS, 'importprogress', 'keysmissing', 'findingkeys', 'filemissing', 'bothdecks', 'trackmore', 'trackremove', 'trackagain'];
       const TAP_SCREENS = ['tap', 'tapidle', 'tapnoinputs'];
       const isLoading = (d) => screen === 'loading' && d.letter === 'B';
       const isEmpty = (d) => screen === 'firstrun' || isLoading(d);
@@ -2201,7 +2219,7 @@
           <div class="gsheet wide" data-ctl="console.help">
             <div class="gsheet-head">
               <h2>Keyboard <span>· shortcuts</span></h2>
-              <button class="btn ghost done" onclick="setScreen('console')">Close</button>
+              ${closeBtn("setScreen('console')")}
             </div>
             <div class="keys-cols">
               <div>${group(SHORTCUT_GROUPS[0])}${group(SHORTCUT_GROUPS[2])}</div>
@@ -2249,7 +2267,7 @@
               <div class="more-actions">
                 <button class="btn more-remove ${confirm ? 'confirm' : ''}" data-ctl="lib.remove" onclick="removeTrack()" title="Take this track out of the library"><i>X</i>${confirm ? 'Tap again to remove' : 'Remove from library'}</button>
                 <button class="btn more-again ${again ? 'confirm' : ''}" data-ctl="lib.reanalyze" onclick="reanalyseTrack()" title="Run the analysis on this track again"><i>↻</i>${again ? 'Tap again to re-analyse' : 'Re-analyse'}</button>
-                <button class="btn done" onclick="openMore(null)">Done</button>
+                ${closeBtn('openMore(null)')}
               </div>
               <div class="more-title">
                 <span>Track</span>
@@ -2286,7 +2304,7 @@
               <h2>Tap tempo <span>· audio input</span></h2>
               <span class="chip exp">EXPERIMENTAL</span>
               ${infoBtn('tap')}
-              <button class="btn ghost done" onclick="setScreen('console')">Close</button>
+              ${closeBtn("setScreen('console')")}
             </div>
             <div class="tap-device">
               <div class="tap-pick"><span>${noInputs ? 'No audio inputs' : 'BlackHole 2ch'}</span>${noInputs ? '' : '<em>LOOPBACK</em>'}<i>▾</i></div>
@@ -2324,7 +2342,7 @@
         const more = on && !renaming
           ? `<span class="lib-actions"><button class="${menuOpen ? 'on' : ''}" onclick="event.stopPropagation(); setScreen('${menuOpen ? 'console' : 'playlistmenu'}')" title="Rename or delete">⋯</button>${menu}</span>`
           : '';
-        return `<div class="lib-side-item ${on ? 'on' : ''}" role="button" onclick="setPlaylist('${p.id}')"><i>≡</i>${name}<em>${p.tracks.length}</em>${more}</div>`;
+        return `<div class="lib-side-item playlist ${on ? 'on' : ''}" role="button" onclick="setPlaylist('${p.id}')"><i>≡</i>${name}${more}<em class="lib-playlist-count">${p.tracks.length}</em></div>`;
       }
       let focusedDeck = 'A';
 

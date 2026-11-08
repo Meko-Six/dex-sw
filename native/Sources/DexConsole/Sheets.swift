@@ -9,7 +9,7 @@ import DexCore
 
 /// `.btn`: the console's text key, in its looks.
 struct SheetButton: View {
-    enum Style { case plain, ghost, on, done, accent, outline, danger, dangerArmed }
+    enum Style { case plain, ghost, on, accent, outline, danger, dangerArmed }
     let title: String
     var style: Style = .plain
     var height: CGFloat = 40
@@ -20,16 +20,17 @@ struct SheetButton: View {
     var glyphSize: CGFloat = 20
     /// The glyph's width in Chromium, which picks its fallback font differently.
     var glyphWidth: CGFloat = 16.86
+    var face = Face.cond(16, tracking: 1.6)
     let action: () -> Void
 
-    private var outlined: Bool { [.done, .outline, .danger, .dangerArmed].contains(style) }
+    private var outlined: Bool { [.outline, .danger, .dangerArmed].contains(style) }
 
     var body: some View {
         let (fill, border, text) = colours
         Button(action: action) {
             HStack(spacing: 8) {
                 if let glyph { Text(glyph).font(.custom("HelveticaNeue", fixedSize: glyphSize)).foregroundStyle(text).fixedSize().frame(width: glyphWidth, height: 16) }
-                Label(title.uppercased(), .cond(16, tracking: 1.6)).foregroundStyle(text).frame(height: 16)
+                Label(title.uppercased(), face).foregroundStyle(text).frame(height: face.size)
             }
                 .padding(.horizontal, outlined ? 14 : 13)
                 .frame(minWidth: minWidth).frame(height: height)
@@ -46,8 +47,7 @@ struct SheetButton: View {
         case .plain: (Color(hex: 0x17171A), Color(hex: 0x3B3B41), Color(hex: 0xE9E9EC))
         case .ghost: (.clear, Color(hex: 0x333338), Color(hex: 0xA0A0A6))
         case .on: (Color(hex: 0xE07000), Color(hex: 0xFFB455), Color(hex: 0x1A0E00))
-        case .done: (.clear, Palette.outlineGreen, Palette.outlineGreen)
-        case .outline: (.clear, Palette.outlineYellow, Palette.outlineYellow)
+        case .outline: (Color(hex: 0x161917), Palette.outlineYellow, Palette.outlineYellow)
         case .danger: (.clear, Palette.red, Palette.removeRed)
         case .dangerArmed: (mix(0xE8402F, 0.22, 0x111113), Palette.red, Palette.removeRed)
         case .accent: (Palette.led, Palette.led, Color(hex: 0x1A0E00))
@@ -55,26 +55,28 @@ struct SheetButton: View {
     }
 }
 
-/// `.btn.info`: the round (i) key next to DONE / CLOSE.
-struct InfoKey: View {
-    let size: CGFloat
+/// `.icon-btn`: the round Info and Close keys.
+struct SheetIconButton: View {
+    enum Kind {
+        case info, close
+        var glyph: ConsoleGlyph { self == .info ? .info : .close }
+        var label: String { self == .info ? "Instructions" : "Close" }
+    }
+
+    let kind: Kind
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Canvas { context, canvas in
-                let s = canvas.width / 20
-                var icon = Path(ellipseIn: CGRect(x: 7.9 * s, y: 2.4 * s, width: 4.2 * s, height: 4.2 * s))
-                icon.addRoundedRect(in: CGRect(x: 8 * s, y: 8 * s, width: 4 * s, height: 9.5 * s), cornerSize: CGSize(width: s, height: s))
-                context.fill(icon, with: .color(Palette.outlineYellow))
-            }
-            .frame(width: 20, height: 20)
-            .frame(width: size, height: size)
-            .overlay(Circle().inset(by: 1).stroke(Palette.outlineYellow, lineWidth: 2))
-            .contentShape(Circle())
+            kind.glyph.fill(Color.white.opacity(0.85))
+                .frame(width: 25, height: 25)
+                .frame(width: 40, height: 40)
+                .background(Circle().fill(Color(hex: 0x161917)))
+                .overlay(Circle().strokeBorder(Color(hex: 0x77777E), lineWidth: 2))
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Instructions")
+        .accessibilityLabel(kind.label)
     }
 }
 
@@ -122,10 +124,10 @@ struct SheetHead<Badge: View>: View {
             .layoutPriority(1)
             badge
             Spacer(minLength: 0)
-            if let help { InfoKey(size: 44) { actions.setHelp(help) } }
-            SheetButton(title: "Close", style: .done, minWidth: 88, action: close)
+            if let help { SheetIconButton(kind: .info) { actions.setHelp(help) } }
+            SheetIconButton(kind: .close, action: close)
         }
-        // As tall as CLOSE, or the 44 pt (i) key.
+        // Preserve the taller grid and TAP headers.
         .frame(minHeight: help == nil ? 40 : 44)
     }
 }
@@ -245,7 +247,7 @@ enum HelpText {
         case .library:
             ("How the library works", [
                 ("Load", "Tap a track, then tap a deck's album art. Or drag the track onto the deck."),
-                ("Playlists", "Drag a track onto a playlist, or switch it on in MORE on its row."),
+                ("Playlists", "Drag a track onto a playlist, or open its ⋯ button to change its playlists."),
                 ("Keys", "Tap a key to show it and its harmonic matches."),
                 ("Sort", "Tap a column heading.")
             ], "Files stay on this machine.")

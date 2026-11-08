@@ -880,7 +880,7 @@ window.DEX_CONTROLS = {
     {
       "id": "lib.more",
       "group": "library",
-      "label": "MORE",
+      "label": "Track details (⋯)",
       "kind": "button",
       "status": "live",
       "does": "At the end of each row: opens the track's details (artists, album, genre, BPM, key, length and release date where available), its playlists to switch on and off, re-analyse and remove.",
@@ -900,11 +900,11 @@ window.DEX_CONTROLS = {
     {
       "id": "lib.done",
       "group": "library",
-      "label": "Done",
+      "label": "Close",
       "kind": "button",
       "status": "live",
       "does": "Closes the library and returns to the mixer. Esc does the same.",
-      "source": "src/renderer/ui/LibrarySheet.tsx",
+      "source": "native/Sources/DexConsole/Library.swift",
       "n": 83
     },
     {
@@ -951,20 +951,20 @@ window.DEX_CONTROLS = {
     {
       "id": "lib.reanalyze",
       "group": "library",
-      "label": "Re-analyse (in MORE)",
+      "label": "Re-analyse (in track details)",
       "kind": "button",
       "status": "live",
-      "does": "In a row's MORE, asks twice: runs the whole analysis again. The grid, its other readings and the key are replaced, hand-edited grids included; hot cues stay.",
+      "does": "In track details, asks twice: runs the whole analysis again. The grid, its other readings and the key are replaced, hand-edited grids included; hot cues stay.",
       "source": "native/Sources/DexAudio/NativeLibrary.swift",
       "n": 88
     },
     {
       "id": "lib.remove",
       "group": "library",
-      "label": "Remove from library (in MORE)",
+      "label": "Remove from library (in track details)",
       "kind": "button",
       "status": "live",
-      "does": "In a row's MORE, red, asks twice: deletes the library's copy and cover and takes the track out of every playlist. The original file stays. Refused while a deck holds the track.",
+      "does": "In track details, red, asks twice: deletes the library's copy and cover and takes the track out of every playlist. The original file stays. Refused while a deck holds the track.",
       "source": "native/Sources/DexAudio/NativeLibrary.swift",
       "n": 89
     },
@@ -1060,10 +1060,10 @@ window.DEX_CONTROLS = {
     {
       "id": "lib.playlist",
       "group": "library",
-      "label": "Playlists (in MORE)",
+      "label": "Playlists (in track details)",
       "kind": "button",
       "status": "live",
-      "does": "In a row's MORE: click a playlist to add or take out the track (it stays in the library). New playlists are made with + in the library's column.",
+      "does": "In track details, click a playlist to add or take out the track. Create playlists with + in the library sidebar.",
       "source": "native/Sources/DexConsole/Library.swift",
       "n": 99
     }

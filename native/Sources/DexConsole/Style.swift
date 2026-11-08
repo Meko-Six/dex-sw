@@ -18,8 +18,7 @@ enum Palette {
     static let led = Color(hex: 0xFF8A00)
     static let green = Color(hex: 0x35D06B)
     static let red = Color(hex: 0xE8402F)
-    /// The outlined keys: DONE and CLOSE in green, (i) and the library's in yellow-green.
-    static let outlineGreen = Color(hex: 0x49BA60)
+    /// The library's yellow-green outlined keys.
     static let outlineYellow = Color(hex: 0xDBE22D)
     static let removeRed = Color(hex: 0xFF5A4A)
     /// `--a` and `--blue`: deck A, selected rows, the sidebar, the jump length.
@@ -27,8 +26,8 @@ enum Palette {
     static let blue = Color(hex: blueHex)
     /// Library text: the bright and the darker grey.
     static let rowText = Color(hex: 0xF2F4F3)
-    static let rowDim = Color(hex: 0x8E9194)
-    static let playing = Color(hex: 0x91CA53)
+    static let rowDim = Color(hex: 0x74747B)
+    static let playing = Color(hex: 0x80C342)
     /// `--a` / `--b`: each deck's colour.
     static func accent(_ deck: String) -> Color { deck == "B" ? Color(hex: 0xFF8A1F) : blue }
 }
@@ -51,9 +50,9 @@ struct Face: Hashable {
     /// `--font-cond`, the label and readout face: Avenir Next Condensed, a
     /// system font on macOS and iPadOS. CSS weights 400/500/600/700/800 map to its cuts.
     enum Weight: String { case regular = "Regular", medium = "Medium", demi = "DemiBold", bold = "Bold", heavy = "Heavy" }
-    /// `--font-avenir`: the wide cut, for the track details in MORE.
-    static func avenir(_ size: CGFloat, weight: Weight = .medium) -> Face {
-        Face(name: "AvenirNext-" + weight.rawValue, size: size)
+    /// `--font-avenir`: the wide cut used in the library.
+    static func avenir(_ size: CGFloat, tracking: CGFloat = 0, weight: Weight = .medium, tabular: Bool = false) -> Face {
+        Face(name: "AvenirNext-" + weight.rawValue, size: size, tracking: tracking, tabular: tabular)
     }
     static func cond(_ size: CGFloat, tracking: CGFloat = 0, weight: Weight = .bold, tabular: Bool = false) -> Face {
         Face(name: "AvenirNextCondensed-" + weight.rawValue, size: size, tracking: tracking, tabular: tabular)
@@ -96,41 +95,97 @@ struct Label: View {
     }
 }
 
-/// `icons/music.note.svg`, the app's music note, scaled to fit its frame.
-struct NoteShape: Shape {
-    static let size = CGSize(width: 15.01, height: 24.75)
-    private static let path: Path = {
-        // M, c and l, implicitly repeated: all the file uses.
-        let d = "M9.06,19.71c-.01,1.12-.28,1.7-1,2.55-.28.33-.56.65-.91.92-1.18.91-2.49,1.42-4,1.27-.7-.07-1.38-.39-1.92-.81-1.15-.9-1.2-2.51-.44-3.8.27-.46.64-.83,1.03-1.21,1.16-1.16,3.06-1.84,4.66-1.5.41.09.77.23,1.18.37l.06-.91.06-8.37.05-5.64.05-1.99c.09-.19.41-.33.59-.29.8.19.59,1.02,1.03,2.01.32.7.76,1.29,1.27,1.85l1.56,1.73c2.06,2.27,3.04,5.14,1.89,8.1-.29.74-.65,1.42-1.3,1.89-.21.1-.65-.13-.66-.36.12-.47.33-.88.48-1.34.29-.87.44-1.75.32-2.67-.2-1.49-.94-2.87-2.11-3.81-.54-.43-1.14-.71-1.79-1.01l-.05,7.32-.06,5.72Z"
-        var path = Path(), command: Character = "M", values: [CGFloat] = [], point = CGPoint.zero
+/// The paths and view boxes from the SVGs in `icons/`.
+enum ConsoleGlyph: Shape {
+    case note, info, close
+
+    var size: CGSize {
+        switch self {
+        case .note: CGSize(width: 15.01, height: 24.75)
+        case .info: CGSize(width: 14, height: 24.97)
+        case .close: CGSize(width: 21, height: 24.97)
+        }
+    }
+
+    private static let notePath = svgPath("M9.06,19.71c-.01,1.12-.28,1.7-1,2.55-.28.33-.56.65-.91.92-1.18.91-2.49,1.42-4,1.27-.7-.07-1.38-.39-1.92-.81-1.15-.9-1.2-2.51-.44-3.8.27-.46.64-.83,1.03-1.21,1.16-1.16,3.06-1.84,4.66-1.5.41.09.77.23,1.18.37l.06-.91.06-8.37.05-5.64.05-1.99c.09-.19.41-.33.59-.29.8.19.59,1.02,1.03,2.01.32.7.76,1.29,1.27,1.85l1.56,1.73c2.06,2.27,3.04,5.14,1.89,8.1-.29.74-.65,1.42-1.3,1.89-.21.1-.65-.13-.66-.36.12-.47.33-.88.48-1.34.29-.87.44-1.75.32-2.67-.2-1.49-.94-2.87-2.11-3.81-.54-.43-1.14-.71-1.79-1.01l-.05,7.32-.06,5.72Z")
+    private static let infoPath = svgPath("M2.07,23.79h9.83c.8,0,1.44-.58,1.44-1.39,0-.77-.63-1.37-1.44-1.37h-3.25v-9.73c0-1.06-.53-1.75-1.54-1.75H2.4c-.78,0-1.41.6-1.41,1.36,0,.81.64,1.39,1.41,1.39h3.13v8.73h-3.46c-.8,0-1.41.6-1.41,1.37,0,.82.61,1.39,1.41,1.39ZM6.35,6.52c1.49,0,2.68-1.19,2.68-2.67s-1.18-2.68-2.68-2.68-2.66,1.18-2.66,2.68,1.19,2.67,2.66,2.67Z")
+    private static let closePath = svgPath("M5.3,20.27l13.57-13.57c.3-.3.47-.68.47-1.11,0-.89-.71-1.58-1.59-1.58-.45,0-.81.15-1.11.48L3.05,18.02c-.3.32-.47.68-.47,1.13,0,.89.71,1.6,1.59,1.6.48,0,.85-.17,1.14-.48ZM16.6,20.27c.3.3.68.48,1.15.48.88,0,1.59-.71,1.59-1.6,0-.45-.18-.81-.47-1.13L5.28,4.49c-.3-.33-.66-.48-1.11-.48-.87,0-1.59.69-1.59,1.58,0,.43.17.81.47,1.11l13.55,13.57Z")
+
+    private static func svgPath(_ source: String) -> Path {
+        var path = Path(), command: Character = "M", values: [CGFloat] = []
+        var point = CGPoint.zero, start = CGPoint.zero
+        var lastControl: CGPoint?
         func run() {
-            if command == "M", values.count >= 2 { point = CGPoint(x: values[0], y: values[1]); path.move(to: point); values.removeFirst(2) }
-            while command == "l", values.count >= 2 {
-                point = CGPoint(x: point.x + values[0], y: point.y + values[1]); path.addLine(to: point); values.removeFirst(2)
+            defer {
+                if command != "c" && command != "s" { lastControl = nil }
+                values.removeAll(keepingCapacity: true)
             }
-            while command == "c", values.count >= 6 {
-                let end = CGPoint(x: point.x + values[4], y: point.y + values[5])
-                path.addCurve(to: end, control1: CGPoint(x: point.x + values[0], y: point.y + values[1]),
-                              control2: CGPoint(x: point.x + values[2], y: point.y + values[3]))
-                point = end; values.removeFirst(6)
+            switch command {
+            case "M", "m":
+                guard values.count >= 2 else { return }
+                point = command == "M" ? CGPoint(x: values[0], y: values[1])
+                    : CGPoint(x: point.x + values[0], y: point.y + values[1])
+                start = point
+                path.move(to: point)
+            case "H", "h":
+                for x in values {
+                    point.x = command == "H" ? x : point.x + x
+                    path.addLine(to: point)
+                }
+            case "v":
+                for y in values { point.y += y; path.addLine(to: point) }
+            case "L", "l":
+                while values.count >= 2 {
+                    point = command == "L" ? CGPoint(x: values[0], y: values[1])
+                        : CGPoint(x: point.x + values[0], y: point.y + values[1])
+                    path.addLine(to: point)
+                    values.removeFirst(2)
+                }
+            case "c", "s":
+                let count = command == "c" ? 6 : 4
+                while values.count >= count {
+                    let previous = lastControl ?? point
+                    let first = command == "c" ? CGPoint(x: point.x + values[0], y: point.y + values[1])
+                        : CGPoint(x: 2 * point.x - previous.x, y: 2 * point.y - previous.y)
+                    let second = CGPoint(x: point.x + values[count - 4], y: point.y + values[count - 3])
+                    let end = CGPoint(x: point.x + values[count - 2], y: point.y + values[count - 1])
+                    path.addCurve(to: end, control1: first, control2: second)
+                    lastControl = second
+                    point = end
+                    values.removeFirst(count)
+                }
+            case "Z": break
+            default: assertionFailure("Unsupported icon path command: \(command)")
             }
         }
         var number = ""
         func flush() { if let value = Double(number) { values.append(CGFloat(value)) }; number = "" }
-        for character in d {
-            if character.isLetter { flush(); run(); command = character; if character == "Z" { path.closeSubpath() } }
-            else if character == "," { flush() }
+        for character in source {
+            if character.isLetter {
+                flush()
+                run()
+                command = character
+                if character == "Z" { path.closeSubpath(); point = start }
+            } else if character == "," || character.isWhitespace { flush() }
             else if character == "-" { flush(); number = "-" }
             else if character == ".", number.contains(".") { flush(); number = "." }
             else { number.append(character) }
         }
+        flush()
+        run()
         return path
-    }()
+    }
 
     func path(in rect: CGRect) -> Path {
-        let scale = min(rect.width / Self.size.width, rect.height / Self.size.height)
-        return Self.path.applying(CGAffineTransform(scaleX: scale, y: scale))
-            .offsetBy(dx: rect.midX - Self.size.width * scale / 2, dy: rect.midY - Self.size.height * scale / 2)
+        let path: Path
+        switch self {
+        case .note: path = Self.notePath
+        case .info: path = Self.infoPath
+        case .close: path = Self.closePath
+        }
+        let scale = min(rect.width / size.width, rect.height / size.height)
+        return path.applying(CGAffineTransform(scaleX: scale, y: scale))
+            .offsetBy(dx: rect.midX - size.width * scale / 2, dy: rect.midY - size.height * scale / 2)
     }
 }
 
@@ -138,7 +193,8 @@ struct NoteShape: Shape {
 struct NoteIcon: View {
     let height: CGFloat
     var body: some View {
-        NoteShape().frame(width: height * NoteShape.size.width / NoteShape.size.height, height: height)
+        let note = ConsoleGlyph.note
+        note.frame(width: height * note.size.width / note.size.height, height: height)
     }
 }
 

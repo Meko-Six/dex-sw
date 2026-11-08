@@ -24,7 +24,8 @@ public struct WaveformOverview: Sendable {
 /// a full track into RAM. This reader is called off the UI/audio render threads.
 public enum WaveformReader {
     public static func read(url: URL, bins: Int = 2048, chunkFrames: UInt32 = 16_384,
-                            analyzeRhythm: Bool = true, analyzeKey: Bool = false) throws -> WaveformOverview {
+                            analyzeRhythm: Bool = true, analyzeKey: Bool = false,
+                            progress: (@Sendable (Double) -> Void)? = nil) throws -> WaveformOverview {
         try Task.checkCancellation()
         guard (1...16_384).contains(bins), (256...65_536).contains(chunkFrames) else {
             throw ReadError.invalidBudget
@@ -47,6 +48,7 @@ public enum WaveformReader {
         let key = analyzeKey ? KeyReader(format: format, frames: file.length, capacity: chunkFrames) : nil
         let loudness = LoudnessMeter(sampleRate: format.sampleRate)
         var cursor: Int64 = 0
+        var reported = 0.0
         while cursor < file.length {
             try Task.checkCancellation()
             try autoreleasepool {
@@ -67,6 +69,13 @@ public enum WaveformReader {
                 }
             }
             cursor += Int64(buffer.frameLength)
+            if let progress {
+                let fraction = Double(cursor) / Double(file.length)
+                if fraction >= reported + 0.05 || cursor == file.length {
+                    reported = fraction
+                    progress(fraction)
+                }
+            }
         }
         return WaveformOverview(duration: Double(cursor) / format.sampleRate, peaks: peaks,
                                 decodedFrames: cursor, bufferCapacity: chunkFrames, detection: try rhythm?.detect() ?? .unavailable,

@@ -10,6 +10,7 @@ struct LibraryPane: View {
     @State private var ui: LibraryView
     @FocusState private var searching: Bool
     @Environment(\.consoleSnapshot) private var snapshot
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(state: ConsoleState, actions: ConsoleActions, start: LibraryView = LibraryView()) {
         self.state = state; self.actions = actions
@@ -22,17 +23,17 @@ struct LibraryPane: View {
     var body: some View {
         let rows = self.rows
         let total = playlist?.trackIDs.count ?? library.tracks.count
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 8) {
             head(total: total, shown: rows.count)
-            HStack(alignment: .top, spacing: 12) {
-                side.frame(width: 196)
-                main(rows)
+            HStack(alignment: .top, spacing: 11) {
+                side.frame(width: 196).padding(.leading, 2)
+                main(rows).padding(.trailing, 2)
             }
             .frame(maxHeight: .infinity)
         }
-        .padding(EdgeInsets(top: 11, leading: 12, bottom: 10, trailing: 12))
+        .padding(EdgeInsets(top: 9, leading: 12, bottom: 10, trailing: 12))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(hex: 0x060607))
+        .background(Color(hex: 0x060606))
         .overlay(alignment: .top) { Color.black.frame(height: 1) }
         .onValueChange(of: state.libraryOpen) { open in
             if !open { searching = false; ui.listMenu = nil; ui.confirmDelete = false }
@@ -47,6 +48,18 @@ struct LibraryPane: View {
     }
 
     // MARK: Rows
+
+    private enum Row: Identifiable {
+        case track(ConsoleState.Library.Track)
+        case pending(ConsoleState.Library.PendingImport)
+
+        var id: String {
+            switch self {
+            case .track(let track): track.id
+            case .pending(let pending): pending.id
+            }
+        }
+    }
 
     /// `rows` in Sheets.tsx: the view's tracks, by key and search, then sorted.
     private var rows: [ConsoleState.Library.Track] {
@@ -78,11 +91,15 @@ struct LibraryPane: View {
 
     private func head(total: Int, shown: Int) -> some View {
         let missingKeys = library.tracks.filter { $0.camelot == nil && !$0.keyChecked && !$0.missing }.count
-        return HStack(spacing: 10) {
-            Label((playlist?.name ?? "Library").uppercased(), .cond(22, tracking: 3.96)).foregroundStyle(Palette.text).frame(height: 22)
-            Text("\(total) \(total == 1 ? "track" : "tracks")" + (shown != total ? " · \(shown) shown" : ""))
-                .font(Face.ui(16).font).foregroundStyle(Color(hex: 0xA0A0A6))
-            Spacer(minLength: 0)
+        return HStack(spacing: 8) {
+            Text((playlist?.name ?? "Library").uppercased())
+                .font(Face.avenir(22, weight: .bold).font).tracking(3.96).lineLimit(1)
+                .foregroundStyle(Palette.text).frame(height: 22)
+            Text("\(total) \(total == 1 ? "track" : "tracks")" + (shown != total ? " · \(shown) shown" : "")
+                 + (library.pendingImports.isEmpty ? "" : " · \(library.pendingImports.count) importing"))
+                .font(Face.avenir(16, weight: .regular).font).foregroundStyle(Color(hex: 0xA0A0A6))
+                .fixedSize().padding(.leading, 17)
+            Spacer(minLength: 0).layoutPriority(-1)
             Group {
                 if snapshot {
                     Text(ui.query.isEmpty ? "Search tracks, keys (4A), BPM" : ui.query)
@@ -95,18 +112,24 @@ struct LibraryPane: View {
                         .focused($searching)
                 }
             }
-            .font(Face.ui(16).font)
-            .padding(.horizontal, 13).frame(width: 300, height: 36)
-                .box(fill: Color(hex: 0x141416), border: Color(hex: 0x3A3A40), radius: 3)
+            .font(Face.avenir(16, weight: .regular).font).lineLimit(1)
+            .padding(.horizontal, 13).frame(minWidth: 100, maxWidth: 300).frame(height: 36)
+            .box(fill: Color(hex: 0x141416), border: Color(hex: 0x3A3A40), radius: 3)
+            .padding(.trailing, 30)
             if missingKeys > 0, library.findsKeys {
-                SheetButton(title: "Find keys (\(missingKeys))", style: .outline, height: 36, disabled: library.busy, action: actions.library.findKeys)
+                headerKey("Find keys (\(missingKeys))", disabled: library.busy, action: actions.library.findKeys)
             }
-            SheetButton(title: "Add files", style: .outline, height: 36, action: actions.library.addFiles)
-            SheetButton(title: "Add folder", style: .outline, height: 36, action: actions.library.addFolder)
-            InfoKey(size: 40) { actions.setHelp(.library) }
-            SheetButton(title: "Done", style: .done, height: 36) { actions.library.setOpen(false) }
+            headerKey("Add files", action: actions.library.addFiles)
+            headerKey("Add folder", action: actions.library.addFolder)
+            SheetIconButton(kind: .info) { actions.setHelp(.library) }
+            SheetIconButton(kind: .close) { actions.library.setOpen(false) }
         }
         .frame(height: 40)
+    }
+
+    private func headerKey(_ title: String, disabled: Bool = false, action: @escaping () -> Void) -> some View {
+        SheetButton(title: title, style: .outline, height: 36, disabled: disabled,
+                    face: .avenir(15, weight: .bold), action: action)
     }
 
     // MARK: Playlists
@@ -126,7 +149,7 @@ struct LibraryPane: View {
             }
             .padding(.top, 8)
             if library.playlists.isEmpty {
-                Para("No playlists yet. Tap + to make one.", .ui(14), lineHeight: 1.4).foregroundStyle(Color(hex: 0x74747B))
+                Para("No playlists yet. Tap + to make one.", .avenir(14, weight: .regular), lineHeight: 1.4).foregroundStyle(Palette.rowDim)
                     .padding(.horizontal, 10).padding(.vertical, 4)
             }
             ForEach(library.playlists) { entry in playlistRow(entry) }
@@ -139,8 +162,8 @@ struct LibraryPane: View {
     }
 
     private func sideLabel(_ text: String) -> some View {
-        Label(text, .cond(12, tracking: 0.96)).foregroundStyle(Palette.silk).frame(height: 12)
-            .padding(EdgeInsets(top: 6, leading: 8, bottom: 4, trailing: 8))
+        Label(text, .avenir(12, weight: .bold)).foregroundStyle(Color(hex: 0xA0A0A6)).frame(height: 12)
+            .padding(EdgeInsets(top: 6, leading: 6, bottom: 4, trailing: 6))
     }
 
     private func playlistRow(_ entry: ConsoleState.Library.Playlist) -> some View {
@@ -166,11 +189,11 @@ struct LibraryPane: View {
         }
         // The menu hangs below the row, so it sits outside the row's context menu and drop target:
         // on iPad those only take touches inside the row, which left Rename and Delete dead.
-        // Its top is 36 pt under the 32 pt key's, which is centred in the 40 pt row and 9 pt in from its end.
+        // Align it with the 32 pt key just before the playlist count.
         .overlay(alignment: .topTrailing) {
             if menuOpen {
                 playlistMenu(entry).fixedSize(horizontal: false, vertical: true)
-                    .offset(x: -9, y: 40)
+                    .offset(x: -40, y: 40)
             }
         }
         .zIndex(menuOpen ? 2 : 0)
@@ -187,7 +210,7 @@ struct LibraryPane: View {
                 actions.library.deletePlaylist(entry.id)
             }
             if ui.confirmDelete {
-                Para("Its \(count) \(count == 1 ? "track stays" : "tracks stay") in the library.", .ui(13), lineHeight: 1.35)
+                Para("Its \(count) \(count == 1 ? "track stays" : "tracks stay") in the library.", .avenir(13, weight: .regular), lineHeight: 1.35)
                     .foregroundStyle(Color(hex: 0x74747B))
                     .padding(EdgeInsets(top: 2, leading: 30, bottom: 6, trailing: 10))
             }
@@ -208,7 +231,7 @@ struct LibraryPane: View {
     // MARK: Tracks
 
     private func main(_ rows: [ConsoleState.Library.Track]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             filter
             columns
             list(rows)
@@ -229,18 +252,18 @@ struct LibraryPane: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 3))
                 .overlay(RoundedRectangle(cornerRadius: 3).inset(by: 0.5).stroke(Color(hex: 0x2E2E32), lineWidth: 1))
-                SheetButton(title: "Clear", style: .ghost) { ui.keyFilter = "" }
+                SheetButton(title: "Clear", style: .ghost, face: .avenir(16, tracking: 1.6, weight: .bold)) { ui.keyFilter = "" }
             } else {
-                Text("All keys")
+                Text("All keys").padding(.top, 7)
             }
         }
-        .font(Face.ui(14).font).foregroundStyle(Color(hex: 0xA0A0A6))
-        .frame(minHeight: 32)
+        .font(Face.avenir(14, weight: .regular).font).foregroundStyle(Color(hex: 0xA0A0A6))
+        .frame(height: 40, alignment: keyCodes == nil ? .top : .center)
     }
 
     private func segment(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(Face.ui(14).font).foregroundStyle(on ? Palette.text : Color(hex: 0xA0A0A6))
+            Text(title).font(Face.avenir(14, weight: .regular).font).foregroundStyle(on ? Palette.text : Color(hex: 0xA0A0A6))
                 .padding(.horizontal, 10).frame(minHeight: 28)
                 .background(on ? Color(hex: 0x26262A) : .clear)
                 .overlay(alignment: .bottom) { if on { Palette.led.frame(height: 2) } }
@@ -248,22 +271,22 @@ struct LibraryPane: View {
         .buttonStyle(.plain)
     }
 
-    /// `.lib-cols`: TRACK over the art, mark and title; KEY names the column but doesn't sort.
+    /// TRACK spans art, mark and title. KEY sorts the combined key column by Camelot code.
     private var columns: some View {
         HStack(spacing: 0) {
             ForEach(SortColumn.allCases, id: \.self) { column in
-                if column == .note {
-                    Label("KEY", columnFace).foregroundStyle(Palette.rowDim).frame(width: column.width)
-                } else {
+                if column == .name {
                     sortKey(column)
+                } else {
+                    columnCell(column.width) { sortKey(column) }
                 }
             }
-            Color.clear.frame(width: 89, height: 1)
+            columnCell(Self.moreWidth) { Color.clear }
         }
-        .padding(.trailing, 2)
+        .frame(height: 26)
     }
 
-    private var columnFace: Face { .cond(14, tracking: 0.56) }
+    private var columnFace: Face { .avenir(14, weight: .bold) }
 
     private func sortKey(_ column: SortColumn) -> some View {
         let on = ui.sort?.column == column
@@ -272,23 +295,23 @@ struct LibraryPane: View {
                 Label(column.title, columnFace).foregroundStyle(on ? Palette.rowText : Palette.rowDim)
                 if on { Label(ui.sort!.ascending ? " ▲" : " ▼", columnFace).foregroundStyle(Palette.blue) }
             }
-            .frame(height: 14).padding(.vertical, 6)
-            .frame(maxWidth: column == .name ? .infinity : nil, alignment: .leading)
-            .padding(.leading, column == .name ? 12 : 0)
+            .padding(.leading, column == .name ? 7 : 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: column == .name ? .leading : .center)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .frame(width: column.width)
     }
 
-    private func list(_ rows: [ConsoleState.Library.Track]) -> some View {
-        GeometryReader { geometry in
+    private func list(_ tracks: [ConsoleState.Library.Track]) -> some View {
+        let rows = library.pendingImports.map(Row.pending) + tracks.map(Row.track)
+        return GeometryReader { geometry in
             ZStack(alignment: .top) {
                 if snapshot {
                     // The rows as they lie, scrolled to the end if asked.
                     let content = CGFloat(rows.count) * Self.rowHeight
                     VStack(spacing: 0) {
-                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, track in
-                            row(track, odd: index % 2 == 0).zIndex(library.selected == track.id ? 1 : 0)
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in
+                            listRow(entry, index: index)
                         }
                     }
                     .offset(y: ui.scrolledToEnd ? min(0, geometry.size.height - content) : 0)
@@ -298,13 +321,16 @@ struct LibraryPane: View {
                     ScrollViewReader { reader in
                         ScrollView(.vertical) {
                             LazyVStack(spacing: 0) {
-                                ForEach(Array(rows.enumerated()), id: \.element.id) { index, track in
-                                    row(track, odd: index % 2 == 0).id(track.id).zIndex(library.selected == track.id ? 1 : 0)
+                                ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in
+                                    listRow(entry, index: index).id(entry.id)
                                 }
                             }
                         }
                         .scrollIndicators(.hidden)
                         .onAppear { if ui.scrolledToEnd, let last = rows.last { reader.scrollTo(last.id, anchor: .bottom) } }
+                        .onValueChange(of: library.pendingImports.last?.id) { id in
+                            if id != nil, let first = library.pendingImports.first { reader.scrollTo(first.id, anchor: .top) }
+                        }
                         .onValueChange(of: [ui.view ?? "", ui.query, ui.keyFilter, ui.sort.map { "\($0.column)\($0.ascending)" } ?? ""]) { _ in
                             if let first = rows.first { reader.scrollTo(first.id, anchor: .top) }
                         }
@@ -313,7 +339,7 @@ struct LibraryPane: View {
                 if rows.isEmpty {
                     Para(library.tracks.isEmpty ? "No tracks yet. Add files or a folder, or drop audio onto a deck."
                          : !ui.query.isEmpty || !ui.keyFilter.isEmpty ? "Nothing matches that search or key."
-                         : "This playlist is empty. Drag tracks onto it, or use MORE on a track.", .ui(16), lineHeight: 1.3, centred: true)
+                         : "This playlist is empty. Drag tracks onto it, or use ⋯ on a track.", .avenir(16, weight: .regular), lineHeight: 1.3, centred: true)
                         .foregroundStyle(Color(hex: 0x74747B))
                         .padding(.horizontal, 10).padding(.top, 30)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -322,48 +348,106 @@ struct LibraryPane: View {
         }
     }
 
-    private static let rowHeight: CGFloat = 52
+    private static let rowHeight: CGFloat = 45
+    private static let moreWidth: CGFloat = 51
+    private static let metadataWidth = SortColumn.allCases.reduce(moreWidth) { $0 + $1.width }
+
+    @ViewBuilder
+    private func listRow(_ entry: Row, index: Int) -> some View {
+        let odd = index % 2 == 0
+        switch entry {
+        case .track(let track): row(track, odd: odd)
+        case .pending(let pending): pendingRow(pending, odd: odd)
+        }
+    }
+
+    private func pendingRow(_ pending: ConsoleState.Library.PendingImport, odd: Bool) -> some View {
+        rowBand(odd: odd) {
+            HStack(spacing: 0) {
+                RowArt(art: pending.art, url: nil).frame(width: 68, height: Self.rowHeight - 1).clipped()
+                RowMark(decks: [], colour: Palette.rowDim).frame(width: 45)
+                Text(pending.title).font(Face.avenir(22).font).foregroundStyle(Palette.rowText)
+                    .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading).padding(.trailing, 8)
+                columnCell(Self.metadataWidth) {
+                    HStack(spacing: 12) {
+                        Label(pending.label.uppercased(), .avenir(13, weight: .bold))
+                            .foregroundStyle(Palette.rowDim).frame(width: 100, alignment: .leading)
+                        GeometryReader { geometry in
+                            Capsule().fill(Color(hex: 0x5C6162))
+                                .overlay(alignment: .leading) {
+                                    Capsule().fill(Palette.blue).frame(width: geometry.size.width * pending.fraction)
+                                        .animation(snapshot || reduceMotion ? nil : .easeOut(duration: 0.2), value: pending.fraction)
+                                }
+                        }
+                        .frame(height: 4)
+                    }
+                    .padding(.horizontal, 12)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(pending.title)
+        .accessibilityValue("\(pending.label), \(pending.fraction.formatted(.percent.precision(.fractionLength(0))))")
+    }
+
+    private func rowBand<Content: View>(odd: Bool, selected: Bool = false, @ViewBuilder content: () -> Content) -> some View {
+        content().frame(height: Self.rowHeight - 1).padding(.bottom, 1)
+            .background(selected ? Palette.blue : Color(hex: odd ? 0x1F2323 : 0x151917))
+            .overlay(alignment: .bottom) { Color.black.opacity(0.14).frame(height: 1).allowsHitTesting(false) }
+    }
+
+    private func columnCell<Content: View>(_ width: CGFloat, @ViewBuilder content: () -> Content) -> some View {
+        content().frame(width: width).frame(maxHeight: .infinity)
+            .overlay(alignment: .leading) { Color(hex: 0x414345).frame(width: 1).allowsHitTesting(false) }
+    }
 
     /// `.lib-row`: alternating bands. A playing track's text turns green.
     private func row(_ track: ConsoleState.Library.Track, odd: Bool) -> some View {
         let decks = state.decks.filter { $0.trackID == track.id }
         let playing = decks.contains(where: \.playing)
         let selected = library.selected == track.id
-        let fg = playing ? Palette.playing : track.missing ? Palette.rowDim : Palette.rowText
-        let dim = playing ? Palette.playing : Palette.rowDim
-        let face = Face.cond(22, weight: .demi)
-        return HStack(spacing: 0) {
-            RowArt(art: track.art, url: track.coverURL).frame(width: 68, height: Self.rowHeight).clipped()
-            RowMark(decks: decks, colour: fg).frame(width: 45)
-            HStack(spacing: 10) {
-                Text(track.title).font(face.font).foregroundStyle(fg).lineLimit(1).truncationMode(.tail)
-                if track.missing { Label("file missing", .cond(16, weight: .demi)).foregroundStyle(dim) }
+        let fg = selected ? Palette.rowText : track.missing ? Color(hex: 0x8E9194) : playing ? Palette.playing : Palette.rowText
+        let dim = selected ? Palette.rowText : playing ? Palette.playing : Palette.rowDim
+        let face = Face.avenir(22, weight: selected ? .demi : .medium)
+        let number = Face.avenir(19, weight: .demi, tabular: true)
+        return rowBand(odd: odd, selected: selected) {
+            HStack(spacing: 0) {
+                RowArt(art: track.art, url: track.coverURL).frame(width: 68, height: Self.rowHeight - 1).clipped()
+                RowMark(decks: decks, colour: fg).frame(width: 45)
+                HStack(spacing: 10) {
+                    Text(track.title).font(face.font).foregroundStyle(fg).lineLimit(1).truncationMode(.tail)
+                    if track.missing { Label("file missing", .avenir(16)).foregroundStyle(dim) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.trailing, 8)
+                columnCell(SortColumn.bpm.width) {
+                    Label(String(format: "%.1f", track.bpm), .avenir(21, tabular: true)).foregroundStyle(fg)
+                }
+                columnCell(SortColumn.time.width) { Label(clock(track.durationSec), number).foregroundStyle(dim) }
+                columnCell(SortColumn.key.width) {
+                    HStack(spacing: 0) {
+                        CamelotBadge(code: track.camelot, selected: !ui.keyFilter.isEmpty && ui.keyFilter == track.camelot, large: true)
+                            .onTapGesture { if let code = track.camelot { pick(code) } }
+                            .frame(width: 62)
+                        Label(keyShort(track.key), .avenir(18, weight: .demi)).foregroundStyle(dim).frame(maxWidth: .infinity)
+                    }
+                }
+                columnCell(SortColumn.grid.width) {
+                    Label("\(Int((track.confidence * 100).rounded()))%" + (track.gridUncertain ? "?" : ""), number)
+                        .foregroundStyle(track.gridUncertain ? Color(hex: 0xFFB455) : dim)
+                }
+                columnCell(Self.moreWidth) {
+                    Button { actions.library.setMore(ConsoleState.More(track: track.id)) } label: {
+                        HStack(spacing: 3) {
+                            ForEach(0..<3) { _ in Circle().fill(fg).frame(width: 4, height: 4) }
+                        }
+                        .frame(width: Self.moreWidth, height: Self.rowHeight - 1)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Track details for \(track.title)")
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Label(String(format: "%.1f", track.bpm), .cond(22)).foregroundStyle(fg).frame(width: 60)
-            Label(clock(track.durationSec), face).foregroundStyle(dim).frame(width: 66)
-            CamelotBadge(code: track.camelot, selected: !ui.keyFilter.isEmpty && ui.keyFilter == track.camelot, large: true)
-                .onTapGesture { if let code = track.camelot { pick(code) } }
-                .frame(width: 56)
-            Label(keyShort(track.key), face).foregroundStyle(dim).frame(width: 60)
-            Label("\(Int((track.confidence * 100).rounded()))%" + (track.gridUncertain ? "?" : ""), face)
-                .foregroundStyle(track.gridUncertain ? Color(hex: 0xFFB455) : dim)
-                .frame(width: 58)
-            Button { actions.library.setMore(ConsoleState.More(track: track.id)) } label: {
-                Label("MORE", .cond(16, tracking: 1.28)).foregroundStyle(fg).frame(height: 16)
-                    .frame(width: 76, height: 36)
-                    .box(fill: .clear, border: Color(hex: 0x5C6162), radius: 3)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("More about \(track.title)")
-            .padding(.trailing, 6)
-            .frame(width: 89, alignment: .trailing)
         }
-        .padding(.trailing, 2)
-        .frame(height: Self.rowHeight)
-        .background(selected ? Color(hex: 0x1F3763) : Color(hex: odd ? 0x2B3031 : 0x151D18))
-        // `outline-offset: -1px`: half the 2 pt line lies outside the row.
-        .overlay { if selected { Rectangle().stroke(Palette.blue, lineWidth: 2) } }
         .contentShape(Rectangle())
         .onTapGesture { actions.library.select(track.id) }
         .live(snapshot) { row in
@@ -404,17 +488,17 @@ public struct LibraryView: Sendable {
 }
 
 enum SortColumn: Int, CaseIterable {
-    case name, bpm, time, key, note, grid
+    case name, bpm, time, key, grid
 
-    var title: String { ["TRACK", "BPM", "TIME", "CAMELOT", "KEY", "GRID"][rawValue] }
-    /// `grid-template-columns: 68px 45px minmax(0, 1fr) 60px 66px 56px 60px 58px 89px`.
-    var width: CGFloat? { [nil, 60, 66, 56, 60, 58][rawValue] }
+    var title: String { ["TRACK", "BPM", "TIME", "KEY", "GRID"][rawValue] }
+    /// The title takes the remaining width after the other columns.
+    var width: CGFloat { [0, 71, 64, 103, 67][rawValue] }
 
     func compare(_ a: ConsoleState.Library.Track, _ b: ConsoleState.Library.Track) -> ComparisonResult {
         func order<T: Comparable>(_ x: T, _ y: T) -> ComparisonResult { x < y ? .orderedAscending : x > y ? .orderedDescending : .orderedSame }
         switch self {
         case .name: return order(a.title.lowercased(), b.title.lowercased())
-        case .key, .note: return order(Camelot.rank(a.camelot), Camelot.rank(b.camelot))
+        case .key: return order(Camelot.rank(a.camelot), Camelot.rank(b.camelot))
         case .bpm: return order(a.bpm, b.bpm)
         case .time: return order(a.durationSec.rounded(.down), b.durationSec.rounded(.down))
         case .grid: return order((a.confidence * 100).rounded(), (b.confidence * 100).rounded())
@@ -422,7 +506,7 @@ enum SortColumn: Int, CaseIterable {
     }
 }
 
-/// "F minor" as the track list writes it: Fm. The condensed face has no ♭.
+/// "F minor" as the track list writes it: Fm.
 func keyShort(_ key: String?) -> String {
     (key ?? "").replacingOccurrences(of: "♭", with: "b").replacingOccurrences(of: " minor", with: "m")
         .replacingOccurrences(of: " major", with: "")
@@ -453,14 +537,14 @@ enum Camelot {
 struct CamelotBadge: View {
     let code: String?
     var selected = false
-    /// `.lib-row .cam`: the track list's and MORE's.
+    /// `.lib-row .cam`: the track list's larger badge.
     var large = false
 
     var body: some View {
         let colour = camelotColour(code) ?? Color(hex: 0x74747B)
-        Label(code ?? "—", large ? .cond(22, tracking: 0.44) : .cond(16, tracking: 0.32, weight: .heavy)).foregroundStyle(Color(hex: 0x0B0913))
-            .frame(height: large ? 22 : 16)
-            .padding(.horizontal, large ? 6 : 9).frame(minWidth: large ? 47 : 44).frame(height: large ? 29 : 28)
+        Label(code ?? "—", .avenir(large ? 19 : 16, tracking: large ? 0.38 : 0.32, weight: .heavy)).foregroundStyle(Color(hex: 0x0B0913))
+            .frame(height: large ? 19 : 16)
+            .padding(.horizontal, large ? 5 : 9).frame(minWidth: large ? 47 : 44).frame(height: large ? 29 : 28)
             .background(RoundedRectangle(cornerRadius: 2).fill(colour))
             .overlay {
                 if selected {
@@ -485,25 +569,32 @@ private struct SideItem<Accessory: View>: View {
     @ViewBuilder var accessory: Accessory
 
     var body: some View {
+        let isPlaylist = icon != nil
         HStack(spacing: 9) {
             Group {
-                if let icon { Text(icon).font(Face.ui(16).font) } else { NoteIcon(height: 18) }
+                if let icon { Text(icon).font(Face.avenir(16, weight: .regular).font) } else { NoteIcon(height: 18) }
             }
             .foregroundStyle(Color(hex: 0x74747B)).frame(width: 16)
             if renaming {
                 RenameField(name: name, commit: rename)
             } else {
-                Text(name).font(Face.ui(16).font).lineLimit(1).truncationMode(.tail)
+                Text(name).font(Face.avenir(16, weight: .regular).font).lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Label(String(count), .cond(14)).foregroundStyle(Color(hex: 0x74747B)).frame(height: 14)
             accessory
+            if isPlaylist {
+                Label(String(count), .avenir(16, weight: .bold, tabular: true)).foregroundStyle(Palette.text)
+                    .padding(.horizontal, 4).frame(minWidth: 30).frame(height: 27)
+                    .background(Palette.blue)
+            } else {
+                Label(String(count), .avenir(14, weight: .bold)).foregroundStyle(Palette.rowDim).frame(height: 14)
+            }
         }
-        .foregroundStyle(on ? Palette.text : Color(hex: 0xA0A0A6))
-        .padding(.leading, 11).padding(.trailing, 9)
+        .foregroundStyle(on || isPlaylist ? Palette.text : Color(hex: 0xA0A0A6))
+        .padding(.leading, 11).padding(.trailing, isPlaylist ? 1 : 9)
         .frame(minHeight: 40)
-        .background(RoundedRectangle(cornerRadius: 3).fill(on ? Color.white.opacity(0.07) : .clear))
-        .overlay(alignment: .leading) { if on { Palette.blue.frame(width: 3).clipShape(RoundedRectangle(cornerRadius: 1.5)) } }
+        .background(RoundedRectangle(cornerRadius: 3).fill(on ? Color(hex: 0x161617) : .clear))
+        .overlay(alignment: .leading) { if on { Palette.blue.frame(width: 4).clipShape(RoundedRectangle(cornerRadius: 2)) } }
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
     }
@@ -525,7 +616,7 @@ private struct RenameField: View {
 
     var body: some View {
         if snapshot {
-            Text(name).font(Face.ui(16).font).foregroundStyle(Palette.text).lineLimit(1)
+            Text(name).font(Face.avenir(16, weight: .regular).font).foregroundStyle(Palette.text).lineLimit(1)
                 .padding(.horizontal, 8).frame(maxWidth: .infinity, alignment: .leading).frame(height: 28)
                 .box(fill: Color(hex: 0x141416), border: Palette.led, radius: 2)
                 .overlay(RoundedRectangle(cornerRadius: 3).inset(by: -2).stroke(Color(.sRGB, red: 1, green: 138 / 255, blue: 0, opacity: 0.14), lineWidth: 2))
@@ -536,7 +627,7 @@ private struct RenameField: View {
 
     private var field: some View {
         TextField("", text: $text)
-            .textFieldStyle(.plain).font(Face.ui(16).font).foregroundStyle(Palette.text)
+            .textFieldStyle(.plain).font(Face.avenir(16, weight: .regular).font).foregroundStyle(Palette.text)
             .focused($focused)
             .onSubmit { commit(text) }
             .padding(.horizontal, 8).frame(height: 28)
@@ -576,7 +667,7 @@ private struct PopMenu<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Label(title, .cond(12, tracking: 0.96)).foregroundStyle(Palette.silk).frame(height: 12)
+            Label(title, .avenir(12, tracking: 0.96, weight: .bold)).foregroundStyle(Palette.silk).frame(height: 12)
                 .padding(EdgeInsets(top: 4, leading: 8, bottom: 6, trailing: 8))
             content
         }
@@ -602,7 +693,7 @@ private struct MenuRow: View {
                 Text(icon).foregroundStyle(danger ? Palette.red : Palette.led).frame(width: 16)
                 Text(title).foregroundStyle(confirm ? Color(hex: 0xFFD0C8) : danger ? Color(hex: 0xFF8A7A) : Color(hex: 0xA0A0A6))
             }
-            .font(Face.ui(16).font)
+            .font(Face.avenir(16, weight: .regular).font)
             .padding(.leading, 6).padding(.trailing, 10)
             .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 3).fill(confirm ? mix(0xE8402F, 0.18, 0x1C1C1F) : .clear))
@@ -618,7 +709,7 @@ private struct RowMark: View {
 
     var body: some View {
         if decks.isEmpty {
-            NoteIcon(height: 26).foregroundStyle(colour)
+            NoteIcon(height: 25).foregroundStyle(colour)
         } else {
             VStack(spacing: 2) {
                 ForEach(decks, id: \.id) { deck in DeckBadge(letter: deck.id, playing: deck.playing, stacked: decks.count > 1) }
@@ -634,10 +725,10 @@ private struct DeckBadge: View {
     let stacked: Bool
 
     var body: some View {
-        let width: CGFloat = stacked ? 28 : playing ? 30 : 29
-        let height: CGFloat = stacked ? 22 : 29
-        Label(letter, .cond(stacked ? 17 : 21)).foregroundStyle(Color(hex: 0x0B0913))
-            .frame(height: stacked ? 17 : 21)
+        let width: CGFloat = stacked ? 26 : playing ? 30 : 29
+        let height: CGFloat = stacked ? 19 : 29
+        Label(letter, .avenir(stacked ? 14 : 20, weight: .bold)).foregroundStyle(Color(hex: 0x0B0913))
+            .frame(height: stacked ? 14 : 20)
             // The arrow's point takes its share of the width.
             .padding(.trailing, playing ? (stacked ? 4 : 5) : 0)
             .frame(width: width, height: height)
@@ -767,9 +858,7 @@ struct MoreSheet: View {
                 }
                 .allowsHitTesting(!library.busy)
             }
-            MoreKey(title: "Done", colour: Palette.outlineGreen, fill: Self.fill) { EmptyView() } action: {
-                actions.library.setMore(nil)
-            }
+            SheetIconButton(kind: .close) { actions.library.setMore(nil) }
         }
     }
 

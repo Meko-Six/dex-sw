@@ -133,7 +133,7 @@ actor LibraryStorage {
     private func saveCache(_ overview: WaveformOverview, id: UUID) async -> String? {
         await worker.saveCache(overview, to: cacheURL(id))
     }
-    func prepare(_ id: UUID) async throws -> PreparedLibraryTrack {
+    func prepare(_ id: UUID, progress: (@Sendable (NativeLibrary.ImportProgress) -> Void)? = nil) async throws -> PreparedLibraryTrack {
         let tracks = try open()
         try Task.checkCancellation()
         guard let track = tracks.first(where: { $0.id == id }) else { throw LibraryError.missingTrack }
@@ -144,13 +144,16 @@ actor LibraryStorage {
             let current = try open().first(where: { $0.id == id }) ?? track
             return PreparedLibraryTrack(track: current, url: url, overview: cached)
         }
-        let scanned = try await worker.scan(url, analyzeRhythm: false)
+        progress?(.analysing(0))
+        let scanned = try await worker.scan(url, analyzeRhythm: false) { progress?(.analysing($0)) }
         try Task.checkCancellation()
+        progress?(.saving)
         let warning = await saveCache(scanned, id: id)
         let current = try open().first(where: { $0.id == id }) ?? track
         return PreparedLibraryTrack(track: current, url: url, overview: scanned, warning: warning)
     }
-    func importFile(_ source: URL) async throws -> PreparedLibraryTrack {
+    func importFile(_ source: URL, id: UUID = UUID(), progress: (@Sendable (NativeLibrary.ImportProgress) -> Void)? = nil) async throws -> PreparedLibraryTrack {
+        progress?(.opening)
         _ = try open()
         try Task.checkCancellation()
         let identity = try await worker.inspect(source)
@@ -161,12 +164,13 @@ actor LibraryStorage {
                   Int64(size) == identity.size else { return nil }
             return track
         }
-        if let existing { return try await prepare(existing.id) }
+        if let existing { return try await prepare(existing.id, progress: progress) }
         let ext = source.pathExtension.lowercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }
         let suffix = ext.isEmpty ? "" : "." + String(ext.prefix(12))
         let staging = audioDirectory.appendingPathComponent(".import-\(UUID().uuidString)" + suffix)
         defer { try? files.removeItem(at: staging) }
-        let copied = try await worker.copy(source, to: staging)
+        progress?(.copying(0))
+        let copied = try await worker.copy(source, to: staging) { progress?(.copying($0)) }
         copiedBytes += copied.identity.size
         try Task.checkCancellation()
         let duplicate = try open().first(where: { $0.fingerprint == copied.hash })
@@ -178,10 +182,10 @@ actor LibraryStorage {
                 if !files.fileExists(atPath: destination.path) { try files.moveItem(at: staging, to: destination) }
                 var next = catalog!; remember(copied.identity, hash: copied.hash, in: &next); try commit(next)
             }
-            return try await prepare(duplicate.id)
+            return try await prepare(duplicate.id, progress: progress)
         }
-        scanned = try await worker.scan(staging, analyzeKey: true)
-        let id = UUID()
+        progress?(.analysing(0))
+        scanned = try await worker.scan(staging, analyzeKey: true) { progress?(.analysing($0)) }
         let tags = await worker.tags(staging, cover: coverURL(id))
         try Task.checkCancellation()
         let candidate = LibraryTrack(id: id, fingerprint: copied.hash, filename: id.uuidString + suffix,
@@ -190,6 +194,7 @@ actor LibraryStorage {
                                      alternatives: scanned.detection.alternatives, hotCues: Array(repeating: nil, count: 8), importedAt: Date(),
                                      key: scanned.key, artist: tags.artist, tagTitle: tags.title, details: tags.details,
                                      loudness: scanned.loudness)
+        progress?(.saving)
         let committed: LibraryTrack = try transaction {
             var next = catalog!
             let selected = next.tracks.first(where: { $0.fingerprint == copied.hash }) ?? candidate
@@ -355,8 +360,9 @@ private actor LibraryAudioWorker {
         try Task.checkCancellation()
         return try coordinated(source) { try SourceIdentity.read($0) }
     }
-    func scan(_ url: URL, analyzeRhythm: Bool = true, analyzeKey: Bool = false) throws -> WaveformOverview {
-        try autoreleasepool { try WaveformReader.read(url: url, analyzeRhythm: analyzeRhythm, analyzeKey: analyzeKey) }
+    func scan(_ url: URL, analyzeRhythm: Bool = true, analyzeKey: Bool = false,
+              progress: (@Sendable (Double) -> Void)? = nil) throws -> WaveformOverview {
+        try autoreleasepool { try WaveformReader.read(url: url, analyzeRhythm: analyzeRhythm, analyzeKey: analyzeKey, progress: progress) }
     }
     func readKey(_ url: URL) throws -> TrackKey {
         try autoreleasepool { try WaveformReader.readKey(url: url) }
@@ -377,18 +383,26 @@ private actor LibraryAudioWorker {
                                                     remixer: tags.remixer, release: tags.release, hasCover: saved))
         }
     }
-    func copy(_ source: URL, to destination: URL) throws -> (hash: String, identity: SourceIdentity) {
+    func copy(_ source: URL, to destination: URL, progress: @Sendable (Double) -> Void) throws -> (hash: String, identity: SourceIdentity) {
         try coordinated(source) { readable in
             let before = try SourceIdentity.read(readable)
             let input = try FileHandle(forReadingFrom: readable); defer { try? input.close() }
             guard files.createFile(atPath: destination.path, contents: nil) else { throw LibraryError.importFailed }
             let output = try FileHandle(forWritingTo: destination); defer { try? output.close() }
             var hash = SHA256()
+            var written: Int64 = 0
+            var reported = 0.0
             while try autoreleasepool(invoking: { () throws -> Bool in
                 try Task.checkCancellation()
                 guard let bytes = try input.read(upToCount: 65_536), !bytes.isEmpty else { return false }
                 hash.update(data: bytes)
                 try output.write(contentsOf: bytes)
+                written += Int64(bytes.count)
+                let fraction = min(1, Double(written) / Double(max(1, before.size)))
+                if fraction >= reported + 0.05 || fraction == 1 && reported < 1 {
+                    reported = fraction
+                    progress(fraction)
+                }
                 return true
             }) {}
             try output.synchronize()

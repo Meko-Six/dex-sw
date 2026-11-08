@@ -20,22 +20,19 @@ struct PopBox<Content: View>: View {
     }
 }
 
-/// `.mixpop h4` / `.volpop h3`: the title, then (i) and DONE at the right.
+/// `.mixpop h4` / `.volpop h3`: the title, then Info and Close at the right.
 struct PopHead: View {
     let title: String
     var help: ConsoleState.HelpTopic?
-    /// `.mixpop h4` spaces its keys 8 pt; `.volpop h3` sets them edge to edge.
-    var spacing: CGFloat = 8
     let actions: ConsoleActions
     let done: () -> Void
 
     var body: some View {
-        HStack(spacing: spacing) {
+        HStack(spacing: 8) {
             Label(title.uppercased(), .cond(16, tracking: 2.88)).foregroundStyle(Palette.text).frame(height: 16)
             Spacer(minLength: 0)
-            if let help { InfoKey(size: 40) { actions.setHelp(help) } }
-            // `.btn.info + .btn`: a gap of its own beside the (i) key.
-            SheetButton(title: "Done", style: .done, action: done).padding(.leading, help == nil ? 0 : 8)
+            if let help { SheetIconButton(kind: .info) { actions.setHelp(help) } }
+            SheetIconButton(kind: .close, action: done)
         }
         .frame(height: 40)
     }
@@ -50,7 +47,7 @@ struct VolumePop: View {
 
     var body: some View {
         PopBox(padding: EdgeInsets(top: 12, leading: 14, bottom: 14, trailing: 14)) {
-            PopHead(title: "Volume", help: .volume, spacing: 0, actions: actions) { actions.toggleVolume() }
+            PopHead(title: "Volume", help: .volume, actions: actions) { actions.toggleVolume() }
             row("master", state.masterVolume / 1.2, percent: state.masterVolume, key: "master") { actions.setMasterVolume($0 * 1.2) }
             row("cue mix", state.cueMix, percent: state.cueMix, key: "cuemix", set: actions.setCueMix)
         }
@@ -192,7 +189,6 @@ struct HotCuePop: View {
         PopBox {
             HStack(spacing: 8) {
                 Label("HOT CUES \(id)", .cond(16, tracking: 2.88)).foregroundStyle(Palette.text).frame(height: 16)
-                // DELETE and DONE both take margin-left: auto, so they split the free space.
                 Spacer(minLength: 0)
                 Button { actions.setHotCueDelete(id, !deleting) } label: {
                     Label(deleting ? "KEEP" : "DELETE", .cond(12, tracking: 0.96))
@@ -202,8 +198,7 @@ struct HotCuePop: View {
                              border: deleting ? Color(.sRGB, red: 232 / 255, green: 64 / 255, blue: 47 / 255, opacity: 0.7) : .white.opacity(0.13), radius: 2)
                 }
                 .buttonStyle(.plain).disabled(!anySet).opacity(anySet ? 1 : 0.35)
-                Spacer(minLength: 0)
-                SheetButton(title: "Done", style: .done) { actions.toggleHotCues(id) }
+                SheetIconButton(kind: .close) { actions.toggleHotCues(id) }
             }
             .frame(height: 40)
             Grid(horizontalSpacing: 5, verticalSpacing: 6) {
