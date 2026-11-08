@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:controls": "node mockup/build-control-map.mjs && git diff --exit-code -- docs/CONTROL-MAP.md mockup/controls.data.js",
     "diff:mockup": "electron scripts/pixel-diff.mjs scripts/mockup-diff.json",
     "diff:native": "electron scripts/pixel-diff.mjs scripts/native-diff.json",
     "fixtures": "node scripts/make-fixtures.mjs",

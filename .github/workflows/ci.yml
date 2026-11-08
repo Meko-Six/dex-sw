@@ -39,6 +39,12 @@ jobs:
       - name: Test
         run: npm test
 
+      # Every data-ctl in the mockup must be described in controls.json and the
+      # other way round, so the two can't drift apart unnoticed. The command also
+      # fails if CONTROL-MAP.md or controls.data.js is stale for the JSON.
+      - name: Control map
+        run: npm run check:controls
+
       - name: Fixtures
         run: npm run fixtures
 
