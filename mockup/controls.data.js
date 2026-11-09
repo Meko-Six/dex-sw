@@ -1068,7 +1068,7 @@ window.DEX_CONTROLS = {
       "label": "TRIM",
       "kind": "popover",
       "status": "live",
-      "does": "Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO: a track loads at the trim that brings its main groove to −10 LUFS (ITU BS.1770 loudness, measured at import; older tracks are measured in the background), and the chip lights green and reads AUTO. Moving it remembers that trim for the track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO and forgets it.",
+      "does": "Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO: a track loads at the trim that brings its main groove to −10 LUFS (ITU BS.1770 loudness, measured at import; older tracks are measured in the background, at most a minute per launch), and the chip lights green and reads AUTO. Moving it remembers that trim for the track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO and forgets it.",
       "source": "native/Sources/DexCore/Loudness.swift",
       "n": 95
     },
