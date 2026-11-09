@@ -1179,12 +1179,11 @@
       const METER = {
         cols: [['A', 575], ['L', 588], ['R', 598], ['B', 611]],
         w: 8,
-        /* The reference meter's labelled steps shifted 12 dB down, so red still starts at
-           0 dBFS: +3, 0, -3, -6, -9, -12, -15, -18, -21, -27 and the floor, which clamps
-           the reference's last 9 dB step at -30. Five green rungs at the foot, four amber,
-           two red (`MeterLadder` in the console). */
-        ladder: [-30, -27, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6],
-        amber: 5, red: 9,
+        /* Twelve rungs of 3 dB across the -30 to +6 dBFS scale: six green at the foot,
+           four amber, two red, so red still starts at 0 dBFS (`MeterLadder` in the
+           console). More rungs than this stop reading as blocks at 8 pt wide. */
+        ladder: [-30, -27, -24, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6],
+        amber: 6, red: 10,
         /* What the meters show without demo audio: A playing alone near the
            top, B cued and silent, the master A through VOLUME. */
         still: { A: -2.0, L: -3.8, R: -4.3, B: -90 },

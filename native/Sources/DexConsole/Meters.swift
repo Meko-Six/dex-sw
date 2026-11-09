@@ -37,15 +37,15 @@ public enum MeterZones {
     public static let clip = 0.0
 }
 
-/// The ladder the bars draw: eleven rungs taken from the reference meter's labelled
-/// steps (15 … −24) shifted 12 dB down, so red still begins at 0 dBFS. Five green rungs
-/// at the foot, then four amber, then two red; the reference's last 9 dB step clamps at
-/// the floor of the scale.
+/// The ladder the bars draw: twelve rungs of 3 dB across the −30 … +6 dBFS scale, six
+/// green at the foot, then four amber, then two red, so red still begins at 0 dBFS. Twelve
+/// keeps the reference meter's amber and red bands and its blocky look: at 8 pt wide, more
+/// rungs read as stripes rather than blocks.
 public enum MeterLadder {
-    /// The foot, then the top of each rung up to the ceiling: −30 … +6 dBFS.
-    public static let bounds: [Double] = [-30, -27, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6]
+    /// The foot, then the top of each rung up to the ceiling: −30 … +6 dBFS, 3 dB apart.
+    public static let bounds: [Double] = [-30, -27, -24, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6]
     /// The first amber rung and the first red one, counting from the foot.
-    public static let amber = 5, red = 9
+    public static let amber = 6, red = 10
 
     public struct Rung: Equatable, Sendable {
         public let low, high: Double

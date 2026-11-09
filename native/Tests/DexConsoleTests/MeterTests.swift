@@ -47,14 +47,15 @@ final class MeterTests: XCTestCase {
         XCTAssertEqual(meters.meters.hold.a, -0.1, "but the held segment still shows it")
     }
 
-    func testTheLadderCopiesTheReferenceMeter() {
-        XCTAssertEqual(MeterLadder.rungs.count, 11, "eleven rungs")
-        XCTAssertEqual(MeterLadder.rungs.filter { $0.ink == 0x25A859 }.count, 5, "five green at the foot")
+    func testTheLadderHasTwelveEvenRungs() {
+        XCTAssertEqual(MeterLadder.rungs.count, 12, "twelve rungs")
+        XCTAssertEqual(MeterLadder.rungs.filter { $0.ink == 0x25A859 }.count, 6, "six green at the foot")
         XCTAssertEqual(MeterLadder.rungs.filter { $0.ink == 0xD8A029 }.count, 4, "four amber")
         XCTAssertEqual(MeterLadder.rungs.filter { $0.ink == 0xD03A2C }.count, 2, "two red")
-        XCTAssertEqual(MeterLadder.rungs.first?.low, -30, "the floor clamps the reference's last step")
+        XCTAssertEqual(MeterLadder.rungs.first?.low, -30, "the foot is the floor")
         XCTAssertEqual(MeterLadder.rungs.last?.high, 6, "the top is the scale's ceiling")
         XCTAssertTrue(MeterLadder.rungs.allSatisfy { $0.low < $0.high }, "every rung spans something")
+        XCTAssertTrue(MeterLadder.rungs.allSatisfy { abs($0.high - $0.low - 3) < 1e-9 }, "every rung is 3 dB, so none is twice the height")
     }
 
     func testRedStillBeginsAtTheCeiling() {
@@ -68,9 +69,9 @@ final class MeterTests: XCTestCase {
         XCTAssertEqual(MeterLadder.rung(for: -30), 0)
         XCTAssertEqual(MeterLadder.rung(for: -28), 0)
         XCTAssertEqual(MeterLadder.rung(for: -27), 1)
-        XCTAssertEqual(MeterLadder.rung(for: -2), 8, "into the top amber")
-        XCTAssertEqual(MeterLadder.rung(for: 0), 9, "the first red")
-        XCTAssertEqual(MeterLadder.rung(for: 6), 10)
+        XCTAssertEqual(MeterLadder.rung(for: -2), 9, "into the top amber")
+        XCTAssertEqual(MeterLadder.rung(for: 0), 10, "the first red")
+        XCTAssertEqual(MeterLadder.rung(for: 6), 11)
     }
 
     func testOneScaleForAllFour() {

@@ -111,8 +111,8 @@ The chain order is already the one a DJ is taught: TRIM sits before the EQ, so t
 before LEVEL, so trim is set with the faders down; LEVEL's top is 0 dB, so "faders to unity" is true by construction;
 L and R meter after VOLUME and before the limiter, so the master shows what goes in. What was missing was the vocabulary
 to set it by: the meters were peak dBFS with red only at 0, so "top green" and "into the yellow" had no fixed meaning.
-The bars now draw those words at fixed figures — eleven rungs copied from a reference mixer, green to −12 dBFS, amber
-to 0, red above — though they print no numbers, and there is no target mark or AUTO line.
+The bars now draw those words at fixed figures — twelve rungs of 3 dB copied from a reference mixer, green to −12 dBFS,
+amber to 0, red above — though they print no numbers, and there is no target mark or AUTO line.
 
 The sequence, and where each step stands (standards, arithmetic and sources:
 [GAIN-STAGING-RESEARCH](GAIN-STAGING-RESEARCH.md)):
@@ -204,7 +204,7 @@ The grid editor assumes a four-beat bar (4/4): the bar lines, the four-bar windo
 | HI / MID / LOW knobs per channel (with kill) | LOW / MID / HIGH faders per deck, kill at full-left | **LIVE** |
 | COLOR knob (LOW→HI) | Sweep FILTER fader | **PARTIAL** — no separate colour control |
 | Channel level faders ×2 | — | **NONE** |
-| Per-channel LED meters, MASTER CLIP | Electron: one master meter (RMS, no clip LED). Mockup and native: four peak meters, A · L · R · B, on one −30…+6 dBFS scale, red from 0 dBFS where the limiter is working, in eleven rungs with green ending at −12 and amber at 0, and a red cap and border on a bar that reaches 0 dBFS; no separate clip LED | **PARTIAL** |
+| Per-channel LED meters, MASTER CLIP | Electron: one master meter (RMS, no clip LED). Mockup and native: four peak meters, A · L · R · B, on one −30…+6 dBFS scale, red from 0 dBFS where the limiter is working, in twelve 3 dB rungs with green ending at −12 and amber at 0, and a red cap and border on a bar that reaches 0 dBFS; no separate clip LED | **PARTIAL** |
 | MASTER LEVEL | MASTER knob | **LIVE** |
 | Crossfader with graduated scale | Crossfader, double-click to centre | **LIVE** (no cut-in points) |
 | HEADPHONES MIXING: CUE / MASTER knobs | CUE MIX knob + SPLIT CUE / 4-CH toggle | **LIVE** |
