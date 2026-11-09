@@ -1208,6 +1208,8 @@
           const segs = lit(level), held = lit(hold);
           el.querySelector('i').style.setProperty('--h', (segs * 6 / inner * 100).toFixed(2) + '%');
           el.querySelector('.hold').style.setProperty('--hold', held > segs ? (held - 1) * 6 + 'px' : '-4px');
+          /* 0 dBFS within the 2 s hold: the same clip rule as MeterZones in the console. */
+          el.classList.toggle('clipping', hold >= 0);
         }
       }
 

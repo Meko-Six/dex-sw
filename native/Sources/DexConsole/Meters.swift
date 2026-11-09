@@ -23,6 +23,18 @@ public struct Meters: Equatable, Sendable {
 
     /// How far up a meter a level sits, in percent: −30 to +6 dBFS (`meterPct`).
     static func percent(_ value: Double) -> Double { max(0, min(100, (value + 30) / 36 * 100)) }
+
+    /// True where the meter reached 0 dBFS within its 2 s hold: the red cap the
+    /// bars draw, and the same window the held segment already uses.
+    public func isClipping(_ id: String) -> Bool { hold[id] >= MeterZones.clip }
+}
+
+/// Where the zones fall on the −30…+6 dBFS scale, the figures the control map
+/// gives: aim a deck at −6, the master at −3, and 0 is where the limiter works.
+public enum MeterZones {
+    public static let deckAim = -6.0
+    public static let masterAim = -3.0
+    public static let clip = 0.0
 }
 
 /// The meters' movement: up at once, down 20 dB a second, and the top

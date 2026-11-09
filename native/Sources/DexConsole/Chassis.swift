@@ -597,7 +597,8 @@ private struct Mixer: View {
                 Label(column.id, .cond(12, tracking: 0)).foregroundStyle(Palette.silk)
                     .place(Layout.at(column.x - 4, Layout.row.val.0, 16, Layout.row.val.1))
                 LiveMeters(fallback: state.meters) { meters in
-                    MeterBar(id: column.id, level: meters.level[column.id], hold: meters.hold[column.id])
+                    MeterBar(id: column.id, level: meters.level[column.id], hold: meters.hold[column.id],
+                             clipped: meters.isClipping(column.id))
                 }
                 .place(Layout.at(column.x, Layout.row.fader.0, 8, Layout.row.fader.1))
             }
@@ -851,11 +852,13 @@ private struct DotFace: View {
 }
 
 /// `.meter-v`: one of the four meters, lit in 6 pt segments (4 lit, 2 dark)
-/// from the foot, with the held segment above.
+/// from the foot, with the held segment above. The gradient's stops are the zone
+/// boundaries in `MeterZones`: green to −6, amber to −3, orange to 0, red above.
 struct MeterBar: View {
     let id: String
     let level: Double
     let hold: Double
+    let clipped: Bool
 
     static let columns: [(id: String, x: CGFloat)] = [("A", 575), ("L", 588), ("R", 598), ("B", 611)]
 
@@ -876,24 +879,32 @@ struct MeterBar: View {
                     }
                     var visible = context
                     visible.clip(to: stripes)
+                    let green = Meters.percent(MeterZones.deckAim) / 100
+                    let amber = Meters.percent(MeterZones.masterAim) / 100
+                    let red = Meters.percent(MeterZones.clip) / 100
                     let stops: [Gradient.Stop] = [
-                        .init(color: Color(hex: 0x25A859), location: 0), .init(color: Color(hex: 0x25A859), location: 0.55),
-                        .init(color: Color(hex: 0xD8A029), location: 0.68), .init(color: Color(hex: 0xD9662A), location: 0.78),
-                        .init(color: Color(hex: 0xD03A2C), location: 0.84)]
+                        .init(color: Color(hex: 0x25A859), location: 0), .init(color: Color(hex: 0x25A859), location: green),
+                        .init(color: Color(hex: 0xD8A029), location: green), .init(color: Color(hex: 0xD8A029), location: amber),
+                        .init(color: Color(hex: 0xD9662A), location: amber), .init(color: Color(hex: 0xD9662A), location: red),
+                        .init(color: Color(hex: 0xD03A2C), location: red)]
                     visible.fill(Path(CGRect(origin: .zero, size: size)), with: .linearGradient(
                         Gradient(stops: stops), startPoint: CGPoint(x: 0, y: size.height), endPoint: .zero))
                     if held > segments {
                         context.fill(Path(CGRect(x: 0, y: size.height - CGFloat(held - 1) * 6 - 4, width: size.width, height: 4)),
                                      with: .color(Color(hex: 0xD6D6DB)))
                     }
+                    if clipped {
+                        context.fill(Path(CGRect(x: 0, y: 0, width: size.width, height: 3)),
+                                     with: .color(Color(hex: 0xD03A2C)))
+                    }
                 }
                 .frame(width: inner.width, height: inner.height)
             }
             .offset(x: 1, y: 1)
         }
-        .box(fill: Color(hex: 0x0A0A0B), border: Color(hex: 0x26262A), radius: 1)
+        .box(fill: Color(hex: 0x0A0A0B), border: Color(hex: clipped ? 0xD03A2C : 0x26262A), radius: 1)
         .accessibilityElement()
         .accessibilityLabel(id == "A" || id == "B" ? "Deck \(id) level" : id == "L" ? "Master left" : "Master right")
-        .accessibilityValue(level <= MeterLevels.floor ? "Silent" : String(format: "%.0f dB", level))
+        .accessibilityValue((level <= MeterLevels.floor ? "Silent" : String(format: "%.0f dB", level)) + (clipped ? ", clipping" : ""))
     }
 }
