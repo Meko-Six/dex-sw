@@ -532,10 +532,13 @@ final class ConsoleModel: ObservableObject {
         // Saved once the trim rests, not on every move of a drag.
         trimSaves[id]?.cancel()
         guard let track = deck.libraryTrackID else { return }
+        // Decide nil against AUTO now, not when the save fires: the deck may hold
+        // another track by then, and its AUTO would answer for this one.
+        let forgetsAuto = deck.autoTrimDB == nil && snapped == 0
         trimSaves[id] = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled, let self else { return }
-            library.setTrim(track, deck.autoTrimDB == nil && snapped == 0 ? nil : snapped)
+            library.setTrim(track, forgetsAuto ? nil : snapped)
         }
     }
     private var trimSaves: [String: Task<Void, Never>] = [:]
