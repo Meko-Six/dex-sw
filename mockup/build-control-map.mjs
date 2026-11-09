@@ -39,6 +39,20 @@ for (const [index, control] of data.controls.entries()) {
   if (control.kind && !KINDS.includes(control.kind)) problems.push(`${where}: unknown kind "${control.kind}"`)
 }
 
+if (!Array.isArray(data.sections) || data.sections.length === 0) {
+  problems.push('sections: missing or empty')
+} else {
+  const sectionIds = new Set()
+  for (const [index, section] of data.sections.entries()) {
+    const where = section.id || `section #${index + 1}`
+    for (const field of ['id', 'label', 'scope']) {
+      if (!section[field]) problems.push(`${where}: missing "${field}"`)
+    }
+    if (sectionIds.has(section.id)) problems.push(`${where}: duplicate section id`)
+    sectionIds.add(section.id)
+  }
+}
+
 if (problems.length > 0) {
   console.error('controls.json is not valid:\n  ' + problems.join('\n  '))
   process.exit(1)

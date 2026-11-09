@@ -2801,17 +2801,11 @@
       let brief = '';
 
       /* Whole-area notes, kept separate from the per-control notes but saved
-         and exported alongside them. Ids are stable, so a layout edit only
-         needs the section entry to keep its note. */
-      const SECTIONS = [
-        { id: 'section.console', label: 'Header and screen', scope: 'header, waveforms, deck info', source: 'src/renderer/App.tsx' },
-        { id: 'section.deck.a', label: 'Deck A bay', scope: 'sync row, tempo, platter, pads', source: 'src/renderer/ui/DeckPanel.tsx' },
-        { id: 'section.mixer', label: 'Centre mixer', scope: 'trim, filter, cut faders, kills, link, low sum, crossfader', source: 'src/renderer/App.tsx' },
-        { id: 'section.deck.b', label: 'Deck B bay', scope: 'sync row, tempo, platter, pads', source: 'src/renderer/ui/DeckPanel.tsx' },
-        { id: 'section.rail', label: 'Volume popover', scope: 'master, cue mix, split cue', source: 'src/renderer/App.tsx' },
-        { id: 'section.library', label: 'Library sheet', scope: 'browse and load', source: 'src/renderer/ui/LibrarySheet.tsx' },
-        { id: 'section.grid', label: 'Beat grid sheet', scope: 'waveform editor', source: 'src/renderer/ui/GridSheet.tsx' }
-      ];
+         and exported alongside them. The list lives in controls.json (written
+         to controls.data.js by build-control-map.mjs), so the inspector and
+         the control map cannot describe the same area differently. Ids are
+         the note keys: keep them. */
+      const SECTIONS = (window.DEX_CONTROLS && window.DEX_CONTROLS.sections) || [];
       const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
       let sectionNotes = {};
       let notesView = 'controls';

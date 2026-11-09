@@ -147,7 +147,7 @@ Drawn for the layout study because the hardware has it. Dashed in the mockup, no
 
 ## Centre mixer
 
-Master readout, per-channel cue, crossfader.
+Four meters A · L · R · B, per-channel cue, crossfader.
 
 | # | Control | Status | What it does in Dex | Key | Source |
 | --- | --- | --- | --- | --- | --- |

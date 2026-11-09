@@ -683,7 +683,14 @@ are ignored and stay local.
 
 ## Verify
 
+The `swift` and `diff:native` steps need **Xcode**, not CommandLineTools. On this
+Mac `xcode-select -p` reports CommandLineTools, where `DexConsole` fails to
+compile (`Stage.swift`: ambiguous use of operator '/'), so `swift test` and
+`npm run diff:native` stop before doing anything. Set `DEVELOPER_DIR` once per
+shell, or prefix those commands — the export below covers the blocks as written:
+
 ```sh
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer  # console sources need Xcode
 npm test                     # Electron unit tests
 npm run check:controls       # mockup anchors against controls.json, generated map current
 npm run build                # typecheck + bundles

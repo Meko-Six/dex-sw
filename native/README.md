@@ -293,7 +293,13 @@ Don't mark a gate done based only on UI presence or position maths.
 
 ## Verification
 
+The `swift` commands need **Xcode**, not CommandLineTools. Where `xcode-select -p`
+reports CommandLineTools, `DexConsole` fails to compile (`Stage.swift`: ambiguous
+use of operator '/'), so `swift test` stops before running anything. Export Xcode
+once per shell, or prefix each `swift` command:
+
 ```sh
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer  # console sources need Xcode
 swift test --package-path native
 xcodebuild -project native/DexNative.xcodeproj -scheme DexNative -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project native/DexNative.xcodeproj -scheme DexNative -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

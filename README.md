@@ -267,8 +267,8 @@ The iPad layout work lives beside the app, not inside it:
   (1194 × 834) with both decks' waveforms stacked under one shared playhead,
   deck cards with whole-track overviews, and a deck · mixer · deck chassis
   whose centre mixer has TRIM, filter, LEVEL and cut-only HI / MID / LOW
-  faders, kills, LINK LOWS and LOW Σ, with demo audio running through an
-  LR4 isolator. Open it directly in a browser, then use
+  faders, kills, LINK LOWS and four peak meters (A · L · R · B), with demo
+  audio running through an LR4 isolator. Open it directly in a browser, then use
   **Function map** to outline and number every control and **Controls** to
   open the inspector: clicking a control, or a row in the list, says what it
   does in the app, whether it is live, partial or planned, its shortcut and

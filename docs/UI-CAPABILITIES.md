@@ -79,10 +79,10 @@ Everything below was read out of the source, not from the README. Status codes:
 | Channel fader (LEVEL) | Per deck, same law as the bands, outermost column of the mixer |
 | TRIM | Per deck input gain, ±12 dB, before the EQ (so headphone cue hears it). Chip above LEVEL opens a popover with a fader and Reset |
 | LINK LOWS | Couples the two LOW faders: drag either and the other moves the same distance the opposite way, the bass swap in one gesture |
-| LOW Σ | Both decks' low band summed as if the kicks were in phase, after trim, LEVEL and crossfader. 0 dB = one full low alone; amber from +1 dB, red from +3 dB |
+| LOW Σ | **Electron only.** Both decks' low band summed as if the kicks were in phase, after trim, LEVEL and crossfader. 0 dB = one full low alone; amber from +1 dB, red from +3 dB. The mockup and the native console dropped it and show four peak meters (A · L · R · B) on one −30…+6 dBFS scale |
 | Sweep filter per deck | Horizontal fader above each channel. Centre transparent, left = low-pass to 120 Hz, right = high-pass to 9 kHz, rising resonance; the label reads `LP 1.2k` / `HP 2.2k`. Sits after the EQ |
-| Crossfader | Equal-power, A … B, at the foot of the mixer, double-click to centre |
-| Faders | Relative drag (the cap never jumps), slide sideways off the fader for fine moves (¼, then ⅒, shown in the readout), double-click to reset, arrow keys nudge. Several can be ridden at once |
+| Crossfader | **Electron only:** equal-power, A … B, at the foot of the mixer, double-click to centre. The mockup and the native console keep each deck fully open until the centre and fade only across the far half, so a centred crossfader leaves LEVEL to set the mix |
+| Faders | Relative drag (the cap never jumps), slide sideways off the fader for fine moves (¼, then ⅒, shown in the readout), double-click to reset, arrow keys nudge. Several can be ridden at once. The readouts are **Electron only**: the mockup and the native console dropped them from LEVEL, HI, MID, LOW and TEMPO, and keep only TRIM's number |
 | Master volume | VOLUME popover in the header, 0–1.2, default 0.85 |
 | Master limiter | `DynamicsCompressor`, −3 dB threshold, 20:1 |
 | Master meter | RMS in dBFS, polled at 60 ms |
@@ -94,8 +94,8 @@ Everything below was read out of the source, not from the README. Status codes:
 **Not built (NONE)** — all of these exist on the XDJ-RR:
 
 - TRIM **AUTO** (match loudness): built in the native app (`native/Sources/DexCore/Loudness.swift`, measured at import, 7 November 2026). Electron's `src/shared/loudness.ts` is still unused, as Electron is frozen.
-- The mockup's **band sheet** (tap a band readout for a long fader covering both decks).
-- Per-deck **level meter** (Dex meters the master only).
+- The mockup's **band sheet** (tap a band name for a long fader covering both decks).
+- Per-deck **level meter** (Electron meters the master only and has no per-deck meter; the mockup and the native console meter each deck as A and B, peaking after TRIM, EQ and filter and before LEVEL and the crossfader).
 - **Headphone level** knob (Dex has the cue *mix* but no cue/headphone volume).
 - **Beat FX** (reverb, echo, flanger, noise, delay).
 - **Sound colour FX** beyond the sweep filter (pitch, noise, delay).
@@ -129,7 +129,7 @@ Analysis only: the captured audio never reaches the master or cue bus, is never 
 | Screen | Both decks' waveforms stacked across the full width at one shared scale in seconds, under one fixed playhead; `+` / `−` zoom keys with the span readout. Scroll zooms both lanes, drag scrubs |
 | Deck cards | Letter, track name (opens the library), REMAIN / BPM / TEMPO, `+` load, Camelot key, grid %, MASTER / SYNC / vinyl / loop tags, and the whole-track overview with the screen's window boxed in orange |
 | Deck bays | SYNC / MASTER / KEY / GRID keys, the tempo fader on the outside edge (down = faster, ±16 %), the platter, and PLAY · CUE, the CUES popover and the loop stepper + ROLL along the bottom |
-| Centre mixer | MUSIC key (library), per channel TRIM and FILTER, LEVEL · HI · MID · LOW faders with readouts, channel CUE and KILL pads, master meter, LOW Σ meter, LINK LOWS, crossfader |
+| Centre mixer | MUSIC key (library), per channel TRIM and FILTER, LEVEL · HI · MID · LOW faders, channel CUE and KILL pads, LINK LOWS, crossfader. Electron adds fader readouts, a master meter and LOW Σ; the mockup and the native console drop the readouts and show four peak meters (A · L · R · B) instead of master + LOW Σ |
 | Deck face: platter | Rotating record at 33⅓ rpm, drag to scrub, generated centre label |
 | Deck face: EQ overlay | Four tall faders — FILTER, LOW, MID, HIGH — with a centre detent, click-to-jump, drag, arrow keys, double-click to centre |
 | Library sheet | Slides up over the decks and footer. A deck panel stays on top: per deck a load button where the title sits, BPM, PLAY, CUE and the loop stepper, with time remaining and the crossfader in the middle. A playlist column on the left (All tracks, then playlists). Each deck shows its Camelot key. Rows: name, key name, Camelot badge in wheel colours, on-deck badge, BPM, duration, grid %, `+` playlist menu, re-analyse, remove. Tap any key (row or deck) to filter to it and its harmonic matches (±1 on the ring and the relative major/minor), with `only` / `+ compatible` and Clear. Tap a column heading to sort, again to reverse. Search matches name, key and BPM; a Camelot code like `4a` matches that key exactly |
@@ -176,7 +176,7 @@ The grid editor assumes a four-beat bar (4/4): the bar lines, the four-bar windo
 | HI / MID / LOW knobs per channel (with kill) | LOW / MID / HIGH faders per deck, kill at full-left | **LIVE** |
 | COLOR knob (LOW→HI) | Sweep FILTER fader | **PARTIAL** — no separate colour control |
 | Channel level faders ×2 | — | **NONE** |
-| Per-channel LED meters, MASTER CLIP | Single master meter | **PARTIAL** |
+| Per-channel LED meters, MASTER CLIP | Electron: one master meter (RMS, no clip LED). Mockup and native: four peak meters, A · L · R · B, on one −30…+6 dBFS scale, red from 0 dBFS where the limiter is working; no separate clip LED | **PARTIAL** |
 | MASTER LEVEL | MASTER knob | **LIVE** |
 | Crossfader with graduated scale | Crossfader, double-click to centre | **LIVE** (no cut-in points) |
 | HEADPHONES MIXING: CUE / MASTER knobs | CUE MIX knob + SPLIT CUE / 4-CH toggle | **LIVE** |
@@ -251,7 +251,7 @@ Other rules that matter more than the numbers:
 A checklist to mark off as you design:
 
 1. Two deck columns, each with: track identity, time, waveform, a face (platter or EQ), a transport strip, a pad row.
-2. A centre strip: master BPM, master meter, crossfader, master level, cue mix, the output-mode switch.
+2. A centre strip: master BPM, meters (A · L · R · B), crossfader, master level, cue mix, the output-mode switch.
 3. Per-deck tone: FILTER, LOW, MID, HIGH, reachable as big faders.
 4. Per-deck transport: play, cue, tempo, sync, master, key lock, grid.
 5. Loops: a `‹ size ›` stepper (1–64 beats), start / leave, roll. Hot cues: eight recallable points with per-slot colours, matching markers on the waveform.
