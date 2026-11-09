@@ -249,14 +249,18 @@ public final class NativeLibrary: ObservableObject {
     }
     /// Measures the loudness of tracks saved before AUTO trim, one at a time
     /// and quietly: a file that can't be read now is tried again next launch.
-    public func readMissingLoudness() async {
+    /// Bounded per launch, so a large library does not spend every start
+    /// decoding all of it: whatever is left waits for later launches.
+    public func readMissingLoudness(seconds: Double = 60) async {
         do { try await ensureOpen() } catch { return }
         guard loudnessTask == nil else { return }
         let pending = tracks.filter { $0.loudness == nil }.map(\.id)
         guard !pending.isEmpty else { return }
         let task = Task(priority: .utility) { [weak self] in
+            let deadline = ContinuousClock.now.advanced(by: .seconds(seconds))
             for id in pending {
-                guard !Task.isCancelled, let self, let loudness = try? await storage.readLoudness(id) else { continue }
+                guard !Task.isCancelled, ContinuousClock.now < deadline else { break }
+                guard let self, let loudness = try? await storage.readLoudness(id) else { continue }
                 setLoudness(id, loudness)
             }
         }

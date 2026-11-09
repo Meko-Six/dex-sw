@@ -78,4 +78,30 @@ final class AutoTrimLibraryTests: XCTestCase {
         XCTAssertNotNil(forgotten)
         XCTAssertNil(forgotten?.trimDb)
     }
+
+    /// A launch measures for its budget only: what it cannot reach stays for a
+    /// later launch instead of every start decoding the whole library.
+    func testBackfillStopsAtItsLaunchBudget() async throws {
+        let root = try folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let directory = root.appendingPathComponent("Library")
+        _ = try await LibraryStorage(directory: directory).importFile(try sine(-14, in: root))
+        // A catalog saved before AUTO trim: no loudness for the backfill to find.
+        let catalog = directory.appendingPathComponent("Library.json")
+        var document = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: catalog)) as? [String: Any])
+        document["tracks"] = (document["tracks"] as! [[String: Any]]).map { $0.filter { $0.key != "loudness" } }
+        try JSONSerialization.data(withJSONObject: document).write(to: catalog)
+
+        let library = NativeLibrary(directory: directory)
+        await library.open()
+        let id = try XCTUnwrap(library.tracks.first?.id)
+        XCTAssertNil(library.tracks.first?.loudness)
+
+        await library.readMissingLoudness(seconds: 0)
+        XCTAssertNil(library.tracks.first?.loudness, "a spent budget measures nothing")
+
+        // The track is still waiting, so the next launch picks it up.
+        await library.readMissingLoudness()
+        XCTAssertEqual(library.tracks.first(where: { $0.id == id })?.loudness?.main ?? 0, -14, accuracy: 0.1)
+    }
 }
