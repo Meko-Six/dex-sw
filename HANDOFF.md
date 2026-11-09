@@ -63,8 +63,8 @@ old engine". Merged to `main` on 6 November, with the old engine removed. Result
   device. The players, time-pitches, transition gates, the old jog renderer, loop reading, launch tickets, Apple's 1/512
   speed rule and the time-pitch delay allowance are all removed, as are the engine switch and its Xcode scheme.
   `ConsoleModel` and `DexConsole` are unchanged; `heardPosition(ahead:)` still feeds the lanes.
-- **Checked after the removal, re-run 9 November:** `swift test` 302 tests (158 audio, 65 core, 44 engine,
-  35 console): 296 passing, 6 optional skips, 0 failures; the Mac, iPad Simulator and iPad builds; `diff:native`
+- **Checked after the removal, re-run 9 November:** `swift test` 306 tests (159 audio, 65 core, 44 engine,
+  38 console): 300 passing, 6 optional skips, 0 failures; the Mac, iPad Simulator and iPad builds; `diff:native`
   within every budget; the 100-cycle soak (flat at 52.7 MiB); the muted live checks on the Bose (no missed blocks,
   decks 0.002–0.005 ms apart over a minute, starts and seeks within 0.31 ms of the click).
 - **Fixed during the removal:** the engine's 64 MiB cache was counted inside the 128 MiB preparation budget, so a
@@ -140,6 +140,12 @@ The user asked for this on 7 November. State:
   - App: `ConsoleModel.updateMeters` reads about 60 times a second while anything shows, ten when all is silent, into
     `ConsoleClock.meter`, so only the strip redraws. The old 15 Hz master RMS read is gone (`NativeMixer.meterDb` stays
     for its test). The old meter only ever filled 72% of its height (a stale CSS rule, copied into the port); both gone.
+  - **Zones at the aim points and a clip cap, 9 November.** The bars' colours now end at fixed figures (`MeterZones`, the
+    same ones the control map's aim points name): green to −6 dBFS, amber to −3, orange to 0, red above, hard boundaries
+    rather than a ramp. A meter whose 2 s hold reaches 0 dBFS takes a 3 pt red cap and a red border, and its spoken value
+    gains ", clipping". The mockup draws the same rules from the same figures, `paintMeters` toggling `clipping` on
+    `hold >= 0`. The native cap has never been drawn, because no demo state reaches 0 dBFS; the mockup's was seen only
+    with the class set by hand.
   - Without demo audio, the mockup and snapshot states show still levels (A playing alone, B cued and silent); an empty or
     loading deck shows a silent meter and TRIM 0.0. `diff:native` is within budget on all 42 screens, budgets unchanged.
   - Not yet seen or heard on a device.

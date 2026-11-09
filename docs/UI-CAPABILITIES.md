@@ -109,8 +109,10 @@ Everything below was read out of the source, not from the README. Status codes:
 
 The chain order is already the one a DJ is taught: TRIM sits before the EQ, so the headphones hear it; A and B meter
 before LEVEL, so trim is set with the faders down; LEVEL's top is 0 dB, so "faders to unity" is true by construction;
-L and R meter after VOLUME and before the limiter, so the master shows what goes in. What is missing is the vocabulary
-to set it by: the four meters are peak dBFS with red at 0, so "top green" and "into the yellow" have no fixed meaning.
+L and R meter after VOLUME and before the limiter, so the master shows what goes in. What was missing was the vocabulary
+to set it by: the meters were peak dBFS with red only at 0, so "top green" and "into the yellow" had no fixed meaning.
+The bars now draw those words at fixed figures — green to −6 dBFS, amber to −3, orange to 0, red above — though they
+print no labels, and there is no target mark or AUTO line.
 
 The sequence, and where each step stands (standards, arithmetic and sources:
 [GAIN-STAGING-RESEARCH](GAIN-STAGING-RESEARCH.md)):
@@ -119,14 +121,15 @@ The sequence, and where each step stands (standards, arithmetic and sources:
 | --- | --- | --- |
 | 1 | Everything down | No such state; a calibration flow would have to save and restore the mix |
 | 2 | Each deck's TRIM | LIVE, ±12 dB, AUTO at −10 LUFS; aim the channel meter at about −6 dBFS peak with LEVEL down |
-| 3 | Peak check, no red | Meters exist and hold their top segment for 2 s; red is the single rule at 0 dBFS, with no separate clip indicator |
+| 3 | Peak check, no red | Yes: red begins at 0 dBFS, and a meter that reaches it within its 2 s hold takes a red cap and a red border on the bar itself. There is no separate clip LED |
 | 4 | Faders to unity | True by construction: LEVEL's top is 0 dB |
 | 5 | MASTER to target | VOLUME popover, 0–1.2, default 0.85; no dB reading or target mark, so the master meters are the guide, about −3 dBFS with both decks open |
 | 6 | Amp or speaker | **No such stage in the app**, and iOS will not let an app set the system volume, so this can only be instructed, not controlled |
 | 7 | Cue level | The cue *mix* exists; a cue *level* does not (see Headphone level above) |
 
-The dBFS figures are readings taken while the meters stay peak dBFS. Whether they keep that scale and label the zones,
-or re-reference 0 dB to −12 dBFS so a Xone's geometry and the video's sentences apply, is still open. So is AUTO's
+The dBFS figures are readings taken while the meters stay peak dBFS. The zones are drawn at those figures but carry no text
+labels, and whether the scale stays or re-references 0 dB to −12 dBFS so a Xone's geometry and the video's sentences
+apply is still open. So is AUTO's
 target: −16 LUFS is the highest that leaves every deck under −6 dBFS, and the app stays at −10 until the user chooses
 by ear.
 
@@ -201,7 +204,7 @@ The grid editor assumes a four-beat bar (4/4): the bar lines, the four-bar windo
 | HI / MID / LOW knobs per channel (with kill) | LOW / MID / HIGH faders per deck, kill at full-left | **LIVE** |
 | COLOR knob (LOW→HI) | Sweep FILTER fader | **PARTIAL** — no separate colour control |
 | Channel level faders ×2 | — | **NONE** |
-| Per-channel LED meters, MASTER CLIP | Electron: one master meter (RMS, no clip LED). Mockup and native: four peak meters, A · L · R · B, on one −30…+6 dBFS scale, red from 0 dBFS where the limiter is working; no separate clip LED | **PARTIAL** |
+| Per-channel LED meters, MASTER CLIP | Electron: one master meter (RMS, no clip LED). Mockup and native: four peak meters, A · L · R · B, on one −30…+6 dBFS scale, red from 0 dBFS where the limiter is working, green ending at −6 and amber at −3, and a red cap and border on a bar that reaches 0 dBFS; no separate clip LED | **PARTIAL** |
 | MASTER LEVEL | MASTER knob | **LIVE** |
 | Crossfader with graduated scale | Crossfader, double-click to centre | **LIVE** (no cut-in points) |
 | HEADPHONES MIXING: CUE / MASTER knobs | CUE MIX knob + SPLIT CUE / 4-CH toggle | **LIVE** |
