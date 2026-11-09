@@ -101,12 +101,12 @@ The user asked for this on 7 November. State:
   (Accelerate biquads, about 0.007 s per 32 s of audio in a debug build); older tracks are measured quietly in the background
   at launch (`readMissingLoudness`, for at most a minute per launch; whatever is left follows on later starts). A track loads at
   the trim that brings its **main groove** (the loudest half of its 3 s
-  stretches) to **−10 LUFS**, within ±12 dB, and the chip lights green and reads AUTO. Moving TRIM remembers it for the track
+  stretches) to **−11 LUFS**, within ±12 dB, and the chip lights green and reads AUTO. Moving TRIM remembers it for the track
   (`LibraryTrack.trimDb`, saved half a second after the trim rests); RESET, a double-tap or snapping within 0.25 dB returns to
   AUTO and forgets it. Only the console turns trimming on load on (`NativeDeck.trimsOnLoad`), so audio tests stay at unity.
 - **Bench, 52 tracks in `accuracy/audio/`:** every one peaks at 0.0 dBFS; main groove −9.3 to −5.0 LUFS (median −6.8),
-  whole-track −10.5 to −6.2; AUTO trims −0.7 to −5.0 dB, none boosted. So everything plays about 3 dB quieter than before
-  and the master goes up to match. The −10 target and main-groove choice are the user's to confirm by ear.
+  whole-track −10.5 to −6.2. The old −10 LUFS target trimmed these tracks by −0.7 to −5.0 dB, none boosted;
+  −11 adds 1 dB of attenuation to each. The user chose −11 for normal use, with hot tracks handled by hand.
 - **Listening check, waiting for the user:** pairs at AUTO, judged matched or not, by ear (the meters show peaks, not loudness). Luga vs A Brief History Of Goa Trance
   (4.3 dB apart untrimmed: does AUTO work at all?); Buzz On vs Drink Drunk Junkie (main groove says 1.1 dB apart, whole
   track says 2.5: which measure is right?); Luga vs Traffic (techno, 3.4 dB apart).
@@ -131,8 +131,8 @@ The user asked for this on 7 November. State:
     −6, and the worst correlated pair would reach +5.3 dBFS. Re-run lower, −16 gives trims −11.0 to −6.7 dB and deck
     peaks −6.7 to −11.0 (median −9.2), 0 of 52 above −6; −14 leaves 11 above it, −12 leaves 44. So −16 is the
     highest target with real headroom, and the lowest the ±12 dB TRIM covers with a dB to spare (the loudest track clamps
-    at −18). It costs 6 dB against today, not the 12 a strict analogue reading would. The app stays at −10 until the
-    user chooses by ear. Standards, working and sources: [GAIN-STAGING-RESEARCH](docs/GAIN-STAGING-RESEARCH.md).
+    at −18). That bench result describes the worst correlated case. The app now aims for −11 and leaves extra
+    trim for unusually hot tracks to the DJ. Standards, working and sources: [GAIN-STAGING-RESEARCH](docs/GAIN-STAGING-RESEARCH.md).
   - Engine: the mix loop keeps each deck's and each master side's highest sample since the last `dex_engine_read_meters`,
     which takes them. Tests: `EngineMeterTests` (a sine reads its level; TRIM moves the channel meter, LEVEL and the
     crossfader don't, though they move the master; left-only lights only L; two hot decks read over +3 dBFS while the output stays limited; a burst waits for the
@@ -148,7 +148,15 @@ The user asked for this on 7 November. State:
     rung; the 2 s hold lights its own rung white. A meter whose hold reaches 0 dBFS takes the 3 pt red cap on top of
     the lit column and a red border, and its spoken value gains ", clipping". The mockup draws the same ladder from the
     same figures (`METER.ladder`, `paintMeters`). The snapshot tool's `--clip 1` renders the cap, which no demo state
-    reaches. Checked 9 November in both surfaces.
+    reaches. Thin neutral marks show −6 dBFS on A/B and −3 dBFS on L/R as manual peak guides.
+  - **Wider XDJ-RR-inspired layout:** the mixer fills 55% of the drawing and tucks each platter's inner rim
+    just outside the rotation lights. Touching the exposed disc reveals the rim until release. The platter centre
+    stays fixed and the revealed portion does not take hits away from the mixer. LEVEL is 52 pt wide with a
+    12 pt gap to HI. TRIM opens above the mixer,
+    and the beat-jump row fits inside each deck bay, with TEMPO now above the tempo fader.
+  - **Compact meter strip:** CH A and CH B flank the stereo master, with dBFS scales in the gaps and a master
+    CLIP lamp below its label. MASTER LEVEL above the meters shows the live setting and opens a master-only
+    popover. Each FILTER button shows OFF or the cutoff and opens the existing sweep in a popover.
   - Without demo audio, the mockup and snapshot states show still levels (A playing alone, B cued and silent); an empty or
     loading deck shows a silent meter and TRIM 0.0. `diff:native` is within budget on all 42 screens, budgets unchanged.
   - Not yet seen or heard on a device.
@@ -649,7 +657,7 @@ Summaries only; the gates are in the plan.
   November 2026): load another track there first.
 - Layout makes room for new widgets; never cram.
 - Faders carry no number readout (7 November 2026): the cap's place shows where it is. TRIM keeps its number.
-- Mixer meters (8 November 2026): A · L · R · B together in the centre strip, LOW Σ dropped, all peaks on one scale.
+- Mixer meters: CH A and CH B outside stereo MASTER, with labelled dBFS scales between them; LOW Σ dropped.
   A and B before LEVEL and the crossfader, as on a Pioneer mixer, so TRIM is set by them; the master before the limiter,
   so two full decks overload it.
 - Crossfader (8 November 2026): both decks full at centre, fading only across the far half.

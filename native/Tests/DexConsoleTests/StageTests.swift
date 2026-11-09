@@ -35,19 +35,11 @@ final class StageTests: XCTestCase {
         }
     }
 
-    func testReadoutRowShrinksLikeChromium() {
-        // Deck A's readouts as Chromium lays them out: REMAIN, time and TEMPO
-        // keep their text widths; KEY stops at its chip, the BPM box takes the rest.
-        let widths = flexShrink(bases: [83, 133.92, 67.42, 50, 76], weights: [83, 133.92, 67.42, 50, 74],
-                                minimums: [83, 133.92, 67.42, 46.63, 0], available: 402)
-        for (width, expected) in zip(widths, [83, 133.92, 67.42, 46.63, 71.02]) { XCTAssertEqual(width, expected, accuracy: 0.02) }
-        XCTAssertEqual(flexShrink(bases: [10, 20], minimums: [0, 0], available: 100), [10, 20], "No overflow, no shrink")
-    }
-
     func testReadoutFormatsMatchFormatTS() {
         XCTAssertTrue(remain(384 - (384 - 72.418)) == ("01:12", "418"))
         XCTAssertTrue(remain(418 - 0.91) == ("06:57", "090"))
         XCTAssertEqual(clock(311.582), "5:11")
+        XCTAssertEqual(clock(311.582, padMinutes: true), "05:11")
         XCTAssertTrue(tempoParts(1.0231) == ("+", "2.31"))
         XCTAssertTrue(tempoParts(0.97) == ("−", "3.00"))
         XCTAssertTrue(bpmParts(130 * 1.0231) == ("133", "0"))
@@ -63,10 +55,10 @@ final class StageTests: XCTestCase {
         XCTAssertEqual(MixerMath.formatDb(MixerMath.faderDb(0)), "−∞")
         XCTAssertEqual(MixerMath.tempoText(1.0231), "+2.31%")
         XCTAssertEqual(MixerMath.tempoToFader(1), 0.5)
-        XCTAssertEqual(filterLabel(0), "FILTER")
+        XCTAssertEqual(filterLabel(0), "OFF")
         XCTAssertEqual(filterLabel(-1), "LP 120")
         XCTAssertEqual(filterLabel(1), "HP 9.0k")
-        XCTAssertEqual(filterLabel(0.02), "FILTER", "Inside the dead band")
+        XCTAssertEqual(filterLabel(0.02), "OFF", "Inside the dead band")
     }
 
     @MainActor

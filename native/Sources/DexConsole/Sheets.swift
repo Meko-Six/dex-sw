@@ -228,8 +228,9 @@ enum HelpText {
             ], "Nothing is recorded or sent to the mix. TAP only reads a tempo.")
         case .trim:
             ("Trim", [
-                ("AUTO", "Dex sets the trim when a track loads, so every track plays as loud as the last."),
-                ("Trim", "Change it if a track still sounds off. Dex remembers your trim for that track."),
+                ("AUTO", "Dex sets trim on load, aiming for −11 LUFS in the track’s main groove."),
+                ("Trim", "Play a loud section with LEVEL down. Dex remembers your trim."),
+                ("Meter marks", "A/B mark −6 dBFS for trim. L/R mark −3 dBFS for the mix."),
                 ("Reset", "Back to AUTO.")
             ], nil)
         case .band:

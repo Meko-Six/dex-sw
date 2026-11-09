@@ -33,7 +33,7 @@
       .show-hit .pad, .show-hit .big, .show-hit .mini, .show-hit .pill, .show-hit .btn, .show-hit .chan-btn,
       .show-hit .lib-load button, .show-hit .zoom-stack span, .show-hit .lib-pill, .show-hit .bank-tabs button,
       .show-hit .fader-v, .show-hit .fader-h, .show-hit .platter, .show-hit .knob,
-      .show-hit .cf, .show-hit .fx, .show-hit .kill-pad, .show-hit .linkbtn, .show-hit .trimchip, .show-hit .bandval {
+      .show-hit .cf, .show-hit .fx, .show-hit .kill-pad, .show-hit .linkbtn, .show-hit .trimchip, .show-hit .mix-launch, .show-hit .bandval {
         outline: 2px dashed rgba(89, 194, 255, .8); outline-offset: 2px;
       }
 
@@ -425,8 +425,8 @@
          See mockup/notes.md for the discussion points.
          ================================================================ */
       const DECKS = {
-        A: { letter: 'A', track: 'Tiesto, Mathame — Everlight (Extended Mix)', time: '5:11 / 6:24', remain: '01:12.418', art: ['#2b4f7a', '#d0703a'], now: '133.0', range: 16, keyLock: true, keyShift: 0, bpm: '133.0', grid: '95% grid', confidence: 95, offset: 489.9, tempo: '+0.00%', state: 'playing', cue: 58, camelot: '8A' },
-        B: { letter: 'B', track: 'Patrick Topping — Ocean', time: '0:00 / 6:58', remain: '06:57.090', art: ['#0f5e63', '#9ad3c4'], now: '133.0', range: 8, keyLock: false, keyShift: 1, cueAt: '0:00.9', bpm: '130.0', grid: '88% grid', confidence: 88, offset: 247.3, tempo: '+2.31%', state: 'cued', cue: 72, camelot: '4A' }
+        A: { letter: 'A', track: 'Tiesto, Mathame — Everlight (Extended Mix)', time: '5:11 / 6:24', remain: '01:12.418', art: ['#2b4f7a', '#d0703a'], now: '133.0', range: 16, keyLock: true, bpm: '133.0', grid: '95% grid', confidence: 95, offset: 489.9, tempo: '+0.00%', state: 'playing', camelot: '8A' },
+        B: { letter: 'B', track: 'Patrick Topping — Ocean', time: '0:00 / 6:58', remain: '06:57.090', art: ['#0f5e63', '#9ad3c4'], now: '133.0', range: 8, keyLock: false, cueAt: '0:00.9', bpm: '130.0', grid: '88% grid', confidence: 88, offset: 247.3, tempo: '+2.31%', state: 'cued', camelot: '4A' }
       };
       const LIBRARY = [
         { name: 'Tiesto, Mathame — Everlight (Extended Mix)', bpm: '133.0', dur: '6:24', grid: '95%', key: 'A minor', camelot: '8A', on: 'A' },
@@ -553,18 +553,18 @@
         A: { trim: -1.4, auto: -1.4, lufs: -7.6, level: 1, high: 1, mid: 1, low: 1, filter: 0.5, kill: { high: false, mid: false, low: false } },
         B: { trim: 1.2, auto: 1.2, lufs: -10.2, level: 1, high: 0.8, mid: 0.6, low: 0.06, filter: 0.5, kill: { high: false, mid: false, low: false } },
         xfade: 0.5,
+        master: 0.816,
         link: false
       };
-      const TARGET_LUFS = -9;
-      let mixPop = null; // null | { kind: 'trim', deck } | { kind: 'band', band }
+      let mixPop = null; // trim or filter by deck, master, or a band across both decks
       let swallowDragClick = false;
 
       /* Fixed 50% playhead for the stacked screen. `shift` is a drag offset in
          CSS px; each lane's waveform, cue marker and whole-track bracket move
          together underneath the shared line. */
       const SCREEN_VIEW = {
-        A: { shift: 0, cue: DECKS.A.cue, baseFrom: 22, baseTo: 62 },
-        B: { shift: 0, cue: DECKS.B.cue, baseFrom: 41, baseTo: 78 }
+        A: { shift: 0, baseFrom: 22, baseTo: 62 },
+        B: { shift: 0, baseFrom: 41, baseTo: 78 }
       };
       const SCREEN_LANE_WIDTH = 1080;
       let screenDrag = null;
@@ -621,7 +621,7 @@
         </svg>`;
       }
       const faderV = (id, pos, accent) => `<div class="fader-v ${accent ? 'accent' : ''}" data-ctl="${id}" style="--pos:${pos}%;--lvl:${(pos / 100).toFixed(4)}"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>`;
-      const faderH = (id, pos) => `<div class="fader-h" data-ctl="${id}" style="--pos:${pos}%"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>`;
+      const faderH = (id, pos, param) => `<div class="fader-h" data-ctl="${id}" ${param ? `data-param="${param}" data-axis="x"` : ''} style="--pos:${pos}%"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>`;
 
       /* What the library is working on: [label and count, track, progress %]. */
       const HEAD_STATUS = {
@@ -681,7 +681,7 @@
         const ticks = lane.querySelector('.zw-grid');
         if (ticks) ticks.style.transform = 'translateX(' + state.shift + 'px)';
         const cue = lane.querySelector('.zw-cue');
-        if (cue) cue.style.left = 'calc(' + state.cue + '% + ' + state.shift + 'px)';
+        if (cue) cue.style.transform = 'translateX(' + state.shift + 'px)';
         const card = document.querySelector('.zcard[data-deck="' + deck + '"]');
         const bracket = card && card.querySelector('.zview');
         if (bracket) {
@@ -834,13 +834,15 @@
               <span class="zw-label" data-ctl="deck.state">DECK <b style="color:${accentOf(d.letter)}">${d.letter}</b> · — BPM · ${isLoading(d) ? 'LOADING' : 'EMPTY'}</span>
               ${isLoading(d) ? '' : '<span class="zw-empty">NO TRACK</span>'}
             </div>`;
+          const position = secs(d.time.split(' / ')[1]) - secs(d.remain);
+          const cue = 50 + 100 * (secs(d.cueAt ?? '0:00') - position) / laneSpanOf(d);
           return `
             <div class="zw ${dropTarget(d) === 'drop' ? 'drop' : ''}" data-deck="${d.letter}" data-side="${d.letter}" data-ctl="console.screen.zoom" style="--accent:${accentOf(d.letter)}">
               <div class="zw-track" style="transform:translateX(calc(-25% + ${state.shift}px))">${waveSvg(1600, seed, 0.5)}</div>
               ${loopLaneHtml(d)}
               ${laneGridHtml(d)}
               <span class="zw-label" data-ctl="deck.state">DECK <b style="color:${accentOf(d.letter)}">${d.letter}</b> · ${d.bpm} BPM · ${d.state.toUpperCase()}${energyEnabled ? '<em class="energy-reading"> · ENERGY —</em>' : ''}</span>
-              <span class="zw-cue" style="left:calc(${state.cue}% + ${state.shift}px)"></span>
+              ${cue >= -2 && cue <= 102 ? `<span class="zw-cue" style="left:${cue.toFixed(3)}%;transform:translateX(${state.shift}px)"></span>` : ''}
             </div>`;
         };
         const gridKey = (d) =>
@@ -867,10 +869,26 @@
       const secs = (t) => t.split(':').reduce((s, part) => s * 60 + Number(part), 0);
       const HOT_CUE_COLOURS = ['#38a8ff', '#35d06b', '#ffb020', '#ff5d8f', '#b06cff', '#22d3ee', '#ff8a1f', '#d9e86a'];
       /* A semitone up is seven steps round the Camelot wheel. */
-      const shiftCamelot = (code, st) => {
-        const k = parseCamelot(code);
-        return k && st ? (((k.n - 1 + 7 * st) % 12 + 12) % 12 + 1) + k.ring : code;
-      };
+      function songReadouts({ elapsed, total, whole, ms, tempo, keyLock = false, camelot, bpmWhole, bpmTenth, role = '' }) {
+        const timeScale = Math.min(1, 5 / Math.max(elapsed.length, total.length));
+        const remainScale = Math.min(1, 7.25 / (whole.length + 2.25));
+        return `<div class="zreads">
+          <div class="zvalues">
+            <span class="zlbl">TIME</span>
+            <div class="ztimes" style="--time-scale:${timeScale}"><b>${elapsed}</b><span>${total}</span></div>
+            <span class="zlbl zlbl-remain">REMAIN</span>
+            <b class="zremain" style="--remain-scale:${remainScale}">${whole}<i>.${ms}</i></b>
+            <span class="zlbl zlbl-tempo">TEMPO</span>
+            <b class="ztempo">${tempo}<i>%</i></b>
+          </div>
+          <div class="zkey" data-ctl="deck.tags">
+            <span class="zkeychip${keyLock ? '' : ' off'}">KEY</span>
+            ${camelotBadge(camelot)}
+          </div>
+          <div class="zbpm ${role}"><b>${bpmWhole}<i>.${bpmTenth}</i></b><span>${role === 'master' ? 'MASTER' : role === 'sync' ? 'SYNC' : ''}</span></div>
+        </div>`;
+      }
+
       function renderInfo() {
         const card = (d, seed) => {
           if (isEmpty(d)) return emptyCardHtml(d);
@@ -882,16 +900,13 @@
           const [whole, ms] = d.remain.split('.');
           const [bpmWhole, bpmTenth] = d.now.split('.');
           const sign = d.tempo.startsWith('-') || d.tempo.startsWith('−') ? '−' : '+';
-          /* The KEY chip says what changed: KEY LOCK, KEY +1 (shifted), or LOCK +1. */
-          const shift = d.keyShift ? (d.keyShift > 0 ? '+' : '−') + Math.abs(d.keyShift) : '';
-          const keyLabel = d.keyLock && shift ? 'LOCK ' + shift : d.keyLock ? 'KEY LOCK' : shift ? 'KEY ' + shift : '';
           const role = d.letter === 'A' ? 'master' : 'sync';
           const flags = HOT_CUES[d.letter]
             .map((cue, i) => cue ? `<span class="zflag" style="left:${pct(cue.at)};--hc:${HOT_CUE_COLOURS[i]}"><b>${i + 1}</b></span>` : '')
             .join('') + (d.cueAt ? `<span class="zflag mem" style="left:${pct(d.cueAt)}"></span>` : '');
           const lines = HOT_CUES[d.letter]
             .map((cue, i) => cue ? `<span class="zline" style="left:${pct(cue.at)};--hc:${HOT_CUE_COLOURS[i]}"></span>` : '')
-            .join('') + (d.cueAt ? `<span class="zline" style="left:${pct(d.cueAt)};--hc:var(--red)"></span>` : '');
+            .join('') + (d.cueAt ? `<span class="zline mem" style="left:${pct(d.cueAt)};--hc:var(--red)"></span>` : '');
           const step = length > 240 ? 60 : 15;
           const ticks = Array.from({ length: Math.floor(length / step) }, (_, i) =>
             `<i style="left:${(100 * (i + 1) * step / length).toFixed(2)}%"></i>`).join('');
@@ -906,16 +921,11 @@
               <button class="zart ${artState(d)}${hasCover(d) ? ' cover' : ''}" data-ctl="deck.load" onclick="tapArt('${d.letter}')" title="Load a track onto deck ${d.letter}"
                 style="--art:${hasCover(d) ? COVER_ART : `linear-gradient(135deg, ${d.art[0]} 0 55%, ${d.art[1]} 55% 100%)`}"><i>${NOTE_ICON}</i><b>${ART_LABEL[artState(d)]}</b></button>
               <div class="zbody">
-                <div class="zreads">
-                  <div class="zrem"><span class="zlbl">REMAIN</span><span class="zsub">${elapsed} <span>/ ${total}</span></span></div>
-                  <div class="zremain"><b>${whole}<i>.${ms || '000'}</i></b></div>
-                  <div class="ztempo"><span class="zlbl">TEMPO</span><b>${sign} ${d.tempo.replace(/^[+−-]/, '').replace('%', '')}<i>%</i></b></div>
-                  <div class="zkey" data-ctl="deck.tags">
-                    <span class="zkeychip ${keyLabel ? '' : 'off'}">${keyLabel || 'KEY'}</span>
-                    ${camelotBadge(shiftCamelot(d.camelot, d.keyShift))}
-                  </div>
-                  <div class="zbpm ${role}"><b>${bpmWhole}<i>.${bpmTenth}</i></b><span>${role === 'master' ? 'MASTER' : 'SYNC'}</span></div>
-                </div>
+                ${songReadouts({
+                  elapsed: elapsed.padStart(5, '0'), total: total.padStart(5, '0'), whole, ms: ms || '000',
+                  tempo: sign + d.tempo.replace(/^[+−-]/, '').replace('%', ''), keyLock: d.keyLock,
+                  camelot: d.camelot, bpmWhole, bpmTenth, role
+                })}
                 <div class="zfull" data-ctl="console.screen.overview">
                   <div class="zflags" style="position:relative">${flags}</div>
                   <div class="zwave">${waveSvg(600, seed + 3, played, true)}${loopOverviewHtml(d)}</div>
@@ -988,9 +998,9 @@
       }
 
       /* Beat jump, CDJ style: a row of its own under the platter, level with
-         the mixer's CUE · KILL row (ROW.kill: 384, 44), 274 pt wide: square ◀ and ▶ at its ends and the 1 · 4 · 16 · 32
+         the mixer's CUE · KILL row (ROW.kill: 384, 44), 240 pt wide: square ◀ and ▶ at its ends and the 1 · 4 · 16 · 32
          selector between them. One jump per press. */
-      const JUMP = { y: 384, h: 44, key: 44, gap: 6, width: 274 };
+      const JUMP = { y: 384, h: 44, key: 44, gap: 6, width: 240 };
       const JUMP_KEYS = { A: ['Q', 'W'], B: ['O', 'P'] };
       function jumpHtml(key) {
         const left = DECK_X[key].jump;
@@ -1075,11 +1085,10 @@
          the y values below are still the drawing's and LIFT raises them all. */
       const LIFT = 48;
       const at = (x, y, w, h) => `left:${x - 10}px;top:${y - LIFT}px;width:${w}px;height:${h}px`;
-      /* Narrower than layout 01: the bays give 60 pt each to the mixer. */
       /* SYNC · MASTER · KEY · HOT CUE run the full width of the deck, centred
          on the TRIM row and 40 pt tall on purpose. The tempo fader starts 23 pt
          under them, a finger's room, and its foot lines up with the mixer
-         faders' foot (ROW.fader: 150 + 228), with TEMPO below it. Faders
+         faders' foot (ROW.fader: 150 + 228), with TEMPO above it. Faders
          carry no readout: the cap's place says where it is, as on hardware.
          The platter fills the space under the keys, and CUE, PLAY and the loop widget run along the bottom in the
          same order on both decks. */
@@ -1093,8 +1102,8 @@
       const DECK_X = {
         /* keys: left edge of the four keys; jump: left edge of the beat jump
            row; row: left edge of the bottom row (CUE · PLAY · loop). */
-        A: { keys: 22, jump: 78, tempo: 46, platter: 215, row: 22 },
-        B: { keys: 842, jump: 842, tempo: 1148, platter: 979, row: 832 }
+        A: { keys: 22, jump: 22, tempo: 46, platter: 215, row: 22 },
+        B: { keys: 842, jump: 932, tempo: 1148, platter: 979, row: 832 }
       };
 
       function renderBay(key) {
@@ -1109,12 +1118,13 @@
           ${pill(1, key === 'A' && !off ? 'master on' : 'master', 'transport.master', 'MASTER', off)}
           ${pill(2, d.keyLock ? 'on' : '', 'transport.key', 'KEY')}
           ${pill(3, cueOpen[key] ? 'on' : '', 'xdj.hotcue', 'HOT CUE', `onclick="toggleHotCues('${key}')" ${off}`)}
-          <div class="col at" style="${at(x.tempo - 24, TEMPO_TOP, 48, ROW.fader[0] + ROW.fader[1] - TEMPO_TOP + 17)}">
+          <span class="eq-name tempo-name at" style="${at(x.tempo - 24, 109, 48, 12)}">TEMPO</span>
+          <div class="col at" style="${at(x.tempo - 24, TEMPO_TOP, 48, ROW.fader[0] + ROW.fader[1] - TEMPO_TOP)}">
             ${faderV('tone.tempo', off ? 50 : 50 - parseFloat(d.tempo.replace('−', '-')) * 100 / 32, true)}
-            <span class="eq-name">TEMPO</span>
           </div>
-          <div class="face-platter at" style="${at(x.platter - PLATTER.size / 2, PLATTER.y, PLATTER.size, PLATTER.size)}">
+          <div class="face-platter at" style="${at(x.platter - PLATTER.size / 2, PLATTER.y, PLATTER.size, PLATTER.size)};--tuck:${DECK_X.A.platter + PLATTER.size / 2 - MIXER_EDGE}px">
             <div class="platter" data-ctl="deck.platter">${platterDisplay(key, Number(d.now))}</div>
+            <div class="platter jog-reveal" aria-hidden="true"></div>
           </div>
           ${jumpHtml(key)}
           <button class="big lg cue at keep" data-ctl="transport.cue" style="${at(x.row, ROW_Y, KEY, KEY)}" ${off}>CUE</button>
@@ -1125,8 +1135,8 @@
       }
 
       /* ---------- centre mixer (alt) ----------
-         Per channel, outside in: LEVEL · HI · MID · LOW, so the two LOW
-         faders sit side by side across the centre. Every band fader is
+         Per channel, outside in: LEVEL · HI · MID · LOW, with the two
+         meter pairs between the LOW faders. Every band fader is
          cut-only on one law; kills are separate latching pads. */
       const LAW = [[1, 0], [0.8, -3], [0.6, -6], [0.4, -12], [0.2, -24], [0.03, -48]];
       function dbAt(p) {
@@ -1145,7 +1155,8 @@
       const fmtHz = (f) => (f >= 1000 ? (f / 1000).toFixed(1) + 'k' : String(Math.round(f)));
       const BAND_NAME = { high: 'HI', mid: 'MID', low: 'LOW', level: 'LEVEL' };
       const BANDS = ['high', 'mid', 'low'];
-      const COLS = { level: [372, 44], high: [422, 44], mid: [472, 44], low: [522, 52] };
+      const MIXER_EDGE = 269; // 55% of the drawing, rounded symmetrically
+      const COLS = { level: [280, 52], high: [344, 44], mid: [394, 44], low: [444, 52] };
       const colX = (key, col) => { const [x, w] = COLS[col]; return [key === 'A' ? x : 1194 - x - w, w]; };
       const ROW = { top: [62, 44], val: [110, 36], fader: [150, 228], kill: [384, 44], xf: [455, 48] };
       const CAP = 24;
@@ -1163,11 +1174,11 @@
       }
       function filterLabel(pos) {
         const f = filterAt(pos);
-        if (f.frequency >= 20000) return 'FILTER';
+        if (f.frequency >= 20000) return 'OFF';
         return (f.type === 'lowpass' ? 'LP ' : 'HP ') + fmtHz(f.frequency);
       }
 
-      /* ---------- meters: A · L · R · B in the centre strip ----------
+      /* ---------- meters: channel A · master L/R · channel B ----------
          All four are peaks on one scale, −30 to +6 dBFS, so the channels read
          against the master. A and B: each deck after TRIM, EQ and FILTER,
          before LEVEL and the crossfader, as on a Pioneer mixer, so TRIM is
@@ -1177,13 +1188,15 @@
          bar rises at once and falls 20 dB a second; the top segment holds
          for 2 s (agreed 8 November 2026). */
       const METER = {
-        cols: [['A', 575], ['L', 588], ['R', 598], ['B', 611]],
-        w: 8,
+        columns: [['A', 520], ['L', 585], ['R', 599], ['B', 664]],
+        w: 10,
+        labels: [6, 0, -6, -12, -18, -24, -30],
         /* Twelve rungs of 3 dB across the -30 to +6 dBFS scale: six green at the foot,
            four amber, two red, so red still starts at 0 dBFS (`MeterLadder` in the
-           console). More rungs than this stop reading as blocks at 8 pt wide. */
+           console). More rungs than this stop reading as blocks in a narrow bar. */
         ladder: [-30, -27, -24, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6],
         amber: 6, red: 10,
+        deckAim: -6, masterAim: -3,
         /* What the meters show without demo audio: A playing alone near the
            top, B cued and silent, the master A through VOLUME. */
         still: { A: -2.0, L: -3.8, R: -4.3, B: -90 },
@@ -1191,23 +1204,40 @@
         level: {}, hold: {}, holdAt: {}
       };
       const meterPct = (v) => Math.max(0, Math.min(100, ((v + 30) / 36) * 100));
+      const meterY = (v) => (ROW.fader[1] - 2) * (1 - meterPct(v) / 100);
       function meterHtml() {
         /* One block per rung, placed by its span of the scale; unlit rungs stay dark. */
         const rungs = METER.ladder.slice(0, -1).map((low, index) => {
           const high = METER.ladder[index + 1];
-          const top = 100 - meterPct(high), height = meterPct(high) - meterPct(low);
+          const top = Math.round(meterY(high)), bottom = Math.round(meterY(low));
           const ink = index >= METER.red ? 'r' : index >= METER.amber ? 'a' : 'g';
-          return `<s class="rung ${ink}" style="top: calc(${top}% + 1px); height: calc(${height}% - 2px)"></s>`;
+          return `<s class="rung ${ink}" style="top:${top + 1}px;height:${Math.max(1, bottom - top - 2)}px"></s>`;
         }).join('');
-        return METER.cols.map(([id, x]) => `
-            <span class="meter-name at" style="${at(x - 4, ROW.val[0], METER.w + 8, ROW.val[1])}">${id}</span>
-            <div class="meter-v at" data-ctl="${id === 'A' || id === 'B' ? 'mixer.chmeter' : 'mixer.meter'}" data-meter="${id}"
-              style="${at(x, ROW.fader[0], METER.w, ROW.fader[1])}">${rungs}</div>`).join('');
+        const bar = (id, x) => {
+          const deck = id === 'A' || id === 'B';
+          const mark = Math.round(meterY(deck ? METER.deckAim : METER.masterAim) - 0.5);
+          return `
+            <div class="meter-v at" data-ctl="${deck ? 'mixer.chmeter' : 'mixer.meter'}" data-meter="${id}"
+              style="${at(x, ROW.fader[0], METER.w, ROW.fader[1])};--aim:${mark}px">${rungs}</div>`;
+        };
+        const title = (text, x) => `<span class="meter-title at" style="${at(x - 27, 113, 54, 16)}">${text}</span>`;
+        const scales = [558, 636].map(x => `
+          <span class="meter-unit at" style="${at(x - 16, 129, 32, 16)}">dBFS</span>
+          ${METER.labels.map(db => {
+            const y = ROW.fader[0] + 1 + meterY(db);
+            const text = db > 0 ? '+' + db : String(db).replace('-', '−');
+            return `<span class="meter-number at${db === 0 ? ' zero' : ''}" style="${at(x - 16, y - 6, 32, 12)}">${text}</span>`;
+          }).join('')}`).join('');
+        return `<div class="meter-face at" style="${at(510, 110, 174, 271)}" aria-hidden="true"></div>
+          ${title('CH A', 525)}${title('MASTER', 597)}${title('CH B', 669)}
+          <span class="meter-clip at" data-master-clip style="${at(573, 130, 48, 14)}">CLIP</span>
+          ${METER.columns.map(([id, x]) => bar(id, x)).join('')}${scales}`;
       }
       /* Rungs, lit when the level reaches their foot, and the held rung above them. */
       function paintMeters() {
         const live = AUDIO.ctx && AUDIO.ctx.state === 'running';
-        for (const [id] of METER.cols) {
+        let masterClip = false;
+        for (const [id] of METER.columns) {
           const el = document.querySelector(`#chassis [data-meter="${id}"]`);
           if (!el) continue;
           /* The rung a value reaches, counting from the foot; unlit rungs stay dark. */
@@ -1223,11 +1253,13 @@
             rung.classList.toggle('held', index === held && held > lit);
           });
           /* The cap marks the top of the lit column. */
-          const cap = lit >= 0 ? 100 - meterPct(METER.ladder[lit + 1]) : 100;
-          el.style.setProperty('--cap', cap.toFixed(2) + '%');
+          const cap = lit >= 0 ? Math.round(meterY(METER.ladder[lit + 1])) : ROW.fader[1] - 2;
+          el.style.setProperty('--cap', cap + 'px');
           /* 0 dBFS within the 2 s hold: the same clip rule as MeterZones in the console. */
           el.classList.toggle('clipping', hold >= 0);
+          if ((id === 'L' || id === 'R') && hold >= 0) masterClip = true;
         }
+        document.querySelector('[data-master-clip]')?.classList.toggle('on', masterClip);
       }
 
       function cutFader(key, col) {
@@ -1255,22 +1287,36 @@
       function renderChannel(key) {
         const [lx, lw] = colX(key, 'level');
         const trimX = key === 'A' ? 372 : 762;
-        const filterX = key === 'A' ? 440 : 620;
+        const filterX = key === 'A' ? 452 : 654;
+        const filterOpen = mixPop?.kind === 'filter' && mixPop.deck === key;
         return `
           <div class="chan ${key === 'B' ? 'b' : 'a'}" data-side="${key}" style="--accent:${accentOf(key)}">
             <button class="trimchip at" data-ctl="alt.trim" data-trim="${key}" onclick="openTrim('${key}')" style="${at(trimX, ROW.top[0], 60, ROW.top[1])}"><b>TRIM</b><span></span></button>
-            <div class="fx mixctl" data-ctl="tone.filter" data-deck="${key}" data-param="filter" data-axis="x" style="${at(filterX, ROW.top[0], 134, ROW.top[1])};--pos:${MIX[key].filter}">
-              <span class="fr"></span><span class="zero"></span><span class="flabel" data-flabel="${key}"></span><span class="thumb"></span>
-            </div>
+            <button class="mix-launch at${filterOpen ? ' on' : ''}" data-ctl="tone.filter" data-filter-button="${key}" aria-expanded="${filterOpen}"
+              onclick="openFilter('${key}')" style="${at(filterX, ROW.top[0], 88, ROW.top[1])}"><b>FILTER</b><span data-flabel="${key}"></span></button>
             ${['level', ...BANDS].map((col) => bandVal(key, col) + cutFader(key, col)).join('')}
             ${BANDS.map((band) => { const [x, w] = colX(key, band); return killPad(key, band, at(x, ROW.kill[0], w, ROW.kill[1]), 'at'); }).join('')}
             <button class="chan-btn at ${key === 'A' ? 'on' : ''}" data-ctl="mixer.cue" style="${at(lx, ROW.kill[0], lw, ROW.kill[1])}">CUE</button>
           </div>`;
       }
 
+      function filterPop(key) {
+        return `<div class="mixpop at" data-side="${key}" style="${at(key === 'A' ? 346 : 548, LIFT - 124 - 8, 300, 124)}">
+          <h4>Filter ${key}${closeBtn('closeMixPop()')}</h4>
+          <div class="row">
+            <div class="fx mixctl" data-ctl="tone.filter" data-deck="${key}" data-param="filter" data-axis="x" style="position:relative;flex:1;height:44px;--pos:${MIX[key].filter}">
+              <span class="fr"></span><span class="zero"></span><span class="thumb"></span>
+            </div>
+            <span class="val filter-val" data-flabel="${key}"></span>
+            <button class="btn" onclick="setP('${key}', 'filter', 0.5); paintMix()">RESET</button>
+          </div>
+        </div>`;
+      }
+
       function trimPop(key) {
         const d = MIX[key];
-        return `<div class="mixpop at" data-side="${key}" style="${at(key === 'A' ? 372 : 522, 110, 300, 124)};--accent:${accentOf(key)}">
+        /* Park above the chassis, clear of the faders, meters and platter. */
+        return `<div class="mixpop at" data-side="${key}" style="${at(key === 'A' ? 70 : 824, LIFT - 124 - 8, 300, 124)};--accent:${accentOf(key)}">
           <h4>Trim ${key}${infoBtn('trim')}${closeBtn('closeMixPop()')}</h4>
           <div class="row">
             <div class="fx mixctl" data-ctl="alt.trim" data-deck="${key}" data-param="trimpos" data-axis="x" style="position:relative;flex:1;height:44px;--pos:${((d.trim + 12) / 24).toFixed(4)}"><span class="fr"></span><span class="zero"></span><span class="thumb"></span></div>
@@ -1295,11 +1341,16 @@
       }
 
       function renderMixer() {
-        const pop = !mixPop ? '' : mixPop.kind === 'trim' ? trimPop(mixPop.deck) : bandPop(mixPop.band);
+        const pop = mixPop?.kind === 'trim' ? trimPop(mixPop.deck) : mixPop?.kind === 'filter' ? filterPop(mixPop.deck)
+          : mixPop?.kind === 'band' ? bandPop(mixPop.band) : '';
+        const masterOpen = mixPop?.kind === 'master';
         return `
           <section class="mixer">
+            <div class="mixer-face at" aria-hidden="true" style="${at(MIXER_EDGE, 110, 1194 - 2 * MIXER_EDGE, 324)}"></div>
             ${renderChannel('A')}
             ${meterHtml()}
+            <button class="mix-launch at${masterOpen ? ' on' : ''}" data-ctl="mixer.masterLevel" data-master-button aria-expanded="${masterOpen}"
+              onclick="openMaster()" style="${at(549, ROW.top[0], 96, ROW.top[1])}"><b>MASTER LEVEL</b><span data-master-value></span></button>
             <button class="linkbtn at" data-ctl="alt.link" onclick="toggleLink()" style="${at(575, ROW.kill[0], 44, ROW.kill[1])}">LINK<br>LOWS</button>
             ${renderChannel('B')}
             <span class="xside at keep" style="${at(452, ROW.xf[0] + 12, 14, 24)};line-height:24px">A</span>
@@ -1340,6 +1391,8 @@
           el.setAttribute('aria-pressed', String(MIX[key].kill[band]));
         });
         document.querySelectorAll('#chassis [data-flabel]').forEach((el) => { el.textContent = filterLabel(MIX[el.dataset.flabel].filter); });
+        document.querySelectorAll('[data-master-value]').forEach((el) => { el.textContent = `${Math.round(MIX.master * 100)}%`; });
+        document.querySelector('#volpop [data-param="mastervol"]')?.style.setProperty('--pos', `${Math.round(MIX.master * 100)}%`);
         document.querySelectorAll('#chassis [data-trim]').forEach((el) => {
           /* An empty or loading deck has no track to measure: TRIM 0.0. */
           const empty = isEmpty(DECKS[el.dataset.trim]);
@@ -1357,12 +1410,14 @@
 
       function getP(key, p) {
         if (p === 'xfade') return MIX.xfade;
+        if (p === 'mastervol') return MIX.master;
         if (p === 'trimpos') return (MIX[key].trim + 12) / 24;
         return MIX[key][p];
       }
       function setP(key, p, v) {
         const c = Math.max(0, Math.min(1, v));
         if (p === 'xfade') MIX.xfade = c;
+        else if (p === 'mastervol') MIX.master = c;
         else if (p === 'trimpos') {
           /* Snaps to AUTO, the trim Dex measured for this track, within 0.25 dB. */
           const t = Math.round((c * 24 - 12) * 10) / 10;
@@ -1372,26 +1427,36 @@
       const RESET = { xfade: 0.5, filter: 0.5, trimpos: 0.5 };
       const resetOf = (key, p) => (p === 'trimpos' ? (MIX[key].auto + 12) / 24 : RESET[p]);
 
-      function openBand(band) { if (swallowDragClick) return; mixPop = { kind: 'band', band }; render(); }
-      function openTrim(key) { mixPop = { kind: 'trim', deck: key }; render(); }
+      function showMixPop(pop) {
+        mixPop = pop;
+        if (pop) {
+          volOpen = false;
+          document.getElementById('volTgl').classList.remove('on');
+        }
+        render();
+      }
+      function openBand(band) { if (!swallowDragClick) showMixPop({ kind: 'band', band }); }
+      function openTrim(key) { showMixPop({ kind: 'trim', deck: key }); }
+      function openFilter(key) { showMixPop(mixPop?.kind === 'filter' && mixPop.deck === key ? null : { kind: 'filter', deck: key }); }
+      function openMaster() { showMixPop(mixPop?.kind === 'master' ? null : { kind: 'master' }); }
       function closeMixPop() { mixPop = null; render(); }
       function toggleLink() { MIX.link = !MIX.link; paintMix(); }
       function setTrim(key, db) { MIX[key].trim = db; render(); }
 
       /* ---------- volume popover: master, cue mix, split cue ---------- */
-      function renderVolume() {
+      function renderVolume(masterOnly) {
         return `
-          <h3>Volume ${infoBtn('volume')}${closeBtn('toggleVol()')}</h3>
+          <h3>${masterOnly ? 'Master Level' : 'Volume'} ${infoBtn('volume')}${closeBtn(masterOnly ? 'closeMixPop()' : 'toggleVol()')}</h3>
           <div class="vrow">
             <span class="tiny">master</span>
-            ${faderH('rail.master', 68)}
-            <span class="val">71%</span>
+            ${faderH('rail.master', Math.round(MIX.master * 100), 'mastervol')}
+            <span class="val" data-master-value></span>
           </div>
-          <div class="vrow">
+          ${masterOnly ? '' : `<div class="vrow">
             <span class="tiny">cue mix</span>
             ${faderH('rail.cuemix', 50)}
             <span class="val">50%</span>
-          </div>`;
+          </div>`}`;
       }
 
       /* ---------- library sheet: deck panel, playlists, the crate ---------- */
@@ -1966,8 +2031,9 @@
         trim: {
           title: 'Trim',
           rows: [
-            ['AUTO', 'Dex sets the trim when a track loads, so every track plays as loud as the last.'],
-            ['Trim', 'Change it if a track still sounds off. Dex remembers your trim for that track.'],
+            ['AUTO', 'Dex sets trim on load, aiming for −11 LUFS in the track’s main groove.'],
+            ['Trim', 'Play a loud section with LEVEL down. Dex remembers your trim.'],
+            ['Meter marks', 'A/B mark −6 dBFS for trim. L/R mark −3 dBFS for the mix.'],
             ['Reset', 'Back to AUTO.']
           ]
         },
@@ -2089,11 +2155,15 @@
         const root = document.getElementById('ipad');
         root.className = 'ipad' + (hitOn ? ' show-hit' : '') + (libOpen ? ' lib-open' : '');
         document.getElementById('band').innerHTML = renderBand();
+        jogTouches.clear();
         document.getElementById('chassis').innerHTML = renderBay('A') + renderMixer() + renderBay('B');
-        paintMix();
         const vol = document.getElementById('volpop');
-        vol.innerHTML = renderVolume();
-        vol.classList.toggle('open', volOpen);
+        const masterOnly = mixPop?.kind === 'master' && !libOpen;
+        vol.innerHTML = renderVolume(masterOnly);
+        vol.setAttribute('aria-label', masterOnly ? 'Master Level' : 'Volume');
+        vol.classList.toggle('open', volOpen || masterOnly);
+        vol.classList.toggle('master-only', masterOnly);
+        paintMix();
         document.getElementById('library').innerHTML = renderLibrary();
         document.getElementById('library').classList.toggle('open', libOpen);
         const gridSheet = document.getElementById('gridsheet');
@@ -2180,16 +2250,8 @@
               </div>
               <button class="zart" data-ctl="deck.load" onclick="toggleLib()" title="Open the library to load deck ${d.letter}" style="--art:#151517"><i>${NOTE_ICON}</i><b>LOAD</b></button>
               <div class="zbody">
-                <div class="zreads">
-                  <div class="zrem"><span class="zlbl">REMAIN</span><span class="zsub">-:-- <span>/ -:--</span></span></div>
-                  <div class="zremain"><b>--:--<i>.---</i></b></div>
-                  <div class="ztempo"><span class="zlbl">TEMPO</span><b>+ 0.00<i>%</i></b></div>
-                  <div class="zkey" data-ctl="deck.tags">
-                    <span class="zkeychip off">KEY</span>
-                    ${camelotBadge('—')}
-                  </div>
-                  <div class="zbpm"><b>---<i>.-</i></b><span></span></div>
-                </div>
+                ${songReadouts({ elapsed: '--:--', total: '--:--', whole: '--:--', ms: '---',
+                  tempo: '+0.00', camelot: '—', bpmWhole: '---', bpmTenth: '-' })}
                 <div class="zfull" data-ctl="console.screen.overview">
                   <div class="zflags" style="position:relative"></div>
                   <div class="zwave"><span class="zempty">TAP THE ART TO LOAD, OR DROP A FILE HERE</span></div>
@@ -2403,6 +2465,7 @@
       }
       function toggleVol(open = !volOpen) {
         volOpen = open;
+        if (open) mixPop = null;
         document.getElementById('volTgl').classList.toggle('on', volOpen);
         render();
       }
@@ -2439,7 +2502,7 @@
         const horiz = el.dataset.axis === 'x';
         const rect = el.getBoundingClientRect();
         const scale = (horiz ? rect.width / el.offsetWidth : rect.height / el.offsetHeight) || 1;
-        const thumb = horiz ? parseFloat(getComputedStyle(el).getPropertyValue('--tw')) || 40 : CAP;
+        const thumb = horiz ? el.classList.contains('fader-h') ? 0 : parseFloat(getComputedStyle(el).getPropertyValue('--tw')) || 40 : CAP;
         const travel = ((horiz ? el.offsetWidth : el.offsetHeight - 2) - thumb) * scale;
         DRAGS.set(event.pointerId, {
           el, key: el.dataset.deck, param: el.dataset.param, horiz, scale, travel,
@@ -2526,7 +2589,7 @@
          EqChain (src/renderer/audio/eq.ts, src/shared/isolator.ts). */
       const XO_LOW = 220;
       const XO_HIGH = 3500;
-      const AUDIO = { ctx: null, decks: {}, analyser: null, limiter: null };
+      const AUDIO = { ctx: null, decks: {}, master: null, analyser: null, limiter: null };
 
       function lr4(ctx, type, frequency) {
         // Linkwitz-Riley 24 dB/oct = two cascaded Butterworth biquads. Web
@@ -2652,9 +2715,10 @@
       }
 
       function applyAudio() {
-        if (!AUDIO.ctx) return;
+        if (!AUDIO.master) return;
         const t = AUDIO.ctx.currentTime;
         const tc = 0.012;
+        AUDIO.master.gain.setTargetAtTime(MIX.master, t, tc);
         const [ga, gb] = xfGains();
         for (const key of ['A', 'B']) {
           const d = MIX[key];
@@ -2711,8 +2775,7 @@
           AUDIO.ctx = ctx;
           const [la, lb] = await Promise.all([renderLoop('A', ctx.sampleRate), renderLoop('B', ctx.sampleRate)]);
           const master = ctx.createGain();
-          // Hot enough that two full lows stacking push into the limiter, as real masters do.
-          master.gain.value = 1.3;
+          master.gain.value = MIX.master;
           const limiter = ctx.createDynamicsCompressor();
           limiter.threshold.value = -3;
           limiter.knee.value = 0;
@@ -2764,6 +2827,7 @@
           }
           AUDIO.meters = meters;
           AUDIO.limiter = limiter;
+          AUDIO.master = master;
           applyAudio();
           meterLoop();
         }
@@ -2778,14 +2842,37 @@
       bandEl.addEventListener('pointerup', endScreenDrag);
       bandEl.addEventListener('pointercancel', endScreenDrag);
       const chassisEl = document.getElementById('chassis');
+      // Capture the turn from the exposed disc. The part drawn over the
+      // mixer is decorative; a second finger there can still grab a fader.
+      const jogTouches = new Map();
+      chassisEl.addEventListener('pointerdown', (event) => {
+        const grip = event.target.closest('.platter[data-ctl]');
+        if (!grip || event.button !== 0) return;
+        const face = grip.closest('.face-platter');
+        if (face.classList.contains('revealing')) return;
+        face.classList.add('revealing');
+        jogTouches.set(event.pointerId, face);
+        try { grip.setPointerCapture(event.pointerId); } catch { /* synthetic pointer in snapshot checks */ }
+      });
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+        chassisEl.addEventListener(type, (event) => {
+          jogTouches.get(event.pointerId)?.classList.remove('revealing');
+          jogTouches.delete(event.pointerId);
+        });
+      }
       chassisEl.addEventListener('pointerdown', startMixDrag);
       chassisEl.addEventListener('pointermove', moveMixDrag);
       chassisEl.addEventListener('pointerup', endMixDrag);
       chassisEl.addEventListener('pointercancel', endMixDrag);
       // A tap outside an open mixer popover closes it.
       chassisEl.addEventListener('click', (event) => {
-        if (mixPop && !event.target.closest('.mixpop, .trimchip, .bandval')) closeMixPop();
+        if (mixPop && !event.target.closest('.mixpop, .mix-launch, .trimchip, .bandval')) closeMixPop();
       });
+      const volumeEl = document.getElementById('volpop');
+      volumeEl.addEventListener('pointerdown', startMixDrag);
+      volumeEl.addEventListener('pointermove', moveMixDrag);
+      volumeEl.addEventListener('pointerup', endMixDrag);
+      volumeEl.addEventListener('pointercancel', endMixDrag);
       document.getElementById('audioTgl').addEventListener('click', () => toggleAudio());
 
       document.getElementById('hitTgl').addEventListener('click', () => setHit(!hitOn));
@@ -3645,6 +3732,9 @@
           } else if (volOpen) {
             event.preventDefault();
             toggleVol(false);
+          } else if (mixPop) {
+            event.preventDefault();
+            closeMixPop();
           } else if (panelOpen) {
             event.preventDefault();
             setPanel(false);

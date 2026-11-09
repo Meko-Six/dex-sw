@@ -10,9 +10,8 @@ public enum Stage {
 
     /// A deck's platter on the stage, for panels that sit over it.
     public static func platter(_ deck: String, stretch: CGFloat = 0) -> CGRect {
-        let x = Layout.deckX(deck).platter, size = Layout.platter.size
         // The chassis and its 1 pt top line end the stage.
-        return Layout.at(x - size / 2, Layout.platter.y, size, size).offsetBy(dx: 0, dy: height + stretch - 475)
+        return Layout.platterRect(deck).offsetBy(dx: 0, dy: height + stretch - 475)
     }
 
     /// Uniform scale to fit `size`, and the stretch (in stage points) that
@@ -48,7 +47,8 @@ public struct ConsoleStage: View {
         ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
                 console
-                if state.volumeOpen { VolumePop(state: state, actions: actions).offset(x: Stage.width - 10 - 360, y: 40) }
+                if !state.libraryOpen { mixerPopover(above: height - 475 - 8) }
+                if state.volumeOpen { VolumePop(state: state, actions: actions).offset(x: Stage.width - 10 - VolumePop.width, y: 40) }
                 LibraryPane(state: state, actions: actions, start: libraryStart)
                     .frame(width: Stage.width, height: height - 258)
                     .offset(y: state.libraryOpen ? 258 : height * 1.02)
@@ -86,6 +86,26 @@ public struct ConsoleStage: View {
         .animation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.24), value: state.libraryOpen)
         .environmentObject(touches)
         .environment(\.consoleSnapshot, snapshot)
+    }
+
+    /// These controls sit above the mixer so the meters and LEVEL stay visible.
+    @ViewBuilder private func mixerPopover(above bottom: CGFloat) -> some View {
+        switch state.mixPop {
+        case .trim(let id):
+            if let deck = state.decks.first(where: { $0.id == id }) {
+                TrimPop(deck: deck, actions: actions).offset(x: id == "A" ? 60 : 814, y: bottom - TrimPop.height)
+            }
+        case .filter(let id):
+            if let deck = state.decks.first(where: { $0.id == id }) {
+                FilterPop(deck: deck, actions: actions)
+                    .offset(x: Layout.filterButton(id).midX - FilterPop.width / 2, y: bottom - FilterPop.height)
+            }
+        case .master:
+            VolumePop(state: state, actions: actions, masterOnly: true)
+                .offset(x: (Stage.width - VolumePop.width) / 2, y: bottom - VolumePop.masterHeight)
+        default:
+            EmptyView()
+        }
     }
 
     private var console: some View {

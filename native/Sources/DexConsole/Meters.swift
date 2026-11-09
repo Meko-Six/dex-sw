@@ -27,6 +27,7 @@ public struct Meters: Equatable, Sendable {
     /// True where the meter reached 0 dBFS within its 2 s hold: the red cap the
     /// bars draw, and the same window the held segment already uses.
     public func isClipping(_ id: String) -> Bool { hold[id] >= MeterZones.clip }
+    var masterClipping: Bool { isClipping("L") || isClipping("R") }
 }
 
 /// Where the zones fall on the −30…+6 dBFS scale, the figures the control map
@@ -39,11 +40,14 @@ public enum MeterZones {
 
 /// The ladder the bars draw: twelve rungs of 3 dB across the −30 … +6 dBFS scale, six
 /// green at the foot, then four amber, then two red, so red still begins at 0 dBFS. Twelve
-/// keeps the reference meter's amber and red bands and its blocky look: at 8 pt wide, more
+/// keeps the reference meter's amber and red bands and its blocky look: in a narrow bar, more
 /// rungs read as stripes rather than blocks.
 public enum MeterLadder {
     /// The foot, then the top of each rung up to the ceiling: −30 … +6 dBFS, 3 dB apart.
     public static let bounds: [Double] = [-30, -27, -24, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6]
+    /// Printed marks between each pair of bars, every other rung.
+    static let labels = [6, 0, -6, -12, -18, -24, -30]
+    static func label(_ db: Int) -> String { db > 0 ? "+\(db)" : db < 0 ? "−\(-db)" : "0" }
     /// The first amber rung and the first red one, counting from the foot.
     public static let amber = 6, red = 10
 
@@ -52,8 +56,8 @@ public enum MeterLadder {
         public let ink: UInt32
         /// The block as drawn: its span of the scale, with a point of air over and under.
         func bar(in width: CGFloat, height: CGFloat) -> CGRect {
-            let top = height * (1 - Meters.percent(high) / 100)
-            let bottom = height * (1 - Meters.percent(low) / 100)
+            let top = (height * (1 - Meters.percent(high) / 100)).rounded()
+            let bottom = (height * (1 - Meters.percent(low) / 100)).rounded()
             return CGRect(x: 0, y: top + 1, width: width, height: max(1, bottom - top - 2))
         }
     }

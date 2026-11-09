@@ -16,10 +16,9 @@ public struct TrackLoudness: Codable, Equatable, Sendable {
     /// The highest sample, dBFS.
     public var peak: Double
 
-    /// The loudness AUTO trims every track to, LUFS. A little under most
-    /// modern dance masters, so AUTO mostly turns tracks down and seldom
-    /// pushes a quiet one into the limiter.
-    public static let target = -10.0
+    /// The main-groove loudness AUTO aims for, in LUFS. The DJ can turn
+    /// down tracks with unusually high peaks using TRIM.
+    public static let target = -11.0
     /// Quieter than this is silence: BS.1770's absolute gate.
     public static let silence = -70.0
 

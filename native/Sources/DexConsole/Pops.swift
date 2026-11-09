@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The popovers anchored on the console: VOLUME under the header, TRIM and
-/// the band sheet over the mixer, the hot cue bank over a platter, and the
+/// The popovers anchored on the console: VOLUME under the header, MASTER LEVEL,
+/// FILTER and TRIM above the mixer, the hot cue bank over a platter, and the
 /// alert line. Ports `VolumePop` in `Sheets.tsx`, `TrimPop`, `BandPop` and
 /// `HotCuePop` in `Chassis.tsx`, `Alert` in `Band.tsx` and their CSS.
 
@@ -44,18 +44,23 @@ struct PopHead: View {
 struct VolumePop: View {
     let state: ConsoleState
     let actions: ConsoleActions
+    var masterOnly = false
+    static let width: CGFloat = 360
+    static let masterHeight: CGFloat = 124
 
     var body: some View {
         PopBox(padding: EdgeInsets(top: 12, leading: 14, bottom: 14, trailing: 14)) {
-            PopHead(title: "Volume", help: .volume, actions: actions) { actions.toggleVolume() }
-            row("master", state.masterVolume / 1.2, percent: state.masterVolume, key: "master") { actions.setMasterVolume($0 * 1.2) }
-            row("cue mix", state.cueMix, percent: state.cueMix, key: "cuemix", set: actions.setCueMix)
+            PopHead(title: masterOnly ? "Master Level" : "Volume", help: .volume, actions: actions) {
+                if masterOnly { actions.setMixPop(nil) } else { actions.toggleVolume() }
+            }
+            row("master", state.masterVolume, key: "master", set: actions.setMasterVolume)
+            if !masterOnly { row("cue mix", state.cueMix, key: "cuemix", set: actions.setCueMix) }
         }
-        .frame(width: 360, height: 180)
+        .frame(width: Self.width, height: masterOnly ? Self.masterHeight : 180)
     }
 
     /// `.vrow`: 70 pt label, the fader, a 48 pt value.
-    private func row(_ name: String, _ value: Double, percent: Double, key: String, set: @escaping (Double) -> Void) -> some View {
+    private func row(_ name: String, _ value: Double, key: String, set: @escaping (Double) -> Void) -> some View {
         HStack(spacing: 8) {
             Label(name.uppercased(), .cond(12, tracking: 0.96)).foregroundStyle(Palette.silk).frame(width: 70, alignment: .leading)
             GeometryReader { geometry in
@@ -64,9 +69,38 @@ struct VolumePop: View {
                     .relativeDrag(key, horizontal: true, travel: geometry.size.width, value: value, reset: 1, set: set)
             }
             .frame(height: 46)
-            Label("\(Int((percent * 100).rounded()))%", .cond(14, tracking: 0.56))
+            Label("\(Int((value * 100).rounded()))%", .cond(14, tracking: 0.56))
                 .foregroundStyle(Color(hex: 0xA0A0A6)).frame(width: 48, alignment: .trailing)
         }
+    }
+}
+
+/// The existing bipolar sweep, in a temporary popover.
+struct FilterPop: View {
+    let deck: ConsoleState.Deck
+    let actions: ConsoleActions
+    static let width: CGFloat = 300
+    static let height: CGFloat = 124
+
+    var body: some View {
+        let position = (deck.filter + 1) / 2
+        PopBox {
+            PopHead(title: "Filter \(deck.id)", actions: actions) { actions.setMixPop(nil) }
+            HStack(spacing: 10) {
+                GeometryReader { geometry in
+                    HorizontalFader(position: position, thumbWidth: 40, label: nil)
+                        .relativeDrag("\(deck.id)-filter", horizontal: true, travel: geometry.size.width - 40,
+                                      value: position, reset: 0.5) { actions.deck.setFilter(deck.id, $0 * 2 - 1) }
+                        .accessibilityLabel("Deck \(deck.id) filter")
+                        .accessibilityValue(filterLabel(deck.filter))
+                }
+                .frame(height: 44)
+                Label(filterLabel(deck.filter), .cond(16, tracking: 0.64))
+                    .foregroundStyle(Color(hex: 0xB6B6BB)).frame(width: 66, alignment: .trailing)
+                SheetButton(title: "Reset", height: 44) { actions.deck.setFilter(deck.id, 0) }
+            }
+        }
+        .frame(width: Self.width, height: Self.height)
     }
 }
 
@@ -94,6 +128,7 @@ private struct WideFader: View {
 struct TrimPop: View {
     let deck: ConsoleState.Deck
     let actions: ConsoleActions
+    static let height: CGFloat = 124
 
     var body: some View {
         let id = deck.id, value = (deck.trimDb + 12) / 24, auto = deck.autoTrimDb ?? 0
@@ -115,7 +150,7 @@ struct TrimPop: View {
                 SheetButton(title: "Reset", height: 44) { actions.deck.setTrim(id, auto) }
             }
         }
-        .frame(width: 300, height: 124)
+        .frame(width: 300, height: Self.height)
     }
 }
 

@@ -65,7 +65,6 @@ html, body {
 .chassis .keep { transition: transform .24s cubic-bezier(.2, .8, .2, 1); }
 .lib-open .chassis > * { visibility: hidden; }
 .lib-open .chassis .keep { visibility: visible; transform: translateY(-392px); }
-.lib-open .chassis::before, .lib-open .chassis::after { opacity: 0; }
 
 /* ---------- shared bits ---------- */
 .btn {
@@ -255,33 +254,40 @@ html, body {
 .zart.blocked b { color: #ffb45e; }
 .zart.loaded b { color: var(--dim); }
 .zbody { display: grid; grid-template-rows: 50px minmax(0, 1fr); min-width: 0; padding: 2px 8px 2px 10px; }
-/* Five groups spread evenly; the REMAIN block and TEMPO sit on the big time's baseline. */
-.zreads { display: flex; align-items: last baseline; justify-content: space-between; gap: 12px; min-width: 0; }
-.zrem .zlbl, .ztempo .zlbl { font-size: 12px; }
-/* The digits' caps sit low in their line box; lift the text so it centres on the KEY and BPM boxes. */
-.zrem, .zremain, .ztempo { position: relative; top: -3px; }
-.ztempo { left: 4px; }
-.zrem .zsub { margin-top: 6px; font-size: 17px; }
-.zlbl { display: block; font: 700 8.5px/1 var(--font-cond); letter-spacing: .14em; color: #d6d6da; }
-.zsub { display: block; margin-top: 6px; font: 700 10px/1 var(--font-cond); letter-spacing: .04em; color: #b6b6bb; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.zsub span { color: var(--dim); }
-.zremain b { display: block; font: 400 44px/1 var(--font-cond); letter-spacing: .01em; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.zremain b i { font-style: normal; font-size: 22px; color: #e4e4e8; }
-.ztempo b { display: block; margin-top: 0; font: 400 24px/1 var(--font-cond); color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ztempo b i { font-style: normal; font-size: 11px; color: #bdbdc3; margin-left: 1px; }
-.zkey { position: relative; left: 7px; align-self: center; display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 50px; }
-/* KEY lights like the deck's KEY key: only when key lock is on or the key is shifted */
+.zreads { position: relative; min-width: 0; }
+.zlbl { position: absolute; top: 2px; left: 0; font: 500 9px/10px var(--font-ui); letter-spacing: .55px; color: var(--text); }
+.zlbl-remain { left: 57px; }
+.zlbl-tempo { left: 231px; }
+.zvalues {
+  display: grid; grid-template-columns: 0 57px 174px 110px;
+  justify-items: start; align-items: last baseline; white-space: nowrap;
+}
+/* Pin the shared baseline at 46 px, even when longer times use smaller digits. */
+.zvalues::before { content: ''; height: 46px; }
+.ztimes {
+  font: 500 calc(17px * var(--time-scale))/17px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+.ztimes b, .ztimes span { display: block; font-weight: 500; }
+.ztimes b { color: #fff; }
+.ztimes span { color: #888; }
+.zremain, .ztempo { position: relative; color: #dce1e5; }
+.zremain { left: -.5px; font: 400 calc(40px * var(--remain-scale))/40px var(--font-ui); }
+.zremain i { font-style: normal; font-size: calc(30px * var(--remain-scale)); }
+.ztempo { left: -.25px; font: 400 30px/30px var(--font-ui); }
+.zremain, .ztempo { font-variant-numeric: tabular-nums; }
+.ztempo i { font-style: normal; font-size: 12px; margin-left: 1px; }
+.zkey { position: absolute; top: 3px; left: 341px; display: flex; flex-direction: column; gap: 3px; width: 34px; }
 .zkeychip {
   height: 21px; box-sizing: border-box; display: grid; place-items: center; border-radius: 2px; white-space: nowrap;
-  font: 700 8.5px/1 var(--font-cond); letter-spacing: .1em;
-  background: color-mix(in srgb, var(--a) 15%, #151517); border: 1px solid color-mix(in srgb, var(--a) 60%, #26262b);
-  color: color-mix(in srgb, var(--a) 76%, #fff);
+  font: 700 15px/1 var(--font-cond); border: 1.25px solid var(--a); color: var(--a);
 }
 .zkeychip.off { visibility: hidden; }
-.zkey .cam { min-width: 0; height: 21px; box-sizing: border-box; font-size: 12px; cursor: default; }
+.zkey .cam { min-width: 0; height: 21px; box-sizing: border-box; font-size: 14px; cursor: default; }
 .zbpm {
   --bpm: #e4e4e8;
-  align-self: center; width: 76px; height: 46px; border: 1px solid var(--bpm); border-radius: 3px; overflow: hidden;
+  position: absolute; top: 2px; left: 379px; width: 71px; height: 46px;
+  border: 1px solid var(--bpm); border-radius: 3px; overflow: hidden;
   display: grid; grid-template-rows: 1fr 13px; text-align: right;
 }
 .zbpm b { padding: 2px 8px 0; font: 400 26px/1 var(--font-ui); letter-spacing: -.01em; color: var(--bpm); font-variant-numeric: tabular-nums; align-self: center; }
@@ -303,12 +309,12 @@ html, body {
 .zticks { position: relative; }
 .zticks i { position: absolute; top: 1px; width: 1px; height: 4px; background: #cfcfd4; }
 .zhead { position: absolute; top: 9px; bottom: 0; width: 2px; margin-left: -1px; background: #fff; pointer-events: none; }
-.zflag { position: absolute; top: 0; pointer-events: none; display: flex; align-items: center; gap: 1px; transform: translateX(-4px); }
-.zflag::before { content: ""; border: 4px solid transparent; border-top: 5px solid var(--hc); border-bottom: 0; margin-top: 2px; }
-.zflag b { font: 700 9px/1 var(--font-cond); color: var(--hc); }
-.zflag.mem::before { --hc: var(--red); }
+.zflag { position: absolute; top: 4px; z-index: 2; pointer-events: none; transform: translateX(-6px); }
+.zflag b { display: grid; place-items: center; width: 13px; height: 11px; font: 500 9px/1 var(--font-ui); color: #0b0913; background: var(--hc); }
+.zflag.mem { top: 2px; transform: translateX(-4px); border: 4px solid transparent; border-top: 5px solid var(--red); border-bottom: 0; }
 /* each flag drops a line through the overview to the progress bar */
-.zline { position: absolute; top: 9px; bottom: 10px; width: 1px; background: var(--hc); opacity: .85; pointer-events: none; }
+.zline { position: absolute; top: 15px; bottom: 10px; width: 1px; background: var(--hc); opacity: .85; pointer-events: none; }
+.zline.mem { top: 9px; }
 .cam.small { min-width: 34px; height: 22px; font-size: 11px; }
 .tag.good { color: #7ee0a2; border-color: #22402d; }
 
@@ -321,14 +327,8 @@ html, body {
   position: relative; min-height: 0; border-top: 1px solid #000;
   background: #161618;
 }
-/* thin panel seams framing the mixer, as on the chassis plate */
-.chassis::before, .chassis::after {
-  content: ""; position: absolute; top: 0; bottom: 0; width: 1px; pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, .055) 10%, rgba(255, 255, 255, .055) 90%, transparent);
-}
-.chassis::before { left: 357px; }
-.chassis::after { left: 817px; }
 .bay, .mixer, .chan, .deck-group { display: contents; }
+.mixer-face { pointer-events: none; background: #1a1a1d; border-inline: 1px solid rgba(255, 255, 255, .055); }
 .bay { --accent: var(--a); }
 .bay.b { --accent: var(--b); }
 .at { position: absolute; }
@@ -361,15 +361,24 @@ html, body {
 .col { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .col .fader-v { width: 48px; }
 .eq-name { font: 700 12px/1 var(--font-cond); letter-spacing: .08em; color: var(--silk); }
+.tempo-name { text-align: center; }
 .eq-val { font: 700 12px/1 var(--font-cond); letter-spacing: .06em; color: #b6b6bb; }
 
-.face-platter { display: grid; place-items: center; }
+.face-platter { display: grid; place-items: center; z-index: 2; pointer-events: none; }
 .platter {
   width: 100%; height: 100%; border-radius: 50%; position: relative;
   background: #111113;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 0 0 9px #0b0b0d, inset 0 0 0 10px rgba(255, 255, 255, .07);
   display: grid; place-items: center; touch-action: none;
 }
+.face-platter .platter[data-ctl] { clip-path: inset(0 var(--tuck) 0 0); pointer-events: auto; }
+.bay.b .face-platter .platter[data-ctl] { clip-path: inset(0 0 0 var(--tuck)); }
+.face-platter .jog-reveal {
+  position: absolute; inset: 0; clip-path: inset(0 0 0 calc(100% - var(--tuck)));
+  pointer-events: none; opacity: 0;
+}
+.bay.b .face-platter .jog-reveal { clip-path: inset(0 calc(100% - var(--tuck)) 0 0); }
+.face-platter.revealing .jog-reveal { opacity: .42; }
 .platter::before {
   content: ""; position: absolute; inset: 23px; border-radius: 50%;
   background: repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .035) 0 1px, transparent 1px 4px);
@@ -659,6 +668,13 @@ html, body {
 .trimchip b { font: 700 12px/1 var(--font-cond); letter-spacing: .08em; text-indent: .2em; color: var(--silk); }
 .trimchip span { font: 700 14px/1 var(--font-cond); letter-spacing: .04em; }
 .trimchip.auto b { color: #7ee0a2; }
+.mix-launch {
+  appearance: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  padding: 0; border: 1px solid #3a3a40; border-radius: 3px; background: #151517; color: var(--text); cursor: pointer;
+}
+.mix-launch.on { background: #26262a; border-color: #707078; }
+.mix-launch b { font: 700 12px/12px var(--font-cond); letter-spacing: .08em; color: var(--silk); }
+.mix-launch span { font: 700 14px/14px var(--font-cond); letter-spacing: .04em; }
 
 /* centre column: A · L · R · B, all peaks on one scale, −30 to +6 dBFS. A and B
    are what each deck sends into the master; L and R the master before the
@@ -673,9 +689,19 @@ html, body {
 .meter-v .rung.a { background: #d8a029; }
 .meter-v .rung.r { background: #d03a2c; }
 .meter-v .rung.held { display: block; background: #d6d6db; }
+.meter-v::before { content: ''; position: absolute; left: 0; right: 0; height: 1px; top: var(--aim); background: #9b9ba3; z-index: 1; }
 .meter-v.clipping { border-color: #d03a2c; }
 .meter-v.clipping::after { content: ''; position: absolute; left: 0; right: 0; height: 3px; top: min(var(--cap, 0%), calc(100% - 3px)); background: #d03a2c; z-index: 2; }
-.meter-name { font: 700 12px/36px var(--font-cond); color: var(--silk); text-align: center; pointer-events: none; }
+.meter-face { background: #121214; border: 1px solid #26262a; border-radius: 3px; pointer-events: none; }
+.meter-title, .meter-unit, .meter-number, .meter-clip {
+  font: 700 12px/16px var(--font-cond); color: var(--silk); text-align: center; pointer-events: none;
+}
+.meter-title { letter-spacing: 1px; }
+.meter-unit { font-size: 11px; }
+.meter-number { line-height: 12px; }
+.meter-number.zero { color: var(--text); }
+.meter-clip { font-size: 11px; line-height: 14px; letter-spacing: .8px; color: #88504a; }
+.meter-clip.on { color: #ff6a52; }
 
 /* anchored popovers: TRIM (set and forget) and the band sheet (one band, both decks) */
 .mixpop {
@@ -688,6 +714,7 @@ html, body {
 .mixpop .row { display: flex; align-items: center; gap: 10px; position: relative; }
 .mixpop .who { width: 20px; }
 .mixpop .val { width: 58px; text-align: right; font: 700 16px/1 var(--font-cond); letter-spacing: .04em; color: #b6b6bb; }
+.mixpop .filter-val { width: 66px; flex: none; }
 .mixpop .val.killed { color: #ff6a52; }
 .mixpop .hint { margin: 0; font-size: 13px; color: var(--dim); line-height: 1.4; }
 .mixpop .btn:not(.icon-btn) { min-height: 44px; }
@@ -700,6 +727,7 @@ html, body {
   box-shadow: 0 24px 60px rgba(0, 0, 0, .8);
 }
 .volpop.open { display: flex; }
+.volpop.master-only { top: calc(207px + var(--stretch)); right: calc(50% - 180px); }
 .volpop h3 { margin: 0; font: 700 16px/1 var(--font-cond); letter-spacing: .18em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
 .vrow { display: grid; grid-template-columns: 70px 1fr 48px; gap: 8px; align-items: center; }
 .vrow .tiny { width: auto; }
@@ -1008,8 +1036,7 @@ html, body {
 /* ---------- empty decks: the window keeps its shape, the readouts go dark ---------- */
 .zcard { position: relative; }
 .zcard.empty .zname { color: var(--dim); }
-.zcard.empty .zsub, .zcard.empty .zsub span, .zcard.empty .zremain b, .zcard.empty .zremain b i,
-.zcard.empty .ztempo b, .zcard.empty .ztempo b i { color: #4a4a50; }
+.zcard.empty :is(.ztimes b, .ztimes span, .zremain, .ztempo) { color: #4a4a50; }
 .zcard.empty .zbpm { --bpm: #3e3e44; }
 .zempty, .zw-empty {
   position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;

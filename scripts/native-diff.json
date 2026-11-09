@@ -1,5 +1,5 @@
 {
-  "note": "The mockup against the native SwiftUI port, every screen: the mockup is the design and the port follows it. Remaining differences are the mockup's demo data the native demo doesn't carry (deck B's +1 key shift, CUE markers, 71% master), and glyph edges. 'aa' forgives glyph-edge anti-aliasing. 'budget' is a ratchet: lower it whenever a change brings the count down and never raise it to pass. home-overlays hides the synthetic demo waveforms on both sides so everything drawn over them is held to a tight budget; the demo strokes rasterise differently in Chromium and only count in home. home-tall checks the elastic height at its 4:3 limit.",
+  "note": "The mockup against the native SwiftUI port, every screen: the mockup is the design and the port follows it. Remaining differences include synthetic demo waveforms and glyph edges. 'aa' forgives glyph-edge anti-aliasing. 'budget' is a ratchet: lower it whenever a change brings the count down and never raise it to pass. home-overlays hides the synthetic demo waveforms on both sides so everything drawn over them is held to a tight budget. home-tall checks the elastic height at its 4:3 limit.",
   "out": "out/native-diff",
   "css": ".platter-gap{animation:none!important}.head-status i{animation:none!important}",
   "pairs": [
@@ -14,7 +14,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen home --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 24550
+      "budget": 22350
     },
     {
       "name": "home-overlays",
@@ -27,7 +27,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen home --waves 0 --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 7750
+      "budget": 5550
     },
     {
       "name": "analysing",
@@ -40,7 +40,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen analysing --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 24700
+      "budget": 22500
     },
     {
       "name": "library",
@@ -53,7 +53,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen library --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 13000
+      "budget": 11300
     },
     {
       "name": "volume",
@@ -66,7 +66,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen volume --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 18450
+      "budget": 17250
     },
     {
       "name": "trim",
@@ -79,7 +79,33 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen trim --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 24800
+      "budget": 22500
+    },
+    {
+      "name": "filter",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('[data-filter-button=\"A\"]').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen filter --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 21300
+    },
+    {
+      "name": "master-level",
+      "a": {
+        "url": "mockup/xdj-mixer-alt.html",
+        "setup": "document.querySelector('[data-master-button]').click();if (typeof paintSelection === 'function') { selected = null; paintSelection(); }",
+        "css": ".platter-gap{animation:none!important;transform:none!important}.ipad{border-radius:0!important;box-shadow:none!important}.ctl-sel{outline:none!important}.ipad{border:0!important;width:1174px!important;height:814px!important}.hots{display:none!important}.head-status i{animation:none!important}"
+      },
+      "b": {
+        "render": "swift run --package-path native -c release DexConsoleSnapshot --screen master-level --scale {scale} --out {out}"
+      },
+      "aa": 40,
+      "budget": 21250
     },
     {
       "name": "band-low",
@@ -92,7 +118,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen band-low --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 25000
+      "budget": 22800
     },
     {
       "name": "hotcue",
@@ -105,7 +131,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen hotcue --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 24800
+      "budget": 22600
     },
     {
       "name": "grid",
@@ -144,7 +170,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen error --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 21300
+      "budget": 19200
     },
     {
       "name": "drop",
@@ -157,7 +183,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen drop --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 22400
+      "budget": 22000
     },
     {
       "name": "dropblocked",
@@ -170,7 +196,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen dropblocked --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 21800
+      "budget": 19500
     },
     {
       "name": "shortcuts",
@@ -209,7 +235,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen playlistmenu --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 11600
+      "budget": 9900
     },
     {
       "name": "rename",
@@ -222,7 +248,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen rename --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 11500
+      "budget": 9800
     },
     {
       "name": "delete",
@@ -235,7 +261,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen delete --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 12570
+      "budget": 10870
     },
     {
       "name": "firstrun-library",
@@ -287,7 +313,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen gridunsure-library --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 12950
+      "budget": 11250
     },
     {
       "name": "gridhelp",
@@ -339,7 +365,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen importing --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 24600
+      "budget": 22400
     },
     {
       "name": "importprogress",
@@ -366,7 +392,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen loading --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 12150
+      "budget": 12050
     },
     {
       "name": "saving",
@@ -379,7 +405,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen saving --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 24550
+      "budget": 22350
     },
     {
       "name": "notsaved",
@@ -392,7 +418,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen notsaved --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 24600
+      "budget": 22400
     },
     {
       "name": "keysmissing",
@@ -405,7 +431,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen keysmissing --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 13150
+      "budget": 11450
     },
     {
       "name": "findingkeys",
@@ -418,7 +444,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen findingkeys --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 13500
+      "budget": 11800
     },
     {
       "name": "filemissing",
@@ -431,7 +457,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen filemissing --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 12900
+      "budget": 11200
     },
     {
       "name": "dropaudio",
@@ -444,7 +470,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen dropaudio --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 22450
+      "budget": 22050
     },
     {
       "name": "dropfiles",
@@ -457,7 +483,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen dropfiles --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 22450
+      "budget": 22050
     },
     {
       "name": "droplibrary",
@@ -470,7 +496,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen droplibrary --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 22450
+      "budget": 22050
     },
     {
       "name": "tapidle",
@@ -513,7 +539,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen home --stretch 66.5 --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 30650
+      "budget": 28350
     },
     {
       "name": "bothdecks",
@@ -526,7 +552,7 @@
         "render": "swift run --package-path native -c release DexConsoleSnapshot --screen bothdecks --scale {scale} --out {out}"
       },
       "aa": 40,
-      "budget": 13050
+      "budget": 11350
     },
     {
       "name": "trackmore",

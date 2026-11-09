@@ -40,7 +40,7 @@
     {
       "id": "mixer",
       "title": "Centre mixer",
-      "blurb": "Four meters A · L · R · B, per-channel cue, crossfader. Gain order runs TRIM, channel meters, LEVEL, master meters; the sequence and its targets are in GAIN-STAGING-RESEARCH."
+      "blurb": "Channel A and B meters flank the stereo master, with printed scales between them. MASTER LEVEL sits above the meters; each deck has a FILTER popover, channel cue, and faders."
     },
     {
       "id": "rail",
@@ -190,17 +190,17 @@
       "label": "whole-track overview",
       "kind": "readout",
       "status": "live",
-      "does": "The whole track as a waveform under each deck's readouts, with hot cue flags. A click or drag jumps to the bar under the pointer: a playing deck keeps its place in the bar (in phase), a paused deck lands on the nearest bar line. A running loop moves along. Without a grid it seeks to the exact spot.",
+      "does": "The whole track as a waveform under each deck's readouts, with numbered colour badges for hot cues. A click or drag jumps to the bar under the pointer: a playing deck keeps its place in the bar (in phase), a paused deck lands on the nearest bar line. A running loop moves along. Without a grid it seeks to the exact spot.",
       "source": "src/renderer/console/Band.tsx"
     },
     {
       "id": "console.screen.card",
       "group": "console",
-      "label": "REMAIN · BPM · TEMPO readouts",
+      "label": "TIME · REMAIN · TEMPO · KEY · BPM",
       "kind": "readout",
       "status": "live",
-      "does": "Each deck's card under the screen: letter, track name (opens the library), REMAIN · BPM · TEMPO and the + load key.",
-      "source": "src/renderer/ui/Console.tsx"
+      "does": "Each deck's card under the screen. TIME stacks elapsed time above the track length. REMAIN and TEMPO have their own columns beside KEY and the played BPM. Tap the cover to load.",
+      "source": "native/Sources/DexConsole/TrackWindows.swift"
     },
     {
       "id": "console.splitcue",
@@ -308,7 +308,7 @@
       "label": "platter",
       "kind": "gesture",
       "status": "live",
-      "does": "Drag around the record to scrub precisely: 90° moves half a beat, one full turn moves two beats. Clockwise moves forward; counterclockwise moves back. Sensitivity follows BPM and stays the same across track lengths and window sizes. The centre ignores small pointer movements. Manual platter movement retains fractional beats while SYNC is armed. The fixed radial marks in the center have a two-mark gap that follows playback, CUE and jog position, and freezes when paused.",
+      "does": "Drag from the exposed record to scrub precisely: 90° moves half a beat, one full turn moves two beats. Touch reveals the tucked rim while the turn is held; the faders stay reachable. Clockwise moves forward; counterclockwise moves back. Sensitivity follows BPM and stays the same across track lengths and window sizes. The centre ignores small pointer movements. Manual platter movement retains fractional beats while SYNC is armed. The gap in the centre lights follows playback, CUE and jog position and freezes when paused.",
       "source": "src/renderer/console/Chassis.tsx"
     },
     {
@@ -353,9 +353,9 @@
       "id": "tone.filter",
       "group": "tone",
       "label": "FILTER",
-      "kind": "slider",
+      "kind": "popover",
       "status": "live",
-      "does": "Sweep filter as a horizontal bipolar slider above each channel: left low-pass, right high-pass, centre off; the label reads LP / HP and the cutoff. Same curve as src/shared/curves.ts. Double-tap centres it.",
+      "does": "Opens the channel's bipolar sweep slider: left low-pass, right high-pass, centre off. The FILTER button shows OFF or the active cutoff. Reset or double-tap the slider to centre it.",
       "source": "src/renderer/ui/Mixer.tsx"
     },
     {
@@ -364,7 +364,7 @@
       "label": "LOW",
       "kind": "fader",
       "status": "live",
-      "does": "LOW cut fader beside the other deck's LOW, so a bass swap is two neighbouring faders. Isolator band below 220 Hz (Linkwitz-Riley 24 dB/oct, src/shared/isolator.ts). Top of the travel is flat (0 dB); the travel only cuts: −3 dB at 80%, −6 at 60%, −12 at 40%, −24 at 20%, −∞ at the foot. Relative drag (no jump), double-tap returns to 0 dB, drag sideways off the fader for ¼ then ⅒ speed (the readout says FINE).",
+      "does": "LOW cut fader on the inside of each channel next to the meter strip. Isolator band below 220 Hz (Linkwitz-Riley 24 dB/oct, src/shared/isolator.ts). Top of the travel is flat (0 dB); the travel only cuts: −3 dB at 80%, −6 at 60%, −12 at 40%, −24 at 20%, −∞ at the foot. Relative drag (no jump), double-tap returns to 0 dB, drag sideways off the fader for ¼ then ⅒ speed (the readout says FINE).",
       "source": "src/renderer/ui/Mixer.tsx"
     },
     {
@@ -774,7 +774,7 @@
       "label": "master meters L · R",
       "kind": "meter",
       "status": "live",
-      "does": "The middle two of the four meters in the centre strip: the master's left and right peaks after VOLUME and before the limiter, on the same −30 to +6 dBFS scale as A and B. Red starts at 0 dBFS, where the limiter is working, so two hot decks fully open go into the red. The engine keeps each side's highest sample until the meters read it, so no peak is missed. The bar rises at once and falls 20 dB a second; the top segment holds for 2 s. With both decks open and LEVEL up, aim about −3 dBFS; two hot decks fully open reaching red is the overload this scale exists to show.",
+      "does": "The two middle bars: stereo peaks after MASTER LEVEL and before the limiter. A printed −30 to +6 dBFS scale sits on each side of the pair. The thin lines mark −3 dBFS. CLIP lights when either side's peak hold reaches 0 dBFS on the signal entering the limiter.",
       "source": "native/Sources/CDexEngine/DexEngine.cpp"
     },
     {
@@ -783,8 +783,17 @@
       "label": "channel meters A · B",
       "kind": "meter",
       "status": "live",
-      "does": "The outer two of the four meters in the centre strip: each deck's peak after TRIM, EQ and FILTER, before LEVEL and the crossfader, as on a Pioneer mixer, on the master's −30 to +6 dBFS scale. Set TRIM by it whatever the faders are doing, even with LEVEL down; the master meters show what actually goes in. Same fall and hold as the master meters. At unity LEVEL a loud track trimmed to the −6 dBFS aim peaks about here.",
+      "does": "The outer bars, CH A and CH B. Each deck's peak is read after TRIM, EQ and FILTER, before LEVEL and the crossfader. The thin line marks −6 dBFS for setting TRIM, even with LEVEL down. The scale is printed between each channel and its adjacent master bar.",
       "source": "native/Sources/CDexEngine/DexEngine.cpp"
+    },
+    {
+      "id": "mixer.masterLevel",
+      "group": "mixer",
+      "label": "MASTER LEVEL",
+      "kind": "popover",
+      "status": "live",
+      "does": "Shows master output level directly above the meter strip. Opens a popover with the same master fader available in the header's VOLUME popover.",
+      "source": "native/Sources/DexConsole/Chassis.swift"
     },
     {
       "id": "mixer.cue",
@@ -819,8 +828,8 @@
       "label": "MASTER",
       "kind": "slider",
       "status": "live",
-      "does": "In the VOLUME popover. Master output, 0 to 1.2, default 0.85. The master stage of the gain sequence: set it with both decks open until the master meters peak about −3 dBFS (see GAIN-STAGING-RESEARCH).",
-      "source": "src/renderer/App.tsx"
+      "does": "In the MASTER LEVEL and VOLUME popovers. Sets master output from mute to unity; the mixer's MASTER LEVEL button shows the same value. The −3 dBFS line on the master meters is a guide for mixing.",
+      "source": "native/Sources/DexConsole/Pops.swift"
     },
     {
       "id": "rail.cuemix",
@@ -973,7 +982,7 @@
       "label": "TRIM",
       "kind": "popover",
       "status": "live",
-      "does": "Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO: a track loads at the trim that brings its main groove to −10 LUFS (ITU BS.1770 loudness, measured at import; older tracks are measured in the background, at most a minute per launch), and the chip lights green and reads AUTO. Moving it remembers that trim for the track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO and forgets it. Gain stage: with LEVEL down, set it so the channel meter peaks about −6 dBFS; AUTO's −10 LUFS target still leaves a loud track nearer −1 dBFS, and −16 was measured as the highest target that keeps every deck under −6 (see GAIN-STAGING-RESEARCH).",
+      "does": "Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO aims for −11 LUFS in the main groove on load (ITU BS.1770 loudness, measured at import; older tracks are measured in the background). The popover opens clear of the meters so the −6 dBFS channel guide stays visible. The DJ can trim a hot track by hand. Dex remembers that trim per track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO.",
       "source": "native/Sources/DexCore/Loudness.swift"
     },
     {

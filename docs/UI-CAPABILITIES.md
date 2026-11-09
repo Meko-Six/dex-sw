@@ -79,7 +79,7 @@ Everything below was read out of the source, not from the README. Status codes:
 | Channel fader (LEVEL) | Per deck, same law as the bands, outermost column of the mixer |
 | TRIM | Per deck input gain, ±12 dB, before the EQ (so headphone cue hears it). Chip above LEVEL opens a popover with a fader and Reset |
 | LINK LOWS | Couples the two LOW faders: drag either and the other moves the same distance the opposite way, the bass swap in one gesture |
-| LOW Σ | **Electron only.** Both decks' low band summed as if the kicks were in phase, after trim, LEVEL and crossfader. 0 dB = one full low alone; amber from +1 dB, red from +3 dB. The mockup and the native console dropped it and show four peak meters (A · L · R · B) on one −30…+6 dBFS scale |
+| LOW Σ | **Electron only.** Both decks' low band summed as if the kicks were in phase, after trim, LEVEL and crossfader. 0 dB = one full low alone; amber from +1 dB, red from +3 dB. The mockup and native console show four peak meters, with CH A and CH B flanking stereo MASTER |
 | Sweep filter per deck | Horizontal fader above each channel. Centre transparent, left = low-pass to 120 Hz, right = high-pass to 9 kHz, rising resonance; the label reads `LP 1.2k` / `HP 2.2k`. Sits after the EQ |
 | Crossfader | **Electron only:** equal-power, A … B, at the foot of the mixer, double-click to centre. The mockup and the native console keep each deck fully open until the centre and fade only across the far half, so a centred crossfader leaves LEVEL to set the mix |
 | Faders | Relative drag (the cap never jumps), slide sideways off the fader for fine moves (¼, then ⅒, shown in the readout), double-click to reset, arrow keys nudge. Several can be ridden at once. The readouts are **Electron only**: the mockup and the native console dropped them from LEVEL, HI, MID, LOW and TEMPO, and keep only TRIM's number |
@@ -111,8 +111,8 @@ The chain order is already the one a DJ is taught: TRIM sits before the EQ, so t
 before LEVEL, so trim is set with the faders down; LEVEL's top is 0 dB, so "faders to unity" is true by construction;
 L and R meter after VOLUME and before the limiter, so the master shows what goes in. What was missing was the vocabulary
 to set it by: the meters were peak dBFS with red only at 0, so "top green" and "into the yellow" had no fixed meaning.
-The bars now draw those words at fixed figures — twelve rungs of 3 dB copied from a reference mixer, green to −12 dBFS,
-amber to 0, red above — though they print no numbers, and there is no target mark or AUTO line.
+The bars draw twelve rungs of 3 dB, green below −12 dBFS, amber below 0 and red from 0. Thin neutral lines
+give the channel and master peaks a reference. A printed dBFS scale sits between each channel and the master.
 
 The sequence, and where each step stands (standards, arithmetic and sources:
 [GAIN-STAGING-RESEARCH](GAIN-STAGING-RESEARCH.md)):
@@ -120,18 +120,15 @@ The sequence, and where each step stands (standards, arithmetic and sources:
 | Step | Sets | In Dex |
 | --- | --- | --- |
 | 1 | Everything down | No such state; a calibration flow would have to save and restore the mix |
-| 2 | Each deck's TRIM | LIVE, ±12 dB, AUTO at −10 LUFS; aim the channel meter at about −6 dBFS peak with LEVEL down |
-| 3 | Peak check, no red | Yes: red begins at 0 dBFS, and a meter that reaches it within its 2 s hold takes a red cap and a red border on the bar itself. There is no separate clip LED |
+| 2 | Each deck's TRIM | LIVE, ±12 dB, AUTO at −11 LUFS in the main groove. The popover leaves the meters visible; the channel line at −6 dBFS is a guide for peaks with LEVEL down |
+| 3 | Peak check, no red | Red begins at 0 dBFS. A bar reaching it gets a red cap and border for the peak hold, and either master side can light the master CLIP lamp |
 | 4 | Faders to unity | True by construction: LEVEL's top is 0 dB |
-| 5 | MASTER to target | VOLUME popover, 0–1.2, default 0.85; no dB reading or target mark, so the master meters are the guide, about −3 dBFS with both decks open |
+| 5 | MASTER to target | MASTER LEVEL above the meters opens the master fader. The lines on L and R mark −3 dBFS as a guide while mixing |
 | 6 | Amp or speaker | **No such stage in the app**, and iOS will not let an app set the system volume, so this can only be instructed, not controlled |
 | 7 | Cue level | The cue *mix* exists; a cue *level* does not (see Headphone level above) |
 
-The dBFS figures are readings taken while the meters stay peak dBFS. The rungs are drawn at those figures but carry no
-numbers, and whether the scale stays or re-references 0 dB to −12 dBFS so a Xone's geometry and the video's sentences
-apply is still open. So is AUTO's
-target: −16 LUFS is the highest that leaves every deck under −6 dBFS, and the app stays at −10 until the user chooses
-by ear.
+The lines mark sample peaks. AUTO matches the main groove by loudness; a track may peak above the channel line
+at AUTO, and the DJ can bring it down by hand.
 
 ---
 
@@ -157,7 +154,7 @@ Analysis only: the captured audio never reaches the master or cue bus, is never 
 | Screen | Both decks' waveforms stacked across the full width at one shared scale in seconds, under one fixed playhead; `+` / `−` zoom keys with the span readout. Scroll zooms both lanes, drag scrubs |
 | Deck cards | Letter, track name (opens the library), REMAIN / BPM / TEMPO, `+` load, Camelot key, grid %, MASTER / SYNC / vinyl / loop tags, and the whole-track overview with the screen's window boxed in orange |
 | Deck bays | SYNC / MASTER / KEY / GRID keys, the tempo fader on the outside edge (down = faster, ±16 %), the platter, and PLAY · CUE, the CUES popover and the loop stepper + ROLL along the bottom |
-| Centre mixer | MUSIC key (library), per channel TRIM and FILTER, LEVEL · HI · MID · LOW faders, channel CUE and KILL pads, LINK LOWS, crossfader. Electron adds fader readouts, a master meter and LOW Σ; the mockup and the native console drop the readouts and show four peak meters (A · L · R · B) instead of master + LOW Σ |
+| Centre mixer | MUSIC key (library), per channel TRIM and FILTER, LEVEL · HI · MID · LOW faders, channel CUE and KILL pads, LINK LOWS, crossfader. Native and mockup: TRIM, FILTER and MASTER LEVEL open popovers; CH A and CH B flank stereo MASTER |
 | Deck face: platter | Rotating record at 33⅓ rpm, drag to scrub, generated centre label |
 | Deck face: EQ overlay | Four tall faders — FILTER, LOW, MID, HIGH — with a centre detent, click-to-jump, drag, arrow keys, double-click to centre |
 | Library sheet | Slides up over the decks and footer. A deck panel stays on top: per deck a load button where the title sits, BPM, PLAY, CUE and the loop stepper, with time remaining and the crossfader in the middle. A playlist column on the left (All tracks, then playlists). Each deck shows its Camelot key. Rows: name, key name, Camelot badge in wheel colours, on-deck badge, BPM, duration, grid %, `+` playlist menu, re-analyse, remove. Tap any key (row or deck) to filter to it and its harmonic matches (±1 on the ring and the relative major/minor), with `only` / `+ compatible` and Clear. Tap a column heading to sort, again to reverse. Search matches name, key and BPM; a Camelot code like `4a` matches that key exactly |
@@ -202,9 +199,9 @@ The grid editor assumes a four-beat bar (4/4): the bar lines, the four-bar windo
 | --- | --- | --- |
 | TRIM per channel | — | **NONE** |
 | HI / MID / LOW knobs per channel (with kill) | LOW / MID / HIGH faders per deck, kill at full-left | **LIVE** |
-| COLOR knob (LOW→HI) | Sweep FILTER fader | **PARTIAL** — no separate colour control |
+| COLOR knob (LOW→HI) | FILTER button opens the sweep fader | **PARTIAL** — no separate colour control |
 | Channel level faders ×2 | — | **NONE** |
-| Per-channel LED meters, MASTER CLIP | Electron: one master meter (RMS, no clip LED). Mockup and native: four peak meters, A · L · R · B, on one −30…+6 dBFS scale, red from 0 dBFS where the limiter is working, in twelve 3 dB rungs with green ending at −12 and amber at 0, and a red cap and border on a bar that reaches 0 dBFS; no separate clip LED | **PARTIAL** |
+| Per-channel LED meters, MASTER CLIP | In the mockup and native console, CH A and CH B flank the stereo master, with printed −30…+6 dBFS scales between them. CLIP lights when either master side's held pre-limiter peak reaches 0 dBFS | **LIVE** |
 | MASTER LEVEL | MASTER knob | **LIVE** |
 | Crossfader with graduated scale | Crossfader, double-click to centre | **LIVE** (no cut-in points) |
 | HEADPHONES MIXING: CUE / MASTER knobs | CUE MIX knob + SPLIT CUE / 4-CH toggle | **LIVE** |
@@ -279,8 +276,8 @@ Other rules that matter more than the numbers:
 A checklist to mark off as you design:
 
 1. Two deck columns, each with: track identity, time, waveform, a face (platter or EQ), a transport strip, a pad row.
-2. A centre strip: master BPM, meters (A · L · R · B), crossfader, master level, cue mix, the output-mode switch.
-3. Per-deck tone: FILTER, LOW, MID, HIGH, reachable as big faders.
+2. A centre strip: master BPM, channel and stereo master meters, crossfader, master level, cue mix, the output-mode switch.
+3. Per-deck tone: FILTER popover and LOW, MID, HIGH faders.
 4. Per-deck transport: play, cue, tempo, sync, master, key lock, grid.
 5. Loops: a `‹ size ›` stepper (1–64 beats), start / leave, roll. Hot cues: eight recallable points with per-slot colours, matching markers on the waveform.
 6. A library view: search, add files, add folder, load to either deck, per-track BPM / key / duration / confidence, re-analyse, remove.

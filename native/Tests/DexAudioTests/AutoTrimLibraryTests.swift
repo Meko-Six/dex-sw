@@ -39,7 +39,7 @@ final class AutoTrimLibraryTests: XCTestCase {
         let imported = try await storage.importFile(try sine(-6, in: root))
         let loudness = try XCTUnwrap(imported.track.loudness)
         XCTAssertEqual(loudness.main, -6, accuracy: 0.1)
-        XCTAssertEqual(imported.track.startingTrim, -4, accuracy: 0.1)
+        XCTAssertEqual(imported.track.startingTrim, -5, accuracy: 0.1)
         let reopened = try await LibraryStorage(directory: root.appendingPathComponent("Library")).open()
         XCTAssertEqual(reopened.first?.loudness, loudness)
     }
@@ -62,7 +62,7 @@ final class AutoTrimLibraryTests: XCTestCase {
         XCTAssertEqual(library.tracks.first?.startingTrim, 0)
         await library.readMissingLoudness()
         XCTAssertEqual(library.tracks.first?.loudness?.main ?? 0, -14, accuracy: 0.1)
-        XCTAssertEqual(library.tracks.first?.startingTrim ?? 0, 4, accuracy: 0.1)
+        XCTAssertEqual(library.tracks.first?.startingTrim ?? 0, 3, accuracy: 0.1)
 
         library.setTrim(id, 2.5)
         XCTAssertEqual(library.tracks.first?.startingTrim, 2.5)

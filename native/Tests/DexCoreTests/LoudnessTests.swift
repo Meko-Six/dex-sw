@@ -67,8 +67,8 @@ final class LoudnessTests: XCTestCase {
     }
 
     func testAutoTrimBringsTheGrooveToTheTarget() {
-        XCTAssertEqual(TrackLoudness(integrated: -8, main: -7.3, peak: -0.1).autoTrim(), -2.7)
-        XCTAssertEqual(TrackLoudness(integrated: -14, main: -13, peak: -3).autoTrim(), 3)
+        XCTAssertEqual(TrackLoudness(integrated: -8, main: -7.3, peak: -0.1).autoTrim(), -3.7)
+        XCTAssertEqual(TrackLoudness(integrated: -14, main: -13, peak: -3).autoTrim(), 2)
         XCTAssertEqual(TrackLoudness(integrated: -40, main: -40, peak: -20).autoTrim(), 12)
         XCTAssertEqual(TrackLoudness(integrated: -70, main: -70, peak: -120).autoTrim(), 0)
     }

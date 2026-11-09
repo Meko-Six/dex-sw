@@ -136,98 +136,79 @@ private struct Cover: View {
     }
 }
 
-/// `.zreads`: REMAIN, the big time, TEMPO, KEY and the BPM box in a CSS flex
-/// row (gap 12, space-between, last-baseline). Over-wide rows shrink each
-/// item in proportion to its basis until it reaches its min-content width.
+/// `.zreads`: five fixed columns keep each readout in the same place on both decks.
 private struct Readouts: View {
     let deck: ConsoleState.Deck
     let isMaster: Bool
 
-    private let label = Face.cond(12, tracking: 1.68)
-    private let sub = Face.cond(17, tracking: 0.68, tabular: true)
-    private let big = Face.cond(44, tracking: 0.44, weight: .regular, tabular: true)
-    private let small = Face.cond(22, tracking: 0.44, weight: .regular, tabular: true)
-    private let tempoFace = Face.cond(24, weight: .regular, tabular: true)
-    private let percent = Face.cond(11, weight: .regular)
-    private let camFace = Face.cond(12, tracking: 0.24, weight: .heavy)
+    private let heading = Face.ui(9, tracking: 0.55, medium: true)
+    private let digits = Color(hex: 0xDCE1E5)
 
     var body: some View {
-        // An empty deck keeps its window; the readouts go dark.
         let empty = !deck.loaded
         let length = deck.durationSec
         let left = empty ? (whole: "--:--", ms: "---") : remain(length - deck.position)
-        let elapsed = empty ? "-:-- " : clock(deck.position) + " ", total = empty ? "/ -:--" : "/ " + clock(length)
+        let elapsed = empty ? "--:--" : clock(deck.position, padMinutes: true)
+        let total = empty ? "--:--" : clock(length, padMinutes: true)
         let tempo = empty ? (sign: "+", digits: "0.00") : tempoParts(deck.rate)
-        let camelot = empty ? "—" : deck.camelot ?? "—"
         let dark = Color(hex: 0x4A4A50)
-        // Flex bases and minimums: text sets the first three; KEY is 50 wide,
-        // the BPM box 76, and both may shrink (KEY down to its chip's text).
-        let bases: [CGFloat] = [
-            max(label.width(of: "REMAIN"), sub.width(of: elapsed) + sub.width(of: total)),
-            big.width(of: left.whole) + small.width(of: "." + left.ms),
-            max(label.width(of: "TEMPO"), tempoFace.width(of: "\(tempo.sign) \(tempo.digits)") + 1 + percent.width(of: "%")),
-            50, 76]
-        let minimums: [CGFloat] = [bases[0], bases[1], bases[2], camFace.width(of: camelot) + 18, 0]
-        // The BPM box's 1 pt border is outside its inner base size.
-        let weights = bases.indices.map { $0 == 4 ? bases[$0] - 2 : bases[$0] }
-        let widths = flexShrink(bases: bases, weights: weights, minimums: minimums, available: 450 - 4 * 12)
-        // justify-content: space-between spreads any room left over the gaps.
-        let used: CGFloat = widths.reduce(0, +) + 48
-        let gap: CGFloat = 12 + max(0, 450 - used) / 4
-        let x = widths.indices.map { index in widths[..<index].reduce(0, +) + CGFloat(index) * gap }
+        let timeFace = Face.ui(17 * min(1, 5 / CGFloat(max(elapsed.count, total.count))), medium: true, tabular: true)
+        let remainScale = min(1, 7.25 / (CGFloat(left.whole.count) + 2.25))
         ZStack(alignment: .topLeading) {
-            VStack(alignment: .leading, spacing: 0) {
-                Label("REMAIN", label).frame(height: 12)
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Label(elapsed, sub).foregroundStyle(empty ? dark : Color(hex: 0xB6B6BB))
-                    Label(total, sub).foregroundStyle(empty ? dark : Color(hex: 0x74747B))
-                }
-                .frame(height: 17).padding(.top, 6)
-            }
-            .foregroundStyle(Color(hex: 0xD6D6DA))
-            .offset(x: x[0], y: 7)
+            readoutHeading("TIME", x: 0)
+            readoutHeading("REMAIN", x: 57)
+            readoutHeading("TEMPO", x: 231)
             HStack(alignment: .lastTextBaseline, spacing: 0) {
-                Label(left.whole, big).foregroundStyle(empty ? dark : Color.white)
-                Label("." + left.ms, small).foregroundStyle(empty ? dark : Color(hex: 0xE4E4E8))
-            }
-            .frame(height: 44)
-            .offset(x: x[1], y: 3)
-            VStack(alignment: .leading, spacing: 0) {
-                Label("TEMPO", label).foregroundStyle(Color(hex: 0xD6D6DA)).frame(height: 12)
-                HStack(alignment: .lastTextBaseline, spacing: 1) {
-                    Label("\(tempo.sign) \(tempo.digits)", tempoFace).foregroundStyle(empty ? dark : Color.white)
-                    Label("%", percent).foregroundStyle(empty ? dark : Color(hex: 0xBDBDC3))
+                // Pin the shared baseline 46 pt below the top of the readout.
+                Color.clear.frame(width: 0, height: 46)
+                    .alignmentGuide(.lastTextBaseline) { $0.height }
+                VStack(alignment: .leading, spacing: 0) {
+                    Label(elapsed, timeFace).foregroundStyle(empty ? dark : .white).frame(height: 17)
+                    Label(total, timeFace).foregroundStyle(empty ? dark : Color(hex: 0x888888)).frame(height: 17)
                 }
-                .frame(height: 24)
+                .frame(width: 57, alignment: .leading)
+                HStack(alignment: .lastTextBaseline, spacing: 0) {
+                    Label(left.whole, .ui(40 * remainScale, tabular: true))
+                    Label("." + left.ms, .ui(30 * remainScale, tabular: true))
+                }
+                .foregroundStyle(empty ? dark : digits)
+                .frame(width: 174, alignment: .leading)
+                HStack(alignment: .lastTextBaseline, spacing: 1) {
+                    Label(tempo.sign + tempo.digits, .ui(30, tabular: true))
+                    Label("%", .ui(12))
+                }
+                .foregroundStyle(empty ? dark : digits)
             }
-            .offset(x: x[2] + 4, y: 7.5)
-            KeyStack(keyLock: deck.keyLock && !empty, camelot: camelot, colour: empty ? nil : camelotColour(deck.camelot), face: camFace, empty: empty)
-                .frame(width: widths[3]).offset(x: x[3] + 7, y: 2)
+            KeyStack(keyLock: deck.keyLock && !empty, camelot: empty ? "—" : deck.camelot ?? "—",
+                     colour: empty ? nil : camelotColour(deck.camelot), empty: empty)
+                .frame(width: 34).offset(x: 341, y: 3)
             BPMBox(deck: deck, role: empty ? .none : isMaster ? .master : deck.syncLocked ? .sync : .none)
-                .frame(width: widths[4], height: 46).offset(x: x[4], y: 2)
+                .frame(width: 71, height: 46).offset(x: 379, y: 2)
         }
         .frame(width: 450, height: 50, alignment: .topLeading)
     }
+
+    private func readoutHeading(_ title: String, x: CGFloat) -> some View {
+        Label(title, heading).foregroundStyle(Palette.text).frame(height: 10).offset(x: x, y: 1)
+    }
 }
 
-/// `.zkey`: the KEY LOCK chip (hidden when off) over the Camelot key.
+/// `.zkey`: the KEY chip (hidden when off) over the Camelot key.
 private struct KeyStack: View {
     let keyLock: Bool
     let camelot: String
     let colour: Color?
-    let face: Face
     /// `.zcard.empty .cam`: an outline, no key.
     var empty = false
 
     var body: some View {
-        let accent = Palette.blueHex
-        VStack(spacing: 4) {
-            Label(keyLock ? "KEY LOCK" : "KEY", .cond(8.5, tracking: 0.85))
-                .foregroundStyle(mix(accent, 0.76, 0xFFFFFF))
+        VStack(spacing: 3) {
+            Label("KEY", .cond(15))
+                .foregroundStyle(Palette.blue)
                 .frame(maxWidth: .infinity).frame(height: 21)
-                .box(fill: mix(accent, 0.15, 0x151517), border: mix(accent, 0.60, 0x26262B), radius: 2)
+                .overlay(RoundedRectangle(cornerRadius: 2).inset(by: 0.625).stroke(Palette.blue, lineWidth: 1.25))
                 .opacity(keyLock ? 1 : 0)
-            Label(camelot, face).foregroundStyle(empty ? Color(hex: 0x74747B) : Color(hex: 0x0B0913))
+            Label(camelot, .cond(14, weight: .heavy)).foregroundStyle(empty ? Color(hex: 0x74747B) : Color(hex: 0x0B0913))
                 .frame(maxWidth: .infinity).frame(height: 21)
                 .background(RoundedRectangle(cornerRadius: 2).fill(empty ? .clear : colour ?? Color(hex: 0x74747B)))
                 .overlay { if empty { RoundedRectangle(cornerRadius: 2).inset(by: 1).stroke(Color(hex: 0x3A3A40), lineWidth: 2) } }
@@ -295,10 +276,6 @@ private struct Overview: View {
         let cues = length > 0 ? deck.hotCues.enumerated().compactMap { slot, seconds in seconds.map { (slot, $0) } } : []
         let cuePoint: Double? = deck.loaded && deck.cuePoint > 0.05 ? deck.cuePoint : nil
         ZStack(alignment: .topLeading) {
-            ForEach(cues, id: \.0) { slot, seconds in
-                Flag(colour: Color(hex: hotCueColours[slot]), number: slot + 1).offset(x: snap(at(seconds) - 4, scale))
-            }
-            if let cuePoint { Flag(colour: Palette.red, number: nil).offset(x: snap(at(cuePoint) - 4, scale)) }
             switch deck.wave {
             case .demo(let seed)?:
                 let demo = DemoWave.cached(count: 600, seed: seed + 3, oneSided: true)
@@ -338,9 +315,16 @@ private struct Overview: View {
                 }
             }
             ForEach(cues, id: \.0) { slot, seconds in
-                Color(hex: hotCueColours[slot]).opacity(0.85).frame(width: 1, height: 37).offset(x: snap(at(seconds), scale), y: 9)
+                let colour = Color(hex: hotCueColours[slot])
+                let x = snap(at(seconds), scale)
+                colour.opacity(0.85).frame(width: 1, height: 31).offset(x: x, y: 15)
+                Label(String(slot + 1), .ui(9, medium: true)).foregroundStyle(Color(hex: 0x0B0913))
+                    .frame(width: 13, height: 11).background(colour).offset(x: x - 6, y: 4)
             }
-            if let cuePoint { Palette.red.opacity(0.85).frame(width: 1, height: 37).offset(x: snap(at(cuePoint), scale), y: 9) }
+            if let cuePoint {
+                CueFlag().offset(x: snap(at(cuePoint) - 4, scale), y: 2)
+                Palette.red.opacity(0.85).frame(width: 1, height: 37).offset(x: snap(at(cuePoint), scale), y: 9)
+            }
             if length > 0 {
                 Color.white.frame(width: 2, height: 47).offset(x: snap((played * 100 * 100).rounded() / 100 / 100 * width - 1, scale), y: 9)
             }
@@ -363,20 +347,13 @@ private struct Overview: View {
     }
 }
 
-/// `.zflag`: a hot cue's triangle and number (just the triangle for CUE).
-private struct Flag: View {
-    let colour: Color
-    let number: Int?
-
+/// The memory CUE marker retains its triangle.
+private struct CueFlag: View {
     var body: some View {
-        HStack(alignment: .top, spacing: 1) {
-            Path { path in
-                path.move(to: .zero); path.addLine(to: CGPoint(x: 8, y: 0)); path.addLine(to: CGPoint(x: 4, y: 5)); path.closeSubpath()
-            }
-            .fill(colour).frame(width: 8, height: 5)
-            .padding(.top, number == nil ? 2 : 3)
-            if let number { Label(String(number), .cond(9)).foregroundStyle(colour).frame(height: 9) }
+        Path { path in
+            path.move(to: .zero); path.addLine(to: CGPoint(x: 8, y: 0)); path.addLine(to: CGPoint(x: 4, y: 5)); path.closeSubpath()
         }
+        .fill(Palette.red).frame(width: 8, height: 5)
     }
 }
 
@@ -388,9 +365,9 @@ func remain(_ seconds: Double) -> (whole: String, ms: String) {
 }
 
 /// `clock()` in format.ts: "5:11".
-func clock(_ seconds: Double) -> String {
+func clock(_ seconds: Double, padMinutes: Bool = false) -> String {
     let total = Int(max(0, seconds.isFinite ? seconds : 0).rounded(.down))
-    return String(format: "%d:%02d", total / 60, total % 60)
+    return String(format: padMinutes ? "%02d:%02d" : "%d:%02d", total / 60, total % 60)
 }
 
 /// `tempo()` in format.ts: "+" / "−" and "2.31".
@@ -404,29 +381,4 @@ func bpmParts(_ bpm: Double) -> (String, String) {
     let text = String(format: "%.1f", bpm)
     let parts = text.split(separator: ".")
     return (String(parts[0]), parts.count > 1 ? String(parts[1]) : "")
-}
-
-/// CSS flexbox shrinking: an overflowing row takes width from each item in
-/// proportion to its inner base size (`weights`, the basis less any border);
-/// an item that would drop below its minimum is frozen there and the rest
-/// is shared again.
-func flexShrink(bases: [CGFloat], weights: [CGFloat]? = nil, minimums: [CGFloat], available: CGFloat) -> [CGFloat] {
-    let weights = weights ?? bases
-    var widths = bases
-    var frozen = Array(repeating: false, count: bases.count)
-    while true {
-        let overflow = widths.reduce(0, +) - available
-        let open = bases.indices.filter { !frozen[$0] }
-        let weight = open.reduce(0) { $0 + weights[$1] }
-        guard overflow > 0.001, weight > 0 else { return widths }
-        var violated = false
-        for index in open {
-            let next = widths[index] - overflow * weights[index] / weight
-            if next < minimums[index] { widths[index] = minimums[index]; frozen[index] = true; violated = true }
-        }
-        if !violated {
-            for index in open { widths[index] -= overflow * weights[index] / weight }
-            return widths
-        }
-    }
 }

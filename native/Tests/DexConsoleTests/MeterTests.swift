@@ -21,8 +21,8 @@ final class MeterTests: XCTestCase {
     }
 
     func testZonesSitOnTheAimPoints() {
-        XCTAssertEqual(Meters.percent(MeterZones.deckAim), 100.0 * 24 / 36, accuracy: 1e-9, "−6 dBFS: green ends here")
-        XCTAssertEqual(Meters.percent(MeterZones.masterAim), 100.0 * 27 / 36, accuracy: 1e-9, "−3 dBFS: amber ends here")
+        XCTAssertEqual(Meters.percent(MeterZones.deckAim), 100.0 * 24 / 36, accuracy: 1e-9, "−6 dBFS: the deck's aim mark")
+        XCTAssertEqual(Meters.percent(MeterZones.masterAim), 100.0 * 27 / 36, accuracy: 1e-9, "−3 dBFS: the master's aim mark")
         XCTAssertEqual(Meters.percent(MeterZones.clip), 100.0 * 30 / 36, accuracy: 1e-9, "0 dBFS: red starts here")
         XCTAssertLessThan(Meters.percent(-6.1), Meters.percent(MeterZones.deckAim))
         XCTAssertGreaterThan(Meters.percent(-5.9), Meters.percent(MeterZones.deckAim))
@@ -33,11 +33,19 @@ final class MeterTests: XCTestCase {
         meters.update(MeterLevels(a: 0.2, l: -12, r: -12, b: -90), dt: 0.016, now: 5)
         XCTAssertTrue(meters.meters.isClipping("A"))
         XCTAssertFalse(meters.meters.isClipping("L"), "a quiet meter never clips")
+        XCTAssertFalse(meters.meters.masterClipping, "channel overload alone does not light the master lamp")
         var now = 5.0
         for _ in 0..<100 { now += 0.01; meters.update(.silent, dt: 0.01, now: now) }
         XCTAssertTrue(meters.meters.isClipping("A"), "still inside the 2 s hold")
         for _ in 0..<160 { now += 0.01; meters.update(.silent, dt: 0.01, now: now) }
         XCTAssertFalse(meters.meters.isClipping("A"), "the hold has let go")
+    }
+
+    func testEitherSideLightsTheMasterClipLamp() {
+        for id in ["L", "R"] {
+            let levels = MeterLevels(a: -3, l: id == "L" ? 0 : -3, r: id == "R" ? 0 : -3, b: -3)
+            XCTAssertTrue(Meters(level: .silent, hold: levels).masterClipping)
+        }
     }
 
     func testJustBelowZeroNeverClips() {

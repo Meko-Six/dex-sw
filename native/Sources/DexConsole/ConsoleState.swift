@@ -138,8 +138,8 @@ public struct ConsoleState: Equatable, Sendable {
     public enum Sheet: Equatable, Sendable { case tap, shortcuts }
     /// The instructions behind an (i) key.
     public enum HelpTopic: String, Equatable, Sendable { case grid, tap, trim, band, volume, library }
-    /// The mixer's anchored popovers: TRIM for a deck, or one band for both decks.
-    public enum MixPop: Equatable, Sendable { case trim(String), band(String) }
+    /// The mixer's temporary controls, opened from the chassis.
+    public enum MixPop: Equatable, Sendable { case trim(String), filter(String), master, band(String) }
     /// A failure, on one line under the header.
     public struct Alert: Equatable, Sendable {
         public var title: String
@@ -284,7 +284,7 @@ public struct ConsoleState: Equatable, Sendable {
     public var linkLows = false
     /// The centre strip's meters when no clock drives them: snapshots and previews.
     public var meters = Meters.silent
-    /// Master output, 0 … 1.2.
+    /// Master output, 0 … 1 (unity).
     public var masterVolume = 1.0
     /// The headphones' blend, cued deck (0) to master (1).
     public var cueMix = 0.5
@@ -619,6 +619,8 @@ extension ConsoleState {
         "volume": demoHome.with { $0.volumeOpen = true },
         "volumehelp": demoHome.with { $0.volumeOpen = true; $0.help = .volume },
         "trim": demoHome.with { $0.mixPop = .trim("A") },
+        "filter": demoHome.with { $0.mixPop = .filter("A") },
+        "master-level": demoHome.with { $0.mixPop = .master },
         "band-low": demoHome.with { $0.mixPop = .band("low") },
         "hotcue": demoHome.with { $0.decks[0].hotCuesOpen = true },
         "grid": demoHome.with { $0.gridDeck = "A" },

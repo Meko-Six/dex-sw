@@ -12,25 +12,18 @@ struct Chassis: View {
         let folded = state.libraryOpen
         ZStack(alignment: .topLeading) {
             Color(hex: 0x161618)
-            Group {
-                Seam().place(Layout.at(367, 48, 1, 475))
-                Seam().place(Layout.at(827, 48, 1, 475))
-            }
-            .folded(folded)
             ForEach(state.decks, id: \.id) { deck in
                 Bay(deck: deck, isMaster: state.decks.firstIndex(of: deck) == state.masterDeck, folded: folded, actions: actions.deck)
             }
             Mixer(state: state, actions: actions)
+            ForEach(state.decks, id: \.id) { deck in
+                Live(deck: deck) { Platter(deck: $0, scrub: actions.deck.scrub) }
+                    .place(Layout.platterRect(deck.id))
+                    .folded(folded)
+            }
             Group {
-                switch state.mixPop {
-                case .trim(let id)?:
-                    if let deck = state.decks.first(where: { $0.id == id }) {
-                        TrimPop(deck: deck, actions: actions).offset(x: Layout.at(id == "A" ? 372 : 522, 110, 0, 0).minX, y: 110 - Layout.lift)
-                    }
-                case .band(let band)?:
+                if case .band(let band) = state.mixPop {
                     BandPop(band: band, state: state, actions: actions).offset(x: 352 - 10, y: 62 - Layout.lift)
-                case nil:
-                    EmptyView()
                 }
                 ForEach(state.decks.filter(\.hotCuesOpen), id: \.id) { deck in
                     HotCuePop(deck: deck, actions: actions.deck).offset(x: Layout.deckX(deck.id).platter - 150 - 10, y: 132 - Layout.lift)
@@ -53,17 +46,24 @@ enum Layout {
         CGRect(x: x - 10, y: y - lift, width: w, height: h)
     }
     /// SYNC · MASTER · KEY · HOT CUE run the full width of the deck, centred on
-    /// the TRIM row and 40 pt tall on purpose, The tempo fader starts 23 pt under them,
-    /// a finger's room, and its foot lines up with the mixer faders' foot (150 + 228),
-    /// with TEMPO below it. Faders carry no readout: the cap's place says where it is.
+    /// the TRIM row and 40 pt tall. TEMPO is above its fader, freeing the row
+    /// below for beat jump. The faders' feet line up.
     static let deckKey = (y: CGFloat(64), w: CGFloat(78), h: CGFloat(40), gap: CGFloat(6))
-    static let tempoColumn = (y: CGFloat(127), h: CGFloat(251 + 17))
+    static let tempoColumn = (y: CGFloat(127), h: CGFloat(251))
     static let platter = (y: CGFloat(114), size: CGFloat(262))
+    /// 55% of the 1194 pt drawing, rounded symmetrically to the nearest point.
+    static let mixerEdge: CGFloat = 269
+    static let mixerWidth = 1194 - 2 * mixerEdge
+    static func platterRect(_ id: String) -> CGRect {
+        at(deckX(id).platter - platter.size / 2, platter.y, platter.size, platter.size)
+    }
+    static let tuckedRim = 215 + platter.size / 2 - mixerEdge
+    static func filterButton(_ id: String) -> CGRect { at(id == "A" ? 452 : 654, row.top.0, 88, row.top.1) }
     static let rowY: CGFloat = 446
     static let key: CGFloat = 66
-    static let jump = (y: CGFloat(384), h: CGFloat(44), key: CGFloat(44), gap: CGFloat(6), width: CGFloat(274))
+    static let jump = (y: CGFloat(384), h: CGFloat(44), key: CGFloat(44), gap: CGFloat(6), width: CGFloat(240))
     static func deckX(_ id: String) -> (keys: CGFloat, jump: CGFloat, tempo: CGFloat, platter: CGFloat, row: CGFloat) {
-        id == "B" ? (842, 842, 1148, 979, 832) : (22, 78, 46, 215, 22)
+        id == "B" ? (842, 932, 1148, 979, 832) : (22, 22, 46, 215, 22)
     }
     /// One of the deck's four keys, by its place in the row.
     static func deckKeyRect(_ id: String, _ index: Int) -> CGRect {
@@ -73,10 +73,10 @@ enum Layout {
     /// Deck B's columns mirror deck A's across the centre.
     static func column(_ deck: String, _ column: Column) -> (x: CGFloat, w: CGFloat) {
         let (x, w): (CGFloat, CGFloat) = switch column {
-        case .level: (372, 44)
-        case .high: (422, 44)
-        case .mid: (472, 44)
-        case .low: (522, 52)
+        case .level: (280, 52)
+        case .high: (344, 44)
+        case .mid: (394, 44)
+        case .low: (444, 52)
         }
         return (deck == "A" ? x : 1194 - x - w, w)
     }
@@ -97,15 +97,6 @@ extension View {
     /// Absolute placement in the chassis, like `position: absolute` with `at()`.
     func place(_ rect: CGRect) -> some View {
         frame(width: rect.width, height: rect.height).offset(x: rect.minX, y: rect.minY)
-    }
-}
-
-/// The thin panel seams framing the mixer.
-private struct Seam: View {
-    var body: some View {
-        LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .white.opacity(0.055), location: 0.1),
-                               .init(color: .white.opacity(0.055), location: 0.9), .init(color: .clear, location: 1)],
-                       startPoint: .top, endPoint: .bottom)
     }
 }
 
@@ -146,8 +137,8 @@ private struct Bay: View {
                 .disabled(empty).place(Layout.deckKeyRect(deck.id, 3))
             TempoColumn(deck: deck.id, rate: deck.rate) { actions.setTempo(deck.id, $0) }
                 .place(Layout.at(x.tempo - 24, Layout.tempoColumn.y, 48, Layout.tempoColumn.h))
-            Live(deck: deck) { deck in Platter(deck: deck, scrub: actions.scrub) }
-                .place(Layout.at(x.platter - Layout.platter.size / 2, Layout.platter.y, Layout.platter.size, Layout.platter.size))
+            Label("TEMPO", .cond(12, tracking: 0.96)).foregroundStyle(Palette.silk)
+                .place(Layout.at(x.tempo - 24, 109, 48, 12))
             BeatJump(deck: deck, actions: actions)
             }
             .folded(folded)
@@ -254,21 +245,18 @@ private struct DeckKey: View {
     }
 }
 
-/// `.col`: the tempo fader over TEMPO.
+/// `.col`: the tempo fader.
 private struct TempoColumn: View {
     let deck: String
     let rate: Double
     let set: (Double) -> Void
 
     var body: some View {
-        VStack(spacing: 5) {
-            GeometryReader { geometry in
-                // The 34 pt cap is travel the drag cannot use.
-                TempoFader(position: MixerMath.tempoToFader(rate))
-                    .relativeDrag("\(deck)-tempo", travel: geometry.size.height - 2 - 34, value: MixerMath.tempoToFader(rate),
-                                  reset: 0.5) { set(MixerMath.faderToTempo($0)) }
-            }
-            Label("TEMPO", .cond(12, tracking: 0.96)).foregroundStyle(Palette.silk).frame(height: 12)
+        GeometryReader { geometry in
+            // The 34 pt cap is travel the drag cannot use.
+            TempoFader(position: MixerMath.tempoToFader(rate))
+                .relativeDrag("\(deck)-tempo", travel: geometry.size.height - 2 - 34, value: MixerMath.tempoToFader(rate),
+                              reset: 0.5) { set(MixerMath.faderToTempo($0)) }
         }
     }
 }
@@ -358,7 +346,14 @@ private struct Platter: View {
             .frame(width: 216, height: 216)
             PlatterDisplay(deck: deck)
         }
-        .contentShape(Circle())
+        .mask {
+            HStack(spacing: 0) {
+                if deck.id == "B" { tuckedRim }
+                Color.white
+                if deck.id == "A" { tuckedRim }
+            }
+        }
+        .contentShape(PlatterGrip(deck: deck.id))
         .gesture(DragGesture(minimumDistance: 0)
             .updating($touching) { _, state, _ in state = true }
             .onChanged(turn)
@@ -370,6 +365,10 @@ private struct Platter: View {
             if drag != nil { scrub(deck.id, .cancel) }
             drag = nil
         }
+    }
+
+    private var tuckedRim: some View {
+        Color.white.opacity(touching ? 0.42 : 0).frame(width: Layout.tuckedRim)
     }
 
     private func turn(_ gesture: DragGesture.Value) {
@@ -392,6 +391,23 @@ private struct Platter: View {
         d.beats = (target - d.position) / d.period
         drag = d
         scrub(deck.id, .move(target - d.position))
+    }
+}
+
+/// Only the exposed arc can start a drag. Once captured, the drag keeps using
+/// the full disc coordinates, while a second touch can still grab a fader.
+struct PlatterGrip: Shape {
+    let deck: String
+
+    func path(in rect: CGRect) -> Path {
+        guard rect.width > Layout.tuckedRim, rect.height > 0 else { return Path() }
+        let cut = acos(1 - 2 * Layout.tuckedRim / rect.width)
+        // Trace the exposed arc, then close it with the straight mixer edge.
+        var grip = Path()
+        grip.addRelativeArc(center: .zero, radius: 1, startAngle: .radians(cut), delta: .radians(2 * .pi - 2 * cut))
+        grip.closeSubpath()
+        return grip.applying(CGAffineTransform(a: (deck == "B" ? -1 : 1) * rect.width / 2, b: 0,
+                                              c: 0, d: rect.height / 2, tx: rect.midX, ty: rect.midY))
     }
 }
 
@@ -591,21 +607,22 @@ private struct Mixer: View {
         let a = state.decks[0], b = state.decks[1]
         ZStack(alignment: .topLeading) {
             Group {
-            Channel(deck: a, link: state.linkLows, actions: actions)
-            // A · L · R · B (`meterHtml`): each 8 pt wide under its name.
-            ForEach(MeterBar.columns, id: \.id) { column in
-                Label(column.id, .cond(12, tracking: 0)).foregroundStyle(Palette.silk)
-                    .place(Layout.at(column.x - 4, Layout.row.val.0, 16, Layout.row.val.1))
-                LiveMeters(fallback: state.meters) { meters in
-                    MeterBar(id: column.id, level: meters.level[column.id], hold: meters.hold[column.id],
-                             clipped: meters.isClipping(column.id))
-                }
-                .place(Layout.at(column.x, Layout.row.fader.0, 8, Layout.row.fader.1))
+            Color(hex: 0x1A1A1D)
+                .overlay(alignment: .leading) { Color.white.opacity(0.055).frame(width: 1) }
+                .overlay(alignment: .trailing) { Color.white.opacity(0.055).frame(width: 1) }
+                .place(Layout.at(Layout.mixerEdge, 110, Layout.mixerWidth, 324))
+                .allowsHitTesting(false)
+            Channel(deck: a, link: state.linkLows, mixPop: state.mixPop, actions: actions)
+            MixerMeters(fallback: state.meters)
+            MixerPopButton(title: "MASTER LEVEL", value: "\(Int((state.masterVolume * 100).rounded()))%",
+                           open: state.mixPop == .master) {
+                actions.setMixPop(state.mixPop == .master ? nil : .master)
             }
+            .place(Layout.at(549, Layout.row.top.0, 96, Layout.row.top.1))
             DotKey(lines: ["LINK", "LOWS"], indent: 1.68, colours: state.linkLows ? .lit(0xFF8A00) : .off,
                    dot: state.linkLows ? Palette.led : Color(hex: 0x43434A), action: actions.toggleLinkLows)
                 .place(Layout.at(575, Layout.row.kill.0, 44, Layout.row.kill.1))
-            Channel(deck: b, link: state.linkLows, actions: actions)
+            Channel(deck: b, link: state.linkLows, mixPop: state.mixPop, actions: actions)
             }
             .folded(state.libraryOpen)
             Group {
@@ -620,9 +637,32 @@ private struct Mixer: View {
     }
 }
 
+/// A compact face for a mixer control whose slider lives in a popover.
+private struct MixerPopButton: View {
+    let title, value: String
+    let open: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Label(title, .cond(12, tracking: 0.96)).foregroundStyle(Palette.silk).frame(height: 12)
+                Label(value, .cond(14, tracking: 0.56)).foregroundStyle(Palette.text).frame(height: 14)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .box(fill: Color(hex: open ? 0x26262A : 0x151517),
+                 border: Color(hex: open ? 0x707078 : 0x3A3A40), radius: 3)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(value)
+    }
+}
+
 private struct Channel: View {
     let deck: ConsoleState.Deck
     let link: Bool
+    let mixPop: ConsoleState.MixPop?
     let actions: ConsoleActions
     @EnvironmentObject private var touches: ControlTouches
 
@@ -643,11 +683,11 @@ private struct Channel: View {
             }
             .buttonStyle(.plain)
             .place(Layout.at(id == "A" ? 372 : 762, Layout.row.top.0, 60, Layout.row.top.1))
-            HorizontalFader(position: (deck.filter + 1) / 2, thumbWidth: 40, label: filterLabel(deck.filter))
-                .relativeDrag("\(id)-filter", horizontal: true, travel: 134 - 40, value: (deck.filter + 1) / 2, reset: 0.5) {
-                    actions.deck.setFilter(id, $0 * 2 - 1)
-                }
-                .place(Layout.at(id == "A" ? 440 : 620, Layout.row.top.0, 134, Layout.row.top.1))
+            MixerPopButton(title: "FILTER", value: filterLabel(deck.filter), open: mixPop == .filter(id)) {
+                actions.setMixPop(mixPop == .filter(id) ? nil : .filter(id))
+            }
+            .accessibilityLabel("Deck \(id) filter")
+            .place(Layout.filterButton(id))
             ForEach(Layout.Column.allCases, id: \.self) { column in
                 let (x, w) = Layout.column(id, column)
                 let position = column == .level ? deck.level : band(column)
@@ -729,7 +769,7 @@ struct KillPad: View {
 /// down to 120 Hz, high-pass from 20 Hz up to 9 kHz, both exponential.
 func filterLabel(_ knob: Double) -> String {
     let frequency = FilterSetting(knob: knob).frequency
-    guard abs(knob) >= 0.04, frequency < 20_000 else { return "FILTER" }
+    guard abs(knob) >= 0.04, frequency < 20_000 else { return "OFF" }
     let hz = frequency >= 1000 ? String(format: "%.1fk", frequency / 1000) : String(Int(frequency.rounded()))
     return (knob < 0 ? "LP " : "HP ") + hz
 }
@@ -851,15 +891,61 @@ private struct DotFace: View {
     }
 }
 
-/// `.meter-v`: one of the four meters, lit in eleven rungs from the foot
-/// (`MeterLadder`): five green, four amber, two red, with the held rung above.
+/// Channel bars flank the stereo master. A printed scale fits in each gap.
+private struct MixerMeters: View {
+    let fallback: Meters
+    static let columns: [(id: String, x: CGFloat)] = [("A", 520), ("L", 585), ("R", 599), ("B", 664)]
+
+    var body: some View {
+        let bar = Layout.row.fader
+        ZStack(alignment: .topLeading) {
+            Color.clear.box(fill: Color(hex: 0x121214), border: Color(hex: 0x26262A), radius: 3)
+                .place(Layout.at(510, 110, 174, 271))
+                .allowsHitTesting(false)
+            meterLabel("CH A", at: 525)
+            meterLabel("MASTER", at: 597)
+            meterLabel("CH B", at: 669)
+            LiveMeters(fallback: fallback) { meters in
+                Label("CLIP", .cond(11, tracking: 0.8))
+                    .foregroundStyle(Color(hex: meters.masterClipping ? 0xFF6A52 : 0x88504A))
+                    .accessibilityLabel(meters.masterClipping ? "Master over level" : "Master below clip")
+            }
+            .place(Layout.at(573, 130, 48, 14))
+            ForEach(Self.columns, id: \.id) { column in
+                LiveMeters(fallback: fallback) { meters in
+                    MeterBar(id: column.id, level: meters.level[column.id], hold: meters.hold[column.id],
+                             clipped: meters.isClipping(column.id))
+                }
+                .place(Layout.at(column.x, bar.0, 10, bar.1))
+            }
+            ForEach([558.0, 636.0], id: \.self) { x in
+                Label("dBFS", .cond(11, tracking: 0)).foregroundStyle(Palette.silk)
+                    .place(Layout.at(x - 16, 129, 32, 16))
+                ForEach(MeterLadder.labels, id: \.self) { db in
+                    let y = bar.0 + 1 + (bar.1 - 2) * (1 - Meters.percent(Double(db)) / 100)
+                    Label(MeterLadder.label(db), .cond(12, tracking: 0))
+                        .foregroundStyle(db == 0 ? Palette.text : Palette.silk)
+                        .place(Layout.at(x - 16, y - 6, 32, 12))
+                }
+                .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private func meterLabel(_ text: String, at x: CGFloat) -> some View {
+        Label(text, .cond(12, tracking: 1)).foregroundStyle(Palette.silk)
+            .place(Layout.at(x - 27, 113, 54, 16))
+            .accessibilityHidden(true)
+    }
+}
+
+/// `.meter-v`: one of the four meters, with twelve rungs, a peak hold and an aim mark.
 struct MeterBar: View {
     let id: String
     let level: Double
     let hold: Double
     let clipped: Bool
-
-    static let columns: [(id: String, x: CGFloat)] = [("A", 575), ("L", 588), ("R", 598), ("B", 611)]
+    private var isDeck: Bool { id == "A" || id == "B" }
 
     var body: some View {
         GeometryReader { geometry in
@@ -876,9 +962,13 @@ struct MeterBar: View {
                         context.fill(Path(MeterLadder.rungs[held].bar(in: size.width, height: size.height)),
                                      with: .color(Color(hex: 0xD6D6DB)))
                     }
+                    let aim = isDeck ? MeterZones.deckAim : MeterZones.masterAim
+                    let markY = (size.height * (1 - Meters.percent(aim) / 100) - 0.5).rounded()
+                    context.fill(Path(CGRect(x: 0, y: markY, width: size.width, height: 1)),
+                                 with: .color(Color(hex: 0x9B9BA3)))
                     if clipped {
                         // The cap marks the top of the lit column, not the top of the well.
-                        let top = lit >= 0 ? size.height * (1 - Meters.percent(MeterLadder.rungs[lit].high) / 100) : size.height
+                        let top = lit >= 0 ? (size.height * (1 - Meters.percent(MeterLadder.rungs[lit].high) / 100)).rounded() : size.height
                         context.fill(Path(CGRect(x: 0, y: max(0, min(top, size.height - 3)), width: size.width, height: 3)),
                                      with: .color(Color(hex: 0xD03A2C)))
                     }
@@ -889,7 +979,7 @@ struct MeterBar: View {
         }
         .box(fill: Color(hex: 0x0A0A0B), border: Color(hex: clipped ? 0xD03A2C : 0x26262A), radius: 1)
         .accessibilityElement()
-        .accessibilityLabel(id == "A" || id == "B" ? "Deck \(id) level" : id == "L" ? "Master left" : "Master right")
-        .accessibilityValue((level <= MeterLevels.floor ? "Silent" : String(format: "%.0f dB", level)) + (clipped ? ", clipping" : ""))
+        .accessibilityLabel(isDeck ? "Deck \(id) level" : id == "L" ? "Master left" : "Master right")
+        .accessibilityValue((level <= MeterLevels.floor ? "Silent" : String(format: "%.0f dBFS", level)) + (clipped ? ", clipping" : ""))
     }
 }

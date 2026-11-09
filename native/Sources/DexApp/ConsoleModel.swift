@@ -311,10 +311,13 @@ final class ConsoleModel: ObservableObject {
     private func makeActions() -> ConsoleActions {
         var actions = ConsoleActions()
         actions.setEnergy = { [weak self] in self?.energyEnabled = $0; self?.queueRebuild() }
-        actions.toggleVolume = { [weak self] in self?.update { $0.volumeOpen.toggle() } }
+        actions.toggleVolume = { [weak self] in self?.update {
+            $0.volumeOpen.toggle()
+            if $0.volumeOpen { $0.mixPop = nil }
+        } }
         actions.setSheet = { [weak self] sheet in self?.update { $0.sheet = sheet } }
         actions.setHelp = { [weak self] topic in self?.update { $0.help = topic } }
-        actions.setMixPop = { [weak self] pop in self?.update { $0.mixPop = pop } }
+        actions.setMixPop = { [weak self] pop in self?.setMixerPopover(pop) }
         actions.dismissAlert = { [weak self] in self?.dismissAlert() }
         actions.setMasterVolume = { [weak self] in self?.mixer.volume = Float(min(1, max(0, $0))) }
         actions.setCueMix = { [weak self] in self?.mixer.cueMix = min(1, max(0, $0)) }
@@ -345,8 +348,8 @@ final class ConsoleModel: ObservableObject {
         actions.setSpan = { [weak self] in self?.spanSec = min(48, max(3, $0)); self?.queueRebuild() }
         actions.tapArt = { [weak self] in self?.tapArt($0) }
         actions.toggleLinkLows = { [weak self] in self?.linkLows.toggle(); self?.queueRebuild() }
-        actions.openTrim = { [weak self] id in self?.update { $0.mixPop = .trim(id) } }
-        actions.openBand = { [weak self] band in self?.update { $0.mixPop = .band(band) } }
+        actions.openTrim = { [weak self] id in self?.setMixerPopover(.trim(id)) }
+        actions.openBand = { [weak self] band in self?.setMixerPopover(.band(band)) }
         actions.library = libraryActions()
         actions.setCrossfader = { [weak self] in self?.mixer.crossfader = min(1, max(0, $0)) }
 
@@ -465,6 +468,13 @@ final class ConsoleModel: ObservableObject {
     }
 
     /// A change to the console's own settings, then one redraw.
+    private func setMixerPopover(_ pop: ConsoleState.MixPop?) {
+        update {
+            $0.mixPop = pop
+            if pop != nil { $0.volumeOpen = false }
+        }
+    }
+
     private func update(_ change: (ConsoleModel) -> Void) {
         change(self)
         queueRebuild()

@@ -10,7 +10,7 @@ actually does in Dex today. Generated from [`mockup/controls.json`](../mockup/co
 | **PARTIAL** | The app has part of it, or does it with a different gesture or name. |
 | **PLANNED** | Drawn for the layout study. Nothing behind it in Dex. |
 
-**99 controls** — 82 live, 5 partial, 12 planned.
+**100 controls** — 83 live, 5 partial, 12 planned.
 
 ## Using the mockup
 
@@ -38,8 +38,8 @@ The library / tap / help cluster, the LED screen, and the output flank.
 | 7 | **+ · ×4 · − (zoom stack)** | PARTIAL | Mockup proposal: zoom in, a numeric zoom readout and zoom out, stacked down the right edge of the screen beside both lanes. Dex zooms the waveform with a wheel or trackpad gesture and has no on-screen zoom keys yet. | — | `src/renderer/ui/Waveform.tsx` |
 | 8 | **GRID (on the screen)** | LIVE | Opens the beat-grid editor for the focused deck: tap tempo, ±0.1 BPM, ±1 ms nudge, ÷2 and ×2. Every edit is written back to the library entry. | — | `src/renderer/ui/GridSheet.tsx` |
 | 9 | **stacked zoom waveform** | LIVE | Both decks' waveforms, full width, one over the other, under one fixed white playhead at 50%. Drag either lane to scroll its waveform; the cue marker moves with it. In the native app a flick carries on after release, the same track distance at any zoom, and a touch catches it. | — | `src/renderer/ui/Waveform.tsx` |
-| 10 | **whole-track overview** | LIVE | The whole track as a waveform under each deck's readouts, with hot cue flags. A click or drag jumps to the bar under the pointer: a playing deck keeps its place in the bar (in phase), a paused deck lands on the nearest bar line. A running loop moves along. Without a grid it seeks to the exact spot. | — | `src/renderer/console/Band.tsx` |
-| 11 | **REMAIN · BPM · TEMPO readouts** | LIVE | Each deck's card under the screen: letter, track name (opens the library), REMAIN · BPM · TEMPO and the + load key. | — | `src/renderer/ui/Console.tsx` |
+| 10 | **whole-track overview** | LIVE | The whole track as a waveform under each deck's readouts, with numbered colour badges for hot cues. A click or drag jumps to the bar under the pointer: a playing deck keeps its place in the bar (in phase), a paused deck lands on the nearest bar line. A running loop moves along. Without a grid it seeks to the exact spot. | — | `src/renderer/console/Band.tsx` |
+| 11 | **TIME · REMAIN · TEMPO · KEY · BPM** | LIVE | Each deck's card under the screen. TIME stacks elapsed time above the track length. REMAIN and TEMPO have their own columns beside KEY and the played BPM. Tap the cover to load. | — | `native/Sources/DexConsole/TrackWindows.swift` |
 | 12 | **SPLIT CUE / 4-CH CUE** | LIVE | Header button. Switches headphone routing: split puts the master in the left ear and the cue bus in the right; 4-channel sends the cue bus to outputs 3/4 of an Aggregate Device. | — | `src/renderer/audio/routing.ts` |
 | 13 | **48.0 kHz** | LIVE | Sample rate of the running AudioContext. Appears once the engine has started. | — | `src/renderer/App.tsx` |
 | 14 | **ANALYSING · IMPORTING status pill** | LIVE | The header's progress pill while the library works: a spinner, ANALYSING 3 / 12 or IMPORTING or FINDING KEYS 3 / 4, the track it is on, and a hairline that fills as it works through the list. It is absent when nothing is running. | — | `native/Sources/DexConsole/Head.swift` |
@@ -48,7 +48,7 @@ The library / tap / help cluster, the LED screen, and the output flank.
 | 17 | **BEAT FX row** | PLANNED | AUTO, TAP, REVERB, ECHO, FLANGER from the XDJ-RR. Nothing implemented: Dex has no effects beyond the three EQ bands and the sweep filter, and no FX send bus. | — | `src/renderer/audio/eq.ts` |
 | 18 | **BROWSE** | PLANNED | rekordbox-style on-device browser. Dex has no in-deck browse; the library sheet with its A / B load buttons is the equivalent. | — | — |
 | 19 | **MENU** | PLANNED | Hardware utility menu (output routing, MIDI, preferences). Dex exposes the output mode as a single top-bar toggle and has no menu. | — | — |
-| 91 | **VOLUME** | LIVE | Header button: a popover with the MASTER volume and CUE MIX faders. | — | `src/renderer/App.tsx` |
+| 92 | **VOLUME** | LIVE | Header button: a popover with the MASTER volume and CUE MIX faders. | — | `src/renderer/App.tsx` |
 
 ## Deck bay
 
@@ -59,7 +59,7 @@ One per side; everything here is mirrored on deck A and deck B.
 | 20 | **+ (load a track)** | LIVE | The + on each deck card. Opens a file picker and adds the chosen files to the library, loading the last one onto this deck. Dropping files on a deck does the same. | — | `src/renderer/ui/Console.tsx` |
 | 21 | **☰ (library)** | LIVE | Opens the library sheet over the mixer, without changing the loaded track. | — | `src/renderer/ui/DeckPanel.tsx` |
 | 22 | **deck letter (focus)** | LIVE | The deck letter on each info card. Tapping anywhere on a deck makes it the focused deck, and the keyboard shortcuts follow the focus: Space, M, L, [ and ] act on it. | — | `src/renderer/ui/DeckPanel.tsx` |
-| 23 | **platter** | LIVE | Drag around the record to scrub precisely: 90° moves half a beat, one full turn moves two beats. Clockwise moves forward; counterclockwise moves back. Sensitivity follows BPM and stays the same across track lengths and window sizes. The centre ignores small pointer movements. Manual platter movement retains fractional beats while SYNC is armed. The fixed radial marks in the center have a two-mark gap that follows playback, CUE and jog position, and freezes when paused. | — | `src/renderer/console/Chassis.tsx` |
+| 23 | **platter** | LIVE | Drag from the exposed record to scrub precisely: 90° moves half a beat, one full turn moves two beats. Touch reveals the tucked rim while the turn is held; the faders stay reachable. Clockwise moves forward; counterclockwise moves back. Sensitivity follows BPM and stays the same across track lengths and window sizes. The centre ignores small pointer movements. Manual platter movement retains fractional beats while SYNC is armed. The gap in the centre lights follows playback, CUE and jog position and freezes when paused. | — | `src/renderer/console/Chassis.tsx` |
 | 24 | **CUE (on the platter)** | LIVE | Pre-listens this deck on the cue bus without touching the master output. It is a toggle, not a momentary button, and it is the same state as the channel CUE in the centre mixer. | `M` | `src/renderer/ui/Platter.tsx` |
 | 25 | **EQ / PLATTER** | LIVE | Swaps the deck face between the spinning platter and the four tall tone faders. In the app the EQ key lives in the centre hub; the mockup moves it onto the face next to the control it switches. | — | `src/renderer/App.tsx` |
 | 26 | **tag row** | LIVE | On each deck card, beside the overview: Camelot key, grid confidence, master or sync, vinyl and active loop length. All derived from the engine snapshot and the library. | — | `src/renderer/ui/Console.tsx` |
@@ -71,12 +71,12 @@ The EQ overlay that replaces the platter, plus the tempo fader.
 
 | # | Control | Status | What it does in Dex | Key | Source |
 | --- | --- | --- | --- | --- | --- |
-| 28 | **FILTER** | LIVE | Sweep filter as a horizontal bipolar slider above each channel: left low-pass, right high-pass, centre off; the label reads LP / HP and the cutoff. Same curve as src/shared/curves.ts. Double-tap centres it. | — | `src/renderer/ui/Mixer.tsx` |
-| 29 | **LOW** | LIVE | LOW cut fader beside the other deck's LOW, so a bass swap is two neighbouring faders. Isolator band below 220 Hz (Linkwitz-Riley 24 dB/oct, src/shared/isolator.ts). Top of the travel is flat (0 dB); the travel only cuts: −3 dB at 80%, −6 at 60%, −12 at 40%, −24 at 20%, −∞ at the foot. Relative drag (no jump), double-tap returns to 0 dB, drag sideways off the fader for ¼ then ⅒ speed (the readout says FINE). | — | `src/renderer/ui/Mixer.tsx` |
+| 28 | **FILTER** | LIVE | Opens the channel's bipolar sweep slider: left low-pass, right high-pass, centre off. The FILTER button shows OFF or the active cutoff. Reset or double-tap the slider to centre it. | — | `src/renderer/ui/Mixer.tsx` |
+| 29 | **LOW** | LIVE | LOW cut fader on the inside of each channel next to the meter strip. Isolator band below 220 Hz (Linkwitz-Riley 24 dB/oct, src/shared/isolator.ts). Top of the travel is flat (0 dB); the travel only cuts: −3 dB at 80%, −6 at 60%, −12 at 40%, −24 at 20%, −∞ at the foot. Relative drag (no jump), double-tap returns to 0 dB, drag sideways off the fader for ¼ then ⅒ speed (the readout says FINE). | — | `src/renderer/ui/Mixer.tsx` |
 | 30 | **MID** | LIVE | MID cut fader: isolator band 220 Hz – 3.5 kHz. Top of the travel is flat (0 dB); the travel only cuts: −3 dB at 80%, −6 at 60%, −12 at 40%, −24 at 20%, −∞ at the foot. Relative drag (no jump), double-tap returns to 0 dB, drag sideways off the fader for ¼ then ⅒ speed (the readout says FINE). | — | `src/renderer/ui/Mixer.tsx` |
 | 31 | **HIGH** | LIVE | HI cut fader: isolator band above 3.5 kHz. Top of the travel is flat (0 dB); the travel only cuts: −3 dB at 80%, −6 at 60%, −12 at 40%, −24 at 20%, −∞ at the foot. Relative drag (no jump), double-tap returns to 0 dB, drag sideways off the fader for ¼ then ⅒ speed (the readout says FINE). | — | `src/renderer/ui/Mixer.tsx` |
 | 32 | **TEMPO** | LIVE | On the outer edge of each deck. Tempo ±16%; down is faster, as on a CDJ. Pitch is preserved while KEY is on; turn KEY off for vinyl behaviour. Double-tap resets to 0%. No readout under the fader: the tempo shows in the track window. | — | `src/renderer/ui/Console.tsx` |
-| 94 | **KILL (HI / MID / LOW)** | LIVE | Under each band fader. Tap latches the kill; press and hold kills only while held (momentary). The fader keeps its position, so un-killing returns to the exact level. A real mute (band gain 0) in the isolator. | — | `src/renderer/ui/Mixer.tsx` |
+| 95 | **KILL (HI / MID / LOW)** | LIVE | Under each band fader. Tap latches the kill; press and hold kills only while held (momentary). The fader keeps its position, so un-killing returns to the exact level. A real mute (band gain 0) in the isolator. | — | `src/renderer/ui/Mixer.tsx` |
 
 ## Pads and loops
 
@@ -89,7 +89,7 @@ Grid-quantised loops and the momentary roll.
 | 35 | **›** | LIVE | Loop stepper: double the size. A running loop follows straight away. | — | `src/renderer/ui/LoopStepper.tsx` |
 | 36 | **EXIT** | LIVE | Leaves the loop on its end boundary rather than wherever the finger lands, so the mix stays on the grid. | `L` | `src/renderer/ui/DeckPanel.tsx` |
 | 61 | **hot cues ×8** | LIVE | A 4 × 2 bank under the platter, as on Traktor, with a HOT CUES label and DELETE. An empty pad has a blue outline; a set pad is solid blue and shows its time. An empty pad captures the playhead, a set pad jumps to it; DELETE turns set pads into erasers until it is pressed again or nothing is left. Saved per track. | — | `src/renderer/ui/HotCuePanel.tsx` |
-| 90 | **LOOP / HOT CUE bank** | PLANNED | Two tabs over each deck's pads that swap the bank: LOOP shows the loop lengths, ½×, 2×, EXIT and ROLL; HOT CUE shows the four hot cues. Dex shows loop and hot cue pads side by side today. | — | `src/renderer/ui/DeckPanel.tsx` |
+| 91 | **LOOP / HOT CUE bank** | PLANNED | Two tabs over each deck's pads that swap the bank: LOOP shows the loop lengths, ½×, 2×, EXIT and ROLL; HOT CUE shows the four hot cues. Dex shows loop and hot cue pads side by side today. | — | `src/renderer/ui/DeckPanel.tsx` |
 
 ## Transport
 
@@ -147,20 +147,21 @@ Drawn for the layout study because the hardware has it. Dashed in the mockup, no
 
 ## Centre mixer
 
-Four meters A · L · R · B, per-channel cue, crossfader. Gain order runs TRIM, channel meters, LEVEL, master meters; the sequence and its targets are in GAIN-STAGING-RESEARCH.
+Channel A and B meters flank the stereo master, with printed scales between them. MASTER LEVEL sits above the meters; each deck has a FILTER popover, channel cue, and faders.
 
 | # | Control | Status | What it does in Dex | Key | Source |
 | --- | --- | --- | --- | --- | --- |
 | 70 | **LEVEL fader** | LIVE | Channel LEVEL, the outermost fader of each channel, on the same law as the bands with 0 dB at the top. Relative drag, double-tap resets. Its index line carries the deck colour. | — | `src/renderer/ui/Mixer.tsx` |
 | 72 | **master BPM** | LIVE | The master deck's detected BPM and track name. Master is whichever deck the MASTER key is on; the dot takes that deck's accent colour. | — | `src/renderer/App.tsx` |
-| 73 | **master meters L · R** | LIVE | The middle two of the four meters in the centre strip: the master's left and right peaks after VOLUME and before the limiter, on the same −30 to +6 dBFS scale as A and B. Red starts at 0 dBFS, where the limiter is working, so two hot decks fully open go into the red. The engine keeps each side's highest sample until the meters read it, so no peak is missed. The bar rises at once and falls 20 dB a second; the top segment holds for 2 s. With both decks open and LEVEL up, aim about −3 dBFS; two hot decks fully open reaching red is the overload this scale exists to show. | — | `native/Sources/CDexEngine/DexEngine.cpp` |
-| 74 | **channel meters A · B** | LIVE | The outer two of the four meters in the centre strip: each deck's peak after TRIM, EQ and FILTER, before LEVEL and the crossfader, as on a Pioneer mixer, on the master's −30 to +6 dBFS scale. Set TRIM by it whatever the faders are doing, even with LEVEL down; the master meters show what actually goes in. Same fall and hold as the master meters. At unity LEVEL a loud track trimmed to the −6 dBFS aim peaks about here. | — | `native/Sources/CDexEngine/DexEngine.cpp` |
-| 75 | **channel CUE** | LIVE | CUE under each channel's LEVEL fader: pre-listen that deck in the headphones (M). In the library's deck panel the same switch is the headphone key beside PLAY · CUE. | — | `src/renderer/ui/Mixer.tsx` |
-| 76 | **channel EQ** | LIVE | Opens that deck's tone overlay on its own deck face. The hub's A / B EQ keys do the same thing; the mockup draws both. | — | `src/renderer/App.tsx` |
-| 77 | **crossfader** | LIVE | Crossfader at the foot of the mixer. Each deck stays fully open until the centre and fades only across the far half, as a club mixer's cut curve: centred, LEVEL alone sets the mix. Relative drag, double-tap centres it. | — | `native/Sources/DexCore/Transport.swift` |
-| 95 | **TRIM** | LIVE | Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO: a track loads at the trim that brings its main groove to −10 LUFS (ITU BS.1770 loudness, measured at import; older tracks are measured in the background, at most a minute per launch), and the chip lights green and reads AUTO. Moving it remembers that trim for the track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO and forgets it. Gain stage: with LEVEL down, set it so the channel meter peaks about −6 dBFS; AUTO's −10 LUFS target still leaves a loud track nearer −1 dBFS, and −16 was measured as the highest target that keeps every deck under −6 (see GAIN-STAGING-RESEARCH). | — | `native/Sources/DexCore/Loudness.swift` |
-| 96 | **LINK LOWS** | LIVE | Couples the two LOW faders: drag either one and the other moves the same distance the opposite way. The bass swap in one gesture; unlink to ride them separately. | — | `src/renderer/ui/Mixer.tsx` |
-| 97 | **band sheet** | PLANNED | Tap a band name above its fader: that band for BOTH decks on 300 pt horizontal sliders, with both kills (and LINK for LOW). For long, slow rides. Not in the app yet. | — | — |
+| 73 | **master meters L · R** | LIVE | The two middle bars: stereo peaks after MASTER LEVEL and before the limiter. A printed −30 to +6 dBFS scale sits on each side of the pair. The thin lines mark −3 dBFS. CLIP lights when either side's peak hold reaches 0 dBFS on the signal entering the limiter. | — | `native/Sources/CDexEngine/DexEngine.cpp` |
+| 74 | **channel meters A · B** | LIVE | The outer bars, CH A and CH B. Each deck's peak is read after TRIM, EQ and FILTER, before LEVEL and the crossfader. The thin line marks −6 dBFS for setting TRIM, even with LEVEL down. The scale is printed between each channel and its adjacent master bar. | — | `native/Sources/CDexEngine/DexEngine.cpp` |
+| 75 | **MASTER LEVEL** | LIVE | Shows master output level directly above the meter strip. Opens a popover with the same master fader available in the header's VOLUME popover. | — | `native/Sources/DexConsole/Chassis.swift` |
+| 76 | **channel CUE** | LIVE | CUE under each channel's LEVEL fader: pre-listen that deck in the headphones (M). In the library's deck panel the same switch is the headphone key beside PLAY · CUE. | — | `src/renderer/ui/Mixer.tsx` |
+| 77 | **channel EQ** | LIVE | Opens that deck's tone overlay on its own deck face. The hub's A / B EQ keys do the same thing; the mockup draws both. | — | `src/renderer/App.tsx` |
+| 78 | **crossfader** | LIVE | Crossfader at the foot of the mixer. Each deck stays fully open until the centre and fades only across the far half, as a club mixer's cut curve: centred, LEVEL alone sets the mix. Relative drag, double-tap centres it. | — | `native/Sources/DexCore/Transport.swift` |
+| 96 | **TRIM** | LIVE | Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO aims for −11 LUFS in the main groove on load (ITU BS.1770 loudness, measured at import; older tracks are measured in the background). The popover opens clear of the meters so the −6 dBFS channel guide stays visible. The DJ can trim a hot track by hand. Dex remembers that trim per track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO. | — | `native/Sources/DexCore/Loudness.swift` |
+| 97 | **LINK LOWS** | LIVE | Couples the two LOW faders: drag either one and the other moves the same distance the opposite way. The bass swap in one gesture; unlink to ride them separately. | — | `src/renderer/ui/Mixer.tsx` |
+| 98 | **band sheet** | PLANNED | Tap a band name above its fader: that band for BOTH decks on 300 pt horizontal sliders, with both kills (and LINK for LOW). For long, slow rides. Not in the app yet. | — | — |
 
 ## Bottom rail
 
@@ -168,8 +169,8 @@ Master level and cue mix, kept out of the mixer so they are always reachable.
 
 | # | Control | Status | What it does in Dex | Key | Source |
 | --- | --- | --- | --- | --- | --- |
-| 78 | **MASTER** | LIVE | In the VOLUME popover. Master output, 0 to 1.2, default 0.85. The master stage of the gain sequence: set it with both decks open until the master meters peak about −3 dBFS (see GAIN-STAGING-RESEARCH). | — | `src/renderer/App.tsx` |
-| 79 | **CUE MIX** | LIVE | In the VOLUME popover. Blends the headphones from the cued deck to the master. | — | `src/renderer/App.tsx` |
+| 79 | **MASTER** | LIVE | In the MASTER LEVEL and VOLUME popovers. Sets master output from mute to unity; the mixer's MASTER LEVEL button shows the same value. The −3 dBFS line on the master meters is a guide for mixing. | — | `native/Sources/DexConsole/Pops.swift` |
+| 80 | **CUE MIX** | LIVE | In the VOLUME popover. Blends the headphones from the cued deck to the master. | — | `src/renderer/App.tsx` |
 
 ## Library sheet
 
@@ -177,20 +178,20 @@ The crate. A full-width sheet over both decks.
 
 | # | Control | Status | What it does in Dex | Key | Source |
 | --- | --- | --- | --- | --- | --- |
-| 80 | **search** | LIVE | Filters the list as you type, case-insensitive, across title, key name, Camelot code and BPM. Typing a Camelot code such as 4A matches that key exactly. It takes focus when the sheet opens and the header shows how many tracks match. | — | `src/renderer/ui/LibrarySheet.tsx` |
-| 81 | **Add files** | LIVE | Adds audio files to the library and loads the last one onto the last focused deck. mp3, flac, wav, aiff, aif, m4a, aac, ogg and opus are accepted; BPM, offset and waveform peaks are analysed on ingest. | — | `src/renderer/state/library.ts` |
-| 82 | **Add folder** | LIVE | Scans a folder recursively, up to 3000 files, sorted by path, and analyses each one in a worker off the UI thread. | — | `src/renderer/state/library.ts` |
-| 83 | **Track details (⋯)** | LIVE | At the end of each row: opens the track's details (artists, album, genre, BPM, key, length and release date where available), its playlists to switch on and off, re-analyse and remove. | — | `native/Sources/DexConsole/Library.swift` |
-| 84 | **Find keys** | LIVE | Shown when tracks have no key yet, with how many. Reads only the key of each, one at a time, so grids and hot cues edited by hand stay. FINDING KEYS shows progress in the header. | — | `native/Sources/DexAudio/NativeLibrary.swift` |
-| 85 | **Close** | LIVE | Closes the library and returns to the mixer. Esc does the same. | — | `native/Sources/DexConsole/Library.swift` |
-| 86 | **BPM value** | LIVE | The detected BPM. It is underlined in the mockup, which makes it look tappable — in the app it is plain text, and corrections happen in the GRID sheet. | — | `src/renderer/ui/LibrarySheet.tsx` |
-| 87 | **grid confidence** | LIVE | How much the detector trusts the beat grid, colour-coded. Low confidence is the cue to open GRID and nudge. | — | `src/renderer/ui/LibrarySheet.tsx` |
-| 88 | **Re-analyse (in track details)** | LIVE | In track details, asks twice: runs the whole analysis again. The grid, its other readings and the key are replaced, hand-edited grids included; hot cues stay. | — | `native/Sources/DexAudio/NativeLibrary.swift` |
-| 89 | **Remove from library (in track details)** | LIVE | In track details, red, asks twice: deletes the library's copy and cover and takes the track out of every playlist. The original file stays. Refused while a deck holds the track. | — | `native/Sources/DexAudio/NativeLibrary.swift` |
-| 92 | **Camelot key** | LIVE | Camelot code (8A, 4B…) in the wheel's colour: minor keys on the pastel A ring, major on the saturated B ring. Keys are detected on import ("Find keys" backfills older tracks). Tap one to filter the list to that key plus its harmonic matches (±1 on the wheel and the relative major / minor), or switch the filter bar to that key only. Also on each deck card and in the deck panel. | — | `src/renderer/ui/CamelotBadge.tsx` |
-| 93 | **column sort** | LIVE | Tap a column header — track, key, BPM, time or grid — to sort by it; tap again to reverse. Key sorts round the Camelot wheel (1A, 1B, 2A…), so harmonic neighbours sit together. Unsorted, the library runs by name and a playlist in its own order. | — | `src/renderer/ui/LibrarySheet.tsx` |
-| 98 | **playlist column** | LIVE | Left of the list: All tracks, then each playlist with its count. + makes one, double-click renames, ✕ then Delete? removes it (tracks stay in the library). Drag rows onto a playlist to add them. | — | `src/renderer/ui/LibrarySheet.tsx` |
-| 99 | **Playlists (in track details)** | LIVE | In track details, click a playlist to add or take out the track. Create playlists with + in the library sidebar. | — | `native/Sources/DexConsole/Library.swift` |
+| 81 | **search** | LIVE | Filters the list as you type, case-insensitive, across title, key name, Camelot code and BPM. Typing a Camelot code such as 4A matches that key exactly. It takes focus when the sheet opens and the header shows how many tracks match. | — | `src/renderer/ui/LibrarySheet.tsx` |
+| 82 | **Add files** | LIVE | Adds audio files to the library and loads the last one onto the last focused deck. mp3, flac, wav, aiff, aif, m4a, aac, ogg and opus are accepted; BPM, offset and waveform peaks are analysed on ingest. | — | `src/renderer/state/library.ts` |
+| 83 | **Add folder** | LIVE | Scans a folder recursively, up to 3000 files, sorted by path, and analyses each one in a worker off the UI thread. | — | `src/renderer/state/library.ts` |
+| 84 | **Track details (⋯)** | LIVE | At the end of each row: opens the track's details (artists, album, genre, BPM, key, length and release date where available), its playlists to switch on and off, re-analyse and remove. | — | `native/Sources/DexConsole/Library.swift` |
+| 85 | **Find keys** | LIVE | Shown when tracks have no key yet, with how many. Reads only the key of each, one at a time, so grids and hot cues edited by hand stay. FINDING KEYS shows progress in the header. | — | `native/Sources/DexAudio/NativeLibrary.swift` |
+| 86 | **Close** | LIVE | Closes the library and returns to the mixer. Esc does the same. | — | `native/Sources/DexConsole/Library.swift` |
+| 87 | **BPM value** | LIVE | The detected BPM. It is underlined in the mockup, which makes it look tappable — in the app it is plain text, and corrections happen in the GRID sheet. | — | `src/renderer/ui/LibrarySheet.tsx` |
+| 88 | **grid confidence** | LIVE | How much the detector trusts the beat grid, colour-coded. Low confidence is the cue to open GRID and nudge. | — | `src/renderer/ui/LibrarySheet.tsx` |
+| 89 | **Re-analyse (in track details)** | LIVE | In track details, asks twice: runs the whole analysis again. The grid, its other readings and the key are replaced, hand-edited grids included; hot cues stay. | — | `native/Sources/DexAudio/NativeLibrary.swift` |
+| 90 | **Remove from library (in track details)** | LIVE | In track details, red, asks twice: deletes the library's copy and cover and takes the track out of every playlist. The original file stays. Refused while a deck holds the track. | — | `native/Sources/DexAudio/NativeLibrary.swift` |
+| 93 | **Camelot key** | LIVE | Camelot code (8A, 4B…) in the wheel's colour: minor keys on the pastel A ring, major on the saturated B ring. Keys are detected on import ("Find keys" backfills older tracks). Tap one to filter the list to that key plus its harmonic matches (±1 on the wheel and the relative major / minor), or switch the filter bar to that key only. Also on each deck card and in the deck panel. | — | `src/renderer/ui/CamelotBadge.tsx` |
+| 94 | **column sort** | LIVE | Tap a column header — track, key, BPM, time or grid — to sort by it; tap again to reverse. Key sorts round the Camelot wheel (1A, 1B, 2A…), so harmonic neighbours sit together. Unsorted, the library runs by name and a playlist in its own order. | — | `src/renderer/ui/LibrarySheet.tsx` |
+| 99 | **playlist column** | LIVE | Left of the list: All tracks, then each playlist with its count. + makes one, double-click renames, ✕ then Delete? removes it (tracks stay in the library). Drag rows onto a playlist to add them. | — | `src/renderer/ui/LibrarySheet.tsx` |
+| 100 | **Playlists (in track details)** | LIVE | In track details, click a playlist to add or take out the track. Create playlists with + in the library sidebar. | — | `native/Sources/DexConsole/Library.swift` |
 
 ## Shortcuts on the drawn controls
 

@@ -9,7 +9,11 @@ linked at the end. Section 6 is measured, on all 52 bench tracks, on 9 November 
 anything else marked as arithmetic is worked from the bench numbers in
 [HANDOFF](../HANDOFF.md).
 
-This doc changed no code. [HANDOFF](../HANDOFF.md) records the measured result and links back here.
+**Implementation decision:** Dex uses **−11 LUFS for the main groove**, with manual TRIM
+for unusually hot tracks. A printed dBFS scale sits between each outer channel
+bar and the central stereo master, with a reference line at −6 on each channel
+and −3 on each master side. TRIM and MASTER LEVEL open above the mixer. The bench
+below retains the original −10 LUFS baseline and the worst-case headroom comparison.
 
 The problem it solves: the video teaches a six-step ritual on physical gear, with an
 average-reading LED meter. Dex has peak meters in dBFS, no amplifier stage and no cue
@@ -164,7 +168,7 @@ chat summary of this research had the correlated-pair column wrong: it read -6 d
 deck becoming -3 dBFS in the master, but two correlated decks add +6, so it is 0 dBFS.
 The measurement below is the corrected and confirmed version.
 
-Dex today: four meters, **peaks, -30 to +6 dBFS**, falling 20 dB a second with a 2 s held
+Dex at the bench baseline: four meters, **peaks, -30 to +6 dBFS**, falling 20 dB a second with a 2 s held
 segment, red **from 0 dBFS**, limiter ceiling **0.99**. A and B are each deck after TRIM,
 EQ and FILTER and before LEVEL; L and R are the master after VOLUME and before the
 limiter. LEVEL's top is 0 dB on the same law as the bands. TRIM is +/-12 dB. AUTO brings
@@ -182,25 +186,24 @@ deck's peak by 1 dB, so the two move in lockstep:
 
 | AUTO target | Trim applied | Worst deck peak | Median deck peak | Two worst decks, correlated | Two worst decks, uncorrelated | Decks over -6 dBFS | Verdict |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| -10 LUFS (today) | -0.7 to -5.0 | -0.7 | -3.2 | **+5.3**, limiter hard | +2.3 | 52 of 52 | No headroom anywhere |
+| -10 LUFS (baseline) | -0.7 to -5.0 | -0.7 | -3.2 | **+5.3**, limiter hard | +2.3 | 52 of 52 | No headroom anywhere |
 | -12 | -2.7 to -7.0 | -2.7 | -5.2 | +3.3 | +0.3 | 44 | Still over |
 | -14 | -4.7 to -9.0 | -4.7 | -7.2 | +1.3 | -1.7 | 11 | Limiter catches the worst case |
 | **-16** | **-6.7 to -11.0** | **-6.7** | **-9.2** | **-0.7** | **-3.7** | **0** | **Worst case under full scale** |
 | -18 | -8.7 to -12.0, clamped | -8.7 | -11.2 | -2.7 | -5.7 | 0 | Trim range ran out on the loudest track |
 
-**Recommendation: AUTO at -16 LUFS.** Measured, it is the highest target at which no deck
+**Bench result for worst-case headroom: AUTO at -16 LUFS.** Measured, it is the highest target at which no deck
 exceeds -6 dBFS, and even the library's worst pair, correlated, stays under full scale at
 -0.7 dBFS: 0.6 dB below the limiter's ceiling of 0.99, which is -0.09 dBFS. It puts a
 median deck's peaks at -9.2 dBFS, which is the "peaks in the yellow" position of the
-video's method once the meter has a reference, and it costs 6 dB against today rather
+video's method once the meter has a reference, and it costs 6 dB against the baseline rather
 than the 12 dB a strict analogue reading would. It also sits on the safe side of the
 user's proposal of -12 to -14, and it is the lowest target the +/-12 dB trim range covers
 with a dB to spare: the loudest track needs -11.0 dB at -16 and clamps at -18.
 
-The correlated case reaching the ceiling is inherent, not a flaw: the analogue convention
-expects it too, which is why +6 dB peaks and clip 12 dB above the 0 mark coexist on the
-same meter. The limiter is the backstop for that case. What is not acceptable is the
-limiter working on a single deck, which is today's state.
+The limiter is a backstop for peaks from unusually hot tracks or blends. On this bench,
+a single deck at the -10 baseline comes close to the limiter at unity; an aligned pair
+can go well over it.
 
 Three things to keep in view. After trim the loudness spread disappears by construction,
 so the residual is peak spread, 4.3 dB across the library (-11.0 to -6.7), from crest
@@ -266,7 +269,7 @@ here: loudness matching equalises the average, clipping is a peak event, so a tr
 a wide crest factor can be matched in loudness and still clip. Traktor and Serato both
 tell you to check the loudest section on the meters afterwards.
 
-Dex's AUTO is loudness-based at -10 LUFS, the same family as rekordbox's observed
+Dex's AUTO is loudness-based at -11 LUFS, the same family as rekordbox's observed
 behaviour, and more conservative than either: it only attenuates on this bench, and a
 hand-set trim is remembered per track. The lesson to keep is the one the bench already
 shows. Loudness matching does not bound peaks, so the target must be chosen for peak
@@ -310,7 +313,7 @@ the video's step 2 and Pioneer's arrangement; LEVEL's top is 0 dB, so step 4 is 
 construction; L and R meter after VOLUME and before the limiter, so the master shows what
 actually goes in. The isolator being cut-only means no EQ-induced headroom loss.
 
-**The decision that changes everything else: the meter reference.** Because the four
+**Meter reference options considered.** Because the four
 meters are peak dBFS with red at 0, the video's vocabulary (top green, yellow, red) has
 no fixed meaning. There are two ways to fix it, and the numbers are identical; only the
 label differs.
@@ -323,19 +326,18 @@ label differs.
   ceiling at +12, which is 0 dBFS. The video's sentences then become literally true, and
   every number stays where it already is.
 
-The second is more work and far easier to explain to the user, whose mental model is the
-video's. It also turns the current red-from-0 rule into a clip indicator at the top of
-the red zone rather than its start.
+Dex kept dBFS and red from 0 dBFS. The channel and master lines mark -6 and -3 dBFS
+respectively as guides for manual adjustment.
 
 **Controls the sequence needs, and where they stand.**
 
 | Step | Control | State in Dex |
 | --- | --- | --- |
 | 1 | Everything down | No such state. A calibration flow would have to save and restore the mix |
-| 2 | Per-deck trim to target | TRIM +/-12 dB, LIVE, AUTO at -10 LUFS. Needs the target moved (section 6) and a meter reference to aim at |
-| 3 | Peak check, no red | Meters exist. Needs the zones, and a held peak to read |
+| 2 | Per-deck trim to target | TRIM +/-12 dB, LIVE, AUTO at -11 LUFS. The channel line marks -6 dBFS as a guide for manual trim |
+| 3 | Peak check, no red | Segmented meters with a 2 s peak hold; red starts at 0 dBFS |
 | 4 | Faders to unity | Already true: LEVEL's top is 0 dB |
-| 5 | Master to target | MASTER in the VOLUME popover, 0-1.2, default 0.85. Needs a dB reading or a target mark to be settable this way |
+| 5 | Master to target | MASTER LEVEL above the meters opens the master fader, also available in VOLUME. The L/R lines mark -3 dBFS as a guide |
 | 6 | Amp or speaker level | **Does not exist.** See below |
 
 **Stage 6 has no home in the app, and on iPad it cannot have one.** Dex has no amplifier
@@ -393,17 +395,10 @@ hard-coded.
 
 ## 12. Open questions for the user
 
-1. **The peak target and AUTO level.** Measured at -16: no deck above -6 dBFS, and the
-   worst correlated pair at -0.7 dBFS, 0.6 dB under the limiter (section 6). The user
-   proposed -12 to -14; -14 leaves 11 of 52 decks above -6 and 1.3 dB of overshoot, -12
-   leaves 44. The app stays at -10 until the user chooses by ear.
-2. **The meter reference.** Keep dBFS and label the zones, or re-reference 0 dB to -12
-   dBFS so the video's language applies. The second changes every meter's appearance and
-   changes what red means.
-3. **Whether a calibration flow is wanted at all**, or only correct defaults plus the
+1. **Whether a calibration flow is wanted at all**, or only correct defaults plus the
    help topic. The flow is much more work than a set of defaults.
-4. **Cue level** (#71) as its own control, and whether it defaults muted or low.
-5. **Whether an in-app reference tone is acceptable**, which a real stage-6 procedure
+2. **Cue level** (#71) as its own control, and whether it defaults muted or low.
+3. **Whether an in-app reference tone is acceptable**, which a real stage-6 procedure
    needs and which is new audio work.
 
 ## Sources
