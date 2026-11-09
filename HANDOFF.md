@@ -140,14 +140,14 @@ The user asked for this on 7 November. State:
   - App: `ConsoleModel.updateMeters` reads about 60 times a second while anything shows, ten when all is silent, into
     `ConsoleClock.meter`, so only the strip redraws. The old 15 Hz master RMS read is gone (`NativeMixer.meterDb` stays
     for its test). The old meter only ever filled 72% of its height (a stale CSS rule, copied into the port); both gone.
-  - **Zones at the aim points and a clip cap, 9 November.** The bars' colours now end at fixed figures (`MeterZones`, the
-    same ones the control map's aim points name): green to −6 dBFS, amber to −3, orange to 0, red above, hard boundaries
-    rather than a ramp. A meter whose 2 s hold reaches 0 dBFS takes a 3 pt red cap and a red border, and its spoken value
-    gains ", clipping". The mockup draws the same rules from the same figures, `paintMeters` toggling `clipping` on
-    `hold >= 0`. No demo state reaches 0 dBFS, so the snapshot tool takes `--clip 1`, which sets deck A's meter to the
-    clip level on the render only. The 3 pt cap sits on the top of the lit column rather than the top of the well, so it
-    marks how far the bar has reached; checked 9 November with that flag, and L and R keep their white held segments and
-    no cap. The mockup draws it in the same place, from the bar's own height (`--h` on the meter, not only its inner bar).
+  - **Rungs copied from a reference mixer, 9 November.** The bars are eleven blocks, taken from a reference meter's
+    labelled steps (15 … −24) shifted 12 dB down so red still begins at 0 dBFS: green from the floor at −30, −27, −21,
+    −18, −15, −12; amber −9, −6, −3, 0; red 3 and 6. Five green, four amber, two red, each block as tall as its span
+    (3 dB, with one 6 dB step, and the reference's last 9 dB step clamped at −30). A rung lights when the level reaches
+    its foot, so the bar now reads in 3 dB steps; the 2 s hold lights its own rung white. A meter whose hold reaches
+    0 dBFS takes the 3 pt red cap on top of the lit column and a red border, and its spoken value gains ", clipping".
+    The mockup draws the same ladder from the same figures (`Meter.ladder`, `paintMeters`). The snapshot tool's
+    `--clip 1` renders the cap, which no demo state reaches. Checked 9 November in both surfaces.
   - Without demo audio, the mockup and snapshot states show still levels (A playing alone, B cued and silent); an empty or
     loading deck shows a silent meter and TRIM 0.0. `diff:native` is within budget on all 42 screens, budgets unchanged.
   - Not yet seen or heard on a device.

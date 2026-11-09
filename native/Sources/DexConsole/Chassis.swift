@@ -851,9 +851,8 @@ private struct DotFace: View {
     }
 }
 
-/// `.meter-v`: one of the four meters, lit in 6 pt segments (4 lit, 2 dark)
-/// from the foot, with the held segment above. The gradient's stops are the zone
-/// boundaries in `MeterZones`: green to −6, amber to −3, orange to 0, red above.
+/// `.meter-v`: one of the four meters, lit in eleven rungs from the foot
+/// (`MeterLadder`): five green, four amber, two red, with the held rung above.
 struct MeterBar: View {
     let id: String
     let level: Double
@@ -865,38 +864,22 @@ struct MeterBar: View {
     var body: some View {
         GeometryReader { geometry in
             let inner = CGSize(width: geometry.size.width - 2, height: geometry.size.height - 2)
-            // Whole segments only (`paintMeters`).
-            let lit = { (value: Double) in Int((Meters.percent(value) / 100 * inner.height / 6).rounded(.down)) }
-            let segments = lit(level), held = lit(hold)
+            // The rung a value has reached, counting from the foot (`paintMeters`).
+            let lit = MeterLadder.rung(for: level), held = MeterLadder.rung(for: hold)
             ZStack(alignment: .topLeading) {
                 Canvas { context, size in
-                    let top = size.height - CGFloat(segments) * 6
-                    var stripes = Path()
-                    var y = size.height
-                    while y > top {
-                        stripes.addRect(CGRect(x: 0, y: max(top, y - 4), width: size.width, height: min(4, y - top)))
-                        y -= 6
+                    for rung in MeterLadder.rungs.indices where rung <= lit {
+                        context.fill(Path(MeterLadder.rungs[rung].bar(in: size.width, height: size.height)),
+                                     with: .color(Color(hex: MeterLadder.rungs[rung].ink)))
                     }
-                    var visible = context
-                    visible.clip(to: stripes)
-                    let green = Meters.percent(MeterZones.deckAim) / 100
-                    let amber = Meters.percent(MeterZones.masterAim) / 100
-                    let red = Meters.percent(MeterZones.clip) / 100
-                    let stops: [Gradient.Stop] = [
-                        .init(color: Color(hex: 0x25A859), location: 0), .init(color: Color(hex: 0x25A859), location: green),
-                        .init(color: Color(hex: 0xD8A029), location: green), .init(color: Color(hex: 0xD8A029), location: amber),
-                        .init(color: Color(hex: 0xD9662A), location: amber), .init(color: Color(hex: 0xD9662A), location: red),
-                        .init(color: Color(hex: 0xD03A2C), location: red)]
-                    visible.fill(Path(CGRect(origin: .zero, size: size)), with: .linearGradient(
-                        Gradient(stops: stops), startPoint: CGPoint(x: 0, y: size.height), endPoint: .zero))
-                    if held > segments {
-                        context.fill(Path(CGRect(x: 0, y: size.height - CGFloat(held - 1) * 6 - 4, width: size.width, height: 4)),
+                    if held > lit {
+                        context.fill(Path(MeterLadder.rungs[held].bar(in: size.width, height: size.height)),
                                      with: .color(Color(hex: 0xD6D6DB)))
                     }
                     if clipped {
                         // The cap marks the top of the lit column, not the top of the well.
-                        let capTop = min(size.height - CGFloat(segments) * 6, size.height - 3)
-                        context.fill(Path(CGRect(x: 0, y: capTop, width: size.width, height: 3)),
+                        let top = lit >= 0 ? size.height * (1 - Meters.percent(MeterLadder.rungs[lit].high) / 100) : size.height
+                        context.fill(Path(CGRect(x: 0, y: max(0, min(top, size.height - 3)), width: size.width, height: 3)),
                                      with: .color(Color(hex: 0xD03A2C)))
                     }
                 }

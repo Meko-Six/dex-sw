@@ -37,6 +37,36 @@ public enum MeterZones {
     public static let clip = 0.0
 }
 
+/// The ladder the bars draw: eleven rungs taken from the reference meter's labelled
+/// steps (15 … −24) shifted 12 dB down, so red still begins at 0 dBFS. Five green rungs
+/// at the foot, then four amber, then two red; the reference's last 9 dB step clamps at
+/// the floor of the scale.
+public enum MeterLadder {
+    /// The foot, then the top of each rung up to the ceiling: −30 … +6 dBFS.
+    public static let bounds: [Double] = [-30, -27, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6]
+    /// The first amber rung and the first red one, counting from the foot.
+    public static let amber = 5, red = 9
+
+    public struct Rung: Equatable, Sendable {
+        public let low, high: Double
+        public let ink: UInt32
+        /// The block as drawn: its span of the scale, with a point of air over and under.
+        func bar(in width: CGFloat, height: CGFloat) -> CGRect {
+            let top = height * (1 - Meters.percent(high) / 100)
+            let bottom = height * (1 - Meters.percent(low) / 100)
+            return CGRect(x: 0, y: top + 1, width: width, height: max(1, bottom - top - 2))
+        }
+    }
+
+    public static let rungs: [Rung] = (0..<(bounds.count - 1)).map { index in
+        Rung(low: bounds[index], high: bounds[index + 1],
+             ink: index >= red ? 0xD03A2C : index >= amber ? 0xD8A029 : 0x25A859)
+    }
+
+    /// The rung a value has reached, counting from the foot: −1 below the first.
+    public static func rung(for value: Double) -> Int { rungs.lastIndex { value >= $0.low } ?? -1 }
+}
+
 /// The meters' movement: up at once, down 20 dB a second, and the top
 /// segment held for 2 s (`meterLoop` in the mockup).
 public struct MeterBallistics: Sendable {

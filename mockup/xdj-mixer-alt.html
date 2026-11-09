@@ -1179,6 +1179,12 @@
       const METER = {
         cols: [['A', 575], ['L', 588], ['R', 598], ['B', 611]],
         w: 8,
+        /* The reference meter's labelled steps shifted 12 dB down, so red still starts at
+           0 dBFS: +3, 0, -3, -6, -9, -12, -15, -18, -21, -27 and the floor, which clamps
+           the reference's last 9 dB step at -30. Five green rungs at the foot, four amber,
+           two red (`MeterLadder` in the console). */
+        ladder: [-30, -27, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6],
+        amber: 5, red: 9,
         /* What the meters show without demo audio: A playing alone near the
            top, B cued and silent, the master A through VOLUME. */
         still: { A: -2.0, L: -3.8, R: -4.3, B: -90 },
@@ -1187,30 +1193,39 @@
       };
       const meterPct = (v) => Math.max(0, Math.min(100, ((v + 30) / 36) * 100));
       function meterHtml() {
+        /* One block per rung, placed by its span of the scale; unlit rungs stay dark. */
+        const rungs = METER.ladder.slice(0, -1).map((low, index) => {
+          const high = METER.ladder[index + 1];
+          const top = 100 - meterPct(high), height = meterPct(high) - meterPct(low);
+          const ink = index >= METER.red ? 'r' : index >= METER.amber ? 'a' : 'g';
+          return `<s class="rung ${ink}" style="top: calc(${top}% + 1px); height: calc(${height}% - 2px)"></s>`;
+        }).join('');
         return METER.cols.map(([id, x]) => `
             <span class="meter-name at" style="${at(x - 4, ROW.val[0], METER.w + 8, ROW.val[1])}">${id}</span>
             <div class="meter-v at" data-ctl="${id === 'A' || id === 'B' ? 'mixer.chmeter' : 'mixer.meter'}" data-meter="${id}"
-              style="${at(x, ROW.fader[0], METER.w, ROW.fader[1])}"><i></i><b class="hold"></b></div>`).join('');
+              style="${at(x, ROW.fader[0], METER.w, ROW.fader[1])}">${rungs}</div>`).join('');
       }
-      /* Bars and held segments, snapped to the 6 pt segment pitch. */
+      /* Rungs, lit when the level reaches their foot, and the held rung above them. */
       function paintMeters() {
         const live = AUDIO.ctx && AUDIO.ctx.state === 'running';
         for (const [id] of METER.cols) {
           const el = document.querySelector(`#chassis [data-meter="${id}"]`);
           if (!el) continue;
-          const inner = el.clientHeight || ROW.fader[1] - 2;
-          const lit = (v) => Math.floor((meterPct(v) / 100) * inner / 6);
+          /* The rung a value reaches, counting from the foot; unlit rungs stay dark. */
+          const rungOf = (v) => METER.ladder.slice(0, -1).reduce((found, low, i) => (v >= low ? i : found), -1);
           /* Without demo audio an empty deck's meter is silent, and the master's
              too when neither deck holds a track. */
           const quiet = id === 'A' || id === 'B' ? isEmpty(DECKS[id]) : isEmpty(DECKS.A) && isEmpty(DECKS.B);
           const level = live ? METER.level[id] ?? -90 : quiet ? -90 : METER.still[id];
           const hold = live ? METER.hold[id] ?? -90 : quiet ? -90 : METER.stillHold[id];
-          const segs = lit(level), held = lit(hold);
-          /* The bar's height is also the cap's place, so it goes on the meter too. */
-          const barHeight = (segs * 6 / inner * 100).toFixed(2) + '%';
-          el.style.setProperty('--h', barHeight);
-          el.querySelector('i').style.setProperty('--h', barHeight);
-          el.querySelector('.hold').style.setProperty('--hold', held > segs ? (held - 1) * 6 + 'px' : '-4px');
+          const lit = rungOf(level), held = rungOf(hold);
+          el.querySelectorAll('.rung').forEach((rung, index) => {
+            rung.classList.toggle('on', index <= lit);
+            rung.classList.toggle('held', index === held && held > lit);
+          });
+          /* The cap marks the top of the lit column. */
+          const cap = lit >= 0 ? 100 - meterPct(METER.ladder[lit + 1]) : 100;
+          el.style.setProperty('--cap', cap.toFixed(2) + '%');
           /* 0 dBFS within the 2 s hold: the same clip rule as MeterZones in the console. */
           el.classList.toggle('clipping', hold >= 0);
         }

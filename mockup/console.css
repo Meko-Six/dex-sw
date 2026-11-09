@@ -665,16 +665,16 @@ html, body {
    limiter, so red (over 0 dBFS) is the limiter at work. Segments are 4 pt lit,
    2 pt dark; the held segment stays lit for 2 s. */
 .meter-v { border-radius: 1px; background: #0a0a0b; border: 1px solid #26262a; overflow: hidden; }
-.meter-v i {
-  position: absolute; inset: 0;
-  background: linear-gradient(0deg, #25a859 0 66.67%, #d8a029 66.67% 75%, #d9662a 75% 83.33%, #d03a2c 83.33% 100%);
-  clip-path: inset(calc(100% - var(--h, 0%)) 0 0 0);
-  -webkit-mask-image: repeating-linear-gradient(0deg, #000 0 4px, transparent 4px 6px);
-  mask-image: repeating-linear-gradient(0deg, #000 0 4px, transparent 4px 6px);
-}
+/* Eleven rungs, the reference meter's labelled steps shifted 12 dB so red still starts
+   at 0 dBFS: five green at the foot, four amber, two red. Unlit rungs stay dark. */
+.meter-v .rung { position: absolute; left: 0; right: 0; display: none; }
+.meter-v .rung.on { display: block; }
+.meter-v .rung.g { background: #25a859; }
+.meter-v .rung.a { background: #d8a029; }
+.meter-v .rung.r { background: #d03a2c; }
+.meter-v .rung.held { display: block; background: #d6d6db; }
 .meter-v.clipping { border-color: #d03a2c; }
-.meter-v.clipping::after { content: ''; position: absolute; left: 0; right: 0; height: 3px; top: min(calc(100% - var(--h, 0%)), calc(100% - 3px)); background: #d03a2c; z-index: 2; }
-.meter-v .hold { position: absolute; left: 0; right: 0; height: 4px; bottom: var(--hold, -4px); background: #d6d6db; }
+.meter-v.clipping::after { content: ''; position: absolute; left: 0; right: 0; height: 3px; top: min(var(--cap, 0%), calc(100% - 3px)); background: #d03a2c; z-index: 2; }
 .meter-name { font: 700 12px/36px var(--font-cond); color: var(--silk); text-align: center; pointer-events: none; }
 
 /* anchored popovers: TRIM (set and forget) and the band sheet (one band, both decks) */

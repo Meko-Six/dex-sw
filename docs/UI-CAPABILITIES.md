@@ -111,8 +111,8 @@ The chain order is already the one a DJ is taught: TRIM sits before the EQ, so t
 before LEVEL, so trim is set with the faders down; LEVEL's top is 0 dB, so "faders to unity" is true by construction;
 L and R meter after VOLUME and before the limiter, so the master shows what goes in. What was missing was the vocabulary
 to set it by: the meters were peak dBFS with red only at 0, so "top green" and "into the yellow" had no fixed meaning.
-The bars now draw those words at fixed figures — green to −6 dBFS, amber to −3, orange to 0, red above — though they
-print no labels, and there is no target mark or AUTO line.
+The bars now draw those words at fixed figures — eleven rungs copied from a reference mixer, green to −12 dBFS, amber
+to 0, red above — though they print no numbers, and there is no target mark or AUTO line.
 
 The sequence, and where each step stands (standards, arithmetic and sources:
 [GAIN-STAGING-RESEARCH](GAIN-STAGING-RESEARCH.md)):
@@ -127,8 +127,8 @@ The sequence, and where each step stands (standards, arithmetic and sources:
 | 6 | Amp or speaker | **No such stage in the app**, and iOS will not let an app set the system volume, so this can only be instructed, not controlled |
 | 7 | Cue level | The cue *mix* exists; a cue *level* does not (see Headphone level above) |
 
-The dBFS figures are readings taken while the meters stay peak dBFS. The zones are drawn at those figures but carry no text
-labels, and whether the scale stays or re-references 0 dB to −12 dBFS so a Xone's geometry and the video's sentences
+The dBFS figures are readings taken while the meters stay peak dBFS. The rungs are drawn at those figures but carry no
+numbers, and whether the scale stays or re-references 0 dB to −12 dBFS so a Xone's geometry and the video's sentences
 apply is still open. So is AUTO's
 target: −16 LUFS is the highest that leaves every deck under −6 dBFS, and the app stays at −10 until the user chooses
 by ear.
@@ -204,7 +204,7 @@ The grid editor assumes a four-beat bar (4/4): the bar lines, the four-bar windo
 | HI / MID / LOW knobs per channel (with kill) | LOW / MID / HIGH faders per deck, kill at full-left | **LIVE** |
 | COLOR knob (LOW→HI) | Sweep FILTER fader | **PARTIAL** — no separate colour control |
 | Channel level faders ×2 | — | **NONE** |
-| Per-channel LED meters, MASTER CLIP | Electron: one master meter (RMS, no clip LED). Mockup and native: four peak meters, A · L · R · B, on one −30…+6 dBFS scale, red from 0 dBFS where the limiter is working, green ending at −6 and amber at −3, and a red cap and border on a bar that reaches 0 dBFS; no separate clip LED | **PARTIAL** |
+| Per-channel LED meters, MASTER CLIP | Electron: one master meter (RMS, no clip LED). Mockup and native: four peak meters, A · L · R · B, on one −30…+6 dBFS scale, red from 0 dBFS where the limiter is working, in eleven rungs with green ending at −12 and amber at 0, and a red cap and border on a bar that reaches 0 dBFS; no separate clip LED | **PARTIAL** |
 | MASTER LEVEL | MASTER knob | **LIVE** |
 | Crossfader with graduated scale | Crossfader, double-click to centre | **LIVE** (no cut-in points) |
 | HEADPHONES MIXING: CUE / MASTER knobs | CUE MIX knob + SPLIT CUE / 4-CH toggle | **LIVE** |

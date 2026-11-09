@@ -47,6 +47,32 @@ final class MeterTests: XCTestCase {
         XCTAssertEqual(meters.meters.hold.a, -0.1, "but the held segment still shows it")
     }
 
+    func testTheLadderCopiesTheReferenceMeter() {
+        XCTAssertEqual(MeterLadder.rungs.count, 11, "eleven rungs")
+        XCTAssertEqual(MeterLadder.rungs.filter { $0.ink == 0x25A859 }.count, 5, "five green at the foot")
+        XCTAssertEqual(MeterLadder.rungs.filter { $0.ink == 0xD8A029 }.count, 4, "four amber")
+        XCTAssertEqual(MeterLadder.rungs.filter { $0.ink == 0xD03A2C }.count, 2, "two red")
+        XCTAssertEqual(MeterLadder.rungs.first?.low, -30, "the floor clamps the reference's last step")
+        XCTAssertEqual(MeterLadder.rungs.last?.high, 6, "the top is the scale's ceiling")
+        XCTAssertTrue(MeterLadder.rungs.allSatisfy { $0.low < $0.high }, "every rung spans something")
+    }
+
+    func testRedStillBeginsAtTheCeiling() {
+        XCTAssertEqual(MeterLadder.rungs[MeterLadder.red].low, MeterZones.clip, "red starts at 0 dBFS")
+        XCTAssertEqual(MeterLadder.rungs[MeterLadder.amber].low, -12, "amber starts 12 dB down")
+        XCTAssertEqual(MeterLadder.rungs[MeterLadder.amber - 1].low, -15, "green ends there")
+    }
+
+    func testARungLightsWhenTheLevelReachesIt() {
+        XCTAssertEqual(MeterLadder.rung(for: -31), -1, "below the floor nothing lights")
+        XCTAssertEqual(MeterLadder.rung(for: -30), 0)
+        XCTAssertEqual(MeterLadder.rung(for: -28), 0)
+        XCTAssertEqual(MeterLadder.rung(for: -27), 1)
+        XCTAssertEqual(MeterLadder.rung(for: -2), 8, "into the top amber")
+        XCTAssertEqual(MeterLadder.rung(for: 0), 9, "the first red")
+        XCTAssertEqual(MeterLadder.rung(for: 6), 10)
+    }
+
     func testOneScaleForAllFour() {
         XCTAssertEqual(Meters.percent(-30), 0)
         XCTAssertEqual(Meters.percent(0), 100.0 * 30 / 36, accuracy: 1e-9, "0 dBFS, where red starts")
