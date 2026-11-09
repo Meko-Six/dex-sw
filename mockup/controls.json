@@ -40,7 +40,7 @@
     {
       "id": "mixer",
       "title": "Centre mixer",
-      "blurb": "Four meters A · L · R · B, per-channel cue, crossfader."
+      "blurb": "Four meters A · L · R · B, per-channel cue, crossfader. Gain order runs TRIM, channel meters, LEVEL, master meters; the sequence and its targets are in GAIN-STAGING-RESEARCH."
     },
     {
       "id": "rail",
@@ -774,7 +774,7 @@
       "label": "master meters L · R",
       "kind": "meter",
       "status": "live",
-      "does": "The middle two of the four meters in the centre strip: the master's left and right peaks after VOLUME and before the limiter, on the same −30 to +6 dBFS scale as A and B. Red starts at 0 dBFS, where the limiter is working, so two hot decks fully open go into the red. The engine keeps each side's highest sample until the meters read it, so no peak is missed. The bar rises at once and falls 20 dB a second; the top segment holds for 2 s.",
+      "does": "The middle two of the four meters in the centre strip: the master's left and right peaks after VOLUME and before the limiter, on the same −30 to +6 dBFS scale as A and B. Red starts at 0 dBFS, where the limiter is working, so two hot decks fully open go into the red. The engine keeps each side's highest sample until the meters read it, so no peak is missed. The bar rises at once and falls 20 dB a second; the top segment holds for 2 s. With both decks open and LEVEL up, aim about −3 dBFS; two hot decks fully open reaching red is the overload this scale exists to show.",
       "source": "native/Sources/CDexEngine/DexEngine.cpp"
     },
     {
@@ -783,7 +783,7 @@
       "label": "channel meters A · B",
       "kind": "meter",
       "status": "live",
-      "does": "The outer two of the four meters in the centre strip: each deck's peak after TRIM, EQ and FILTER, before LEVEL and the crossfader, as on a Pioneer mixer, on the master's −30 to +6 dBFS scale. Set TRIM by it whatever the faders are doing, even with LEVEL down; the master meters show what actually goes in. Same fall and hold as the master meters.",
+      "does": "The outer two of the four meters in the centre strip: each deck's peak after TRIM, EQ and FILTER, before LEVEL and the crossfader, as on a Pioneer mixer, on the master's −30 to +6 dBFS scale. Set TRIM by it whatever the faders are doing, even with LEVEL down; the master meters show what actually goes in. Same fall and hold as the master meters. At unity LEVEL a loud track trimmed to the −6 dBFS aim peaks about here.",
       "source": "native/Sources/CDexEngine/DexEngine.cpp"
     },
     {
@@ -819,7 +819,7 @@
       "label": "MASTER",
       "kind": "slider",
       "status": "live",
-      "does": "In the VOLUME popover. Master output, 0 to 1.2, default 0.85.",
+      "does": "In the VOLUME popover. Master output, 0 to 1.2, default 0.85. The master stage of the gain sequence: set it with both decks open until the master meters peak about −3 dBFS (see GAIN-STAGING-RESEARCH).",
       "source": "src/renderer/App.tsx"
     },
     {
@@ -973,7 +973,7 @@
       "label": "TRIM",
       "kind": "popover",
       "status": "live",
-      "does": "Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO: a track loads at the trim that brings its main groove to −10 LUFS (ITU BS.1770 loudness, measured at import; older tracks are measured in the background, at most a minute per launch), and the chip lights green and reads AUTO. Moving it remembers that trim for the track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO and forgets it.",
+      "does": "Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO: a track loads at the trim that brings its main groove to −10 LUFS (ITU BS.1770 loudness, measured at import; older tracks are measured in the background, at most a minute per launch), and the chip lights green and reads AUTO. Moving it remembers that trim for the track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO and forgets it. Gain stage: with LEVEL down, set it so the channel meter peaks about −6 dBFS; AUTO's −10 LUFS target still leaves a loud track nearer −1 dBFS, and −16 was measured as the highest target that keeps every deck under −6 (see GAIN-STAGING-RESEARCH).",
       "source": "native/Sources/DexCore/Loudness.swift"
     },
     {

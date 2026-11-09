@@ -147,18 +147,18 @@ Drawn for the layout study because the hardware has it. Dashed in the mockup, no
 
 ## Centre mixer
 
-Four meters A · L · R · B, per-channel cue, crossfader.
+Four meters A · L · R · B, per-channel cue, crossfader. Gain order runs TRIM, channel meters, LEVEL, master meters; the sequence and its targets are in GAIN-STAGING-RESEARCH.
 
 | # | Control | Status | What it does in Dex | Key | Source |
 | --- | --- | --- | --- | --- | --- |
 | 70 | **LEVEL fader** | LIVE | Channel LEVEL, the outermost fader of each channel, on the same law as the bands with 0 dB at the top. Relative drag, double-tap resets. Its index line carries the deck colour. | — | `src/renderer/ui/Mixer.tsx` |
 | 72 | **master BPM** | LIVE | The master deck's detected BPM and track name. Master is whichever deck the MASTER key is on; the dot takes that deck's accent colour. | — | `src/renderer/App.tsx` |
-| 73 | **master meters L · R** | LIVE | The middle two of the four meters in the centre strip: the master's left and right peaks after VOLUME and before the limiter, on the same −30 to +6 dBFS scale as A and B. Red starts at 0 dBFS, where the limiter is working, so two hot decks fully open go into the red. The engine keeps each side's highest sample until the meters read it, so no peak is missed. The bar rises at once and falls 20 dB a second; the top segment holds for 2 s. | — | `native/Sources/CDexEngine/DexEngine.cpp` |
-| 74 | **channel meters A · B** | LIVE | The outer two of the four meters in the centre strip: each deck's peak after TRIM, EQ and FILTER, before LEVEL and the crossfader, as on a Pioneer mixer, on the master's −30 to +6 dBFS scale. Set TRIM by it whatever the faders are doing, even with LEVEL down; the master meters show what actually goes in. Same fall and hold as the master meters. | — | `native/Sources/CDexEngine/DexEngine.cpp` |
+| 73 | **master meters L · R** | LIVE | The middle two of the four meters in the centre strip: the master's left and right peaks after VOLUME and before the limiter, on the same −30 to +6 dBFS scale as A and B. Red starts at 0 dBFS, where the limiter is working, so two hot decks fully open go into the red. The engine keeps each side's highest sample until the meters read it, so no peak is missed. The bar rises at once and falls 20 dB a second; the top segment holds for 2 s. With both decks open and LEVEL up, aim about −3 dBFS; two hot decks fully open reaching red is the overload this scale exists to show. | — | `native/Sources/CDexEngine/DexEngine.cpp` |
+| 74 | **channel meters A · B** | LIVE | The outer two of the four meters in the centre strip: each deck's peak after TRIM, EQ and FILTER, before LEVEL and the crossfader, as on a Pioneer mixer, on the master's −30 to +6 dBFS scale. Set TRIM by it whatever the faders are doing, even with LEVEL down; the master meters show what actually goes in. Same fall and hold as the master meters. At unity LEVEL a loud track trimmed to the −6 dBFS aim peaks about here. | — | `native/Sources/CDexEngine/DexEngine.cpp` |
 | 75 | **channel CUE** | LIVE | CUE under each channel's LEVEL fader: pre-listen that deck in the headphones (M). In the library's deck panel the same switch is the headphone key beside PLAY · CUE. | — | `src/renderer/ui/Mixer.tsx` |
 | 76 | **channel EQ** | LIVE | Opens that deck's tone overlay on its own deck face. The hub's A / B EQ keys do the same thing; the mockup draws both. | — | `src/renderer/App.tsx` |
 | 77 | **crossfader** | LIVE | Crossfader at the foot of the mixer. Each deck stays fully open until the centre and fades only across the far half, as a club mixer's cut curve: centred, LEVEL alone sets the mix. Relative drag, double-tap centres it. | — | `native/Sources/DexCore/Transport.swift` |
-| 95 | **TRIM** | LIVE | Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO: a track loads at the trim that brings its main groove to −10 LUFS (ITU BS.1770 loudness, measured at import; older tracks are measured in the background, at most a minute per launch), and the chip lights green and reads AUTO. Moving it remembers that trim for the track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO and forgets it. | — | `native/Sources/DexCore/Loudness.swift` |
+| 95 | **TRIM** | LIVE | Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO: a track loads at the trim that brings its main groove to −10 LUFS (ITU BS.1770 loudness, measured at import; older tracks are measured in the background, at most a minute per launch), and the chip lights green and reads AUTO. Moving it remembers that trim for the track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO and forgets it. Gain stage: with LEVEL down, set it so the channel meter peaks about −6 dBFS; AUTO's −10 LUFS target still leaves a loud track nearer −1 dBFS, and −16 was measured as the highest target that keeps every deck under −6 (see GAIN-STAGING-RESEARCH). | — | `native/Sources/DexCore/Loudness.swift` |
 | 96 | **LINK LOWS** | LIVE | Couples the two LOW faders: drag either one and the other moves the same distance the opposite way. The bass swap in one gesture; unlink to ride them separately. | — | `src/renderer/ui/Mixer.tsx` |
 | 97 | **band sheet** | PLANNED | Tap a band name above its fader: that band for BOTH decks on 300 pt horizontal sliders, with both kills (and LINK for LOW). For long, slow rides. Not in the app yet. | — | — |
 
@@ -168,7 +168,7 @@ Master level and cue mix, kept out of the mixer so they are always reachable.
 
 | # | Control | Status | What it does in Dex | Key | Source |
 | --- | --- | --- | --- | --- | --- |
-| 78 | **MASTER** | LIVE | In the VOLUME popover. Master output, 0 to 1.2, default 0.85. | — | `src/renderer/App.tsx` |
+| 78 | **MASTER** | LIVE | In the VOLUME popover. Master output, 0 to 1.2, default 0.85. The master stage of the gain sequence: set it with both decks open until the master meters peak about −3 dBFS (see GAIN-STAGING-RESEARCH). | — | `src/renderer/App.tsx` |
 | 79 | **CUE MIX** | LIVE | In the VOLUME popover. Blends the headphones from the cued deck to the master. | — | `src/renderer/App.tsx` |
 
 ## Library sheet

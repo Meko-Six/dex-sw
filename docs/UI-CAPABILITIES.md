@@ -105,6 +105,31 @@ Everything below was read out of the source, not from the README. Status codes:
 - **Mic input** (talk-over), **master recording**, **MIDI**, **on-air/record** state.
 - **Auto-Cue / time-mode** behaviour.
 
+### Gain staging
+
+The chain order is already the one a DJ is taught: TRIM sits before the EQ, so the headphones hear it; A and B meter
+before LEVEL, so trim is set with the faders down; LEVEL's top is 0 dB, so "faders to unity" is true by construction;
+L and R meter after VOLUME and before the limiter, so the master shows what goes in. What is missing is the vocabulary
+to set it by: the four meters are peak dBFS with red at 0, so "top green" and "into the yellow" have no fixed meaning.
+
+The sequence, and where each step stands (standards, arithmetic and sources:
+[GAIN-STAGING-RESEARCH](GAIN-STAGING-RESEARCH.md)):
+
+| Step | Sets | In Dex |
+| --- | --- | --- |
+| 1 | Everything down | No such state; a calibration flow would have to save and restore the mix |
+| 2 | Each deck's TRIM | LIVE, ±12 dB, AUTO at −10 LUFS; aim the channel meter at about −6 dBFS peak with LEVEL down |
+| 3 | Peak check, no red | Meters exist and hold their top segment for 2 s; red is the single rule at 0 dBFS, with no separate clip indicator |
+| 4 | Faders to unity | True by construction: LEVEL's top is 0 dB |
+| 5 | MASTER to target | VOLUME popover, 0–1.2, default 0.85; no dB reading or target mark, so the master meters are the guide, about −3 dBFS with both decks open |
+| 6 | Amp or speaker | **No such stage in the app**, and iOS will not let an app set the system volume, so this can only be instructed, not controlled |
+| 7 | Cue level | The cue *mix* exists; a cue *level* does not (see Headphone level above) |
+
+The dBFS figures are readings taken while the meters stay peak dBFS. Whether they keep that scale and label the zones,
+or re-reference 0 dB to −12 dBFS so a Xone's geometry and the video's sentences apply, is still open. So is AUTO's
+target: −16 LUFS is the highest that leaves every deck under −6 dBFS, and the app stays at −10 until the user chooses
+by ear.
+
 ---
 
 ## 4. Input tap (experimental) — LIVE
