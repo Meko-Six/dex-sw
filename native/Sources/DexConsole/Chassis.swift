@@ -894,7 +894,9 @@ struct MeterBar: View {
                                      with: .color(Color(hex: 0xD6D6DB)))
                     }
                     if clipped {
-                        context.fill(Path(CGRect(x: 0, y: 0, width: size.width, height: 3)),
+                        // The cap marks the top of the lit column, not the top of the well.
+                        let capTop = min(size.height - CGFloat(segments) * 6, size.height - 3)
+                        context.fill(Path(CGRect(x: 0, y: capTop, width: size.width, height: 3)),
                                      with: .color(Color(hex: 0xD03A2C)))
                     }
                 }

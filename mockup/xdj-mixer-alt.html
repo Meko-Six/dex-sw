@@ -1206,7 +1206,10 @@
           const level = live ? METER.level[id] ?? -90 : quiet ? -90 : METER.still[id];
           const hold = live ? METER.hold[id] ?? -90 : quiet ? -90 : METER.stillHold[id];
           const segs = lit(level), held = lit(hold);
-          el.querySelector('i').style.setProperty('--h', (segs * 6 / inner * 100).toFixed(2) + '%');
+          /* The bar's height is also the cap's place, so it goes on the meter too. */
+          const barHeight = (segs * 6 / inner * 100).toFixed(2) + '%';
+          el.style.setProperty('--h', barHeight);
+          el.querySelector('i').style.setProperty('--h', barHeight);
           el.querySelector('.hold').style.setProperty('--hold', held > segs ? (held - 1) * 6 + 'px' : '-4px');
           /* 0 dBFS within the 2 s hold: the same clip rule as MeterZones in the console. */
           el.classList.toggle('clipping', hold >= 0);
