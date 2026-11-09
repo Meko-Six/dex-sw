@@ -67,10 +67,12 @@ actor LibraryStorage {
             if errno != EINTR { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         }
         defer { flock(descriptor, LOCK_UN) }
-        return try autoreleasepool {
-            try reloadCatalog()
-            return try body()
-        }
+        // No pool around the body: `autoreleasepool`'s closure is transferred under
+        // Swift 6, and a `body` closure can't be sent. The Foundation work a transaction
+        // does is pooled where it happens: `decodeCatalog`, `commit`, and the recovery
+        // write in `reloadCatalog`.
+        try reloadCatalog()
+        return try body()
     }
     func open() throws -> [LibraryTrack] { try transaction { catalog!.tracks } }
     private func reloadCatalog() throws {
@@ -79,27 +81,31 @@ actor LibraryStorage {
             catch LibraryError.newerVersion { throw LibraryError.newerVersion }
             catch {
                 guard let recovered = try? decodeCatalog(backupURL) else { throw LibraryError.damagedCatalog }
-                try files.copyItem(at: catalogURL, to: directory.appendingPathComponent("Library.damaged-\(UUID().uuidString).json"))
-                try encode(recovered).write(to: catalogURL, options: .atomic)
+                try autoreleasepool {
+                    try files.copyItem(at: catalogURL, to: directory.appendingPathComponent("Library.damaged-\(UUID().uuidString).json"))
+                    try encode(recovered).write(to: catalogURL, options: .atomic)
+                }
                 catalog = recovered
                 recoveredCatalog = true
             }
         } else if files.fileExists(atPath: backupURL.path) {
             let recovered = try decodeCatalog(backupURL)
-            try encode(recovered).write(to: catalogURL, options: .atomic)
+            try autoreleasepool { try encode(recovered).write(to: catalogURL, options: .atomic) }
             catalog = recovered
             recoveredCatalog = true
         } else { catalog = Catalog() }
     }
     private func decodeCatalog(_ url: URL) throws -> Catalog {
-        let data = try Data(contentsOf: url)
-        struct Header: Decodable { let version: Int }
-        guard try JSONDecoder().decode(Header.self, from: data).version == 1 else { throw LibraryError.newerVersion }
-        let value = try JSONDecoder().decode(Catalog.self, from: data)
-        guard Set(value.tracks.map(\.id)).count == value.tracks.count,
-              Set(value.tracks.map(\.fingerprint)).count == value.tracks.count,
-              value.tracks.allSatisfy(Self.valid) else { throw LibraryError.damagedCatalog }
-        return value
+        try autoreleasepool {
+            let data = try Data(contentsOf: url)
+            struct Header: Decodable { let version: Int }
+            guard try JSONDecoder().decode(Header.self, from: data).version == 1 else { throw LibraryError.newerVersion }
+            let value = try JSONDecoder().decode(Catalog.self, from: data)
+            guard Set(value.tracks.map(\.id)).count == value.tracks.count,
+                  Set(value.tracks.map(\.fingerprint)).count == value.tracks.count,
+                  value.tracks.allSatisfy(Self.valid) else { throw LibraryError.damagedCatalog }
+            return value
+        }
     }
     private static func valid(_ track: LibraryTrack) -> Bool {
         track.filename == URL(fileURLWithPath: track.filename).lastPathComponent &&
@@ -116,13 +122,16 @@ actor LibraryStorage {
         return try encoder.encode(value)
     }
     private func commit(_ next: Catalog) throws {
-        let data = try encode(next)
-        if let previous = catalog {
-            // Never leave the first durable import with an empty recovery copy.
-            let recovery = previous.tracks.isEmpty && !next.tracks.isEmpty ? next : previous
-            try encode(recovery).write(to: backupURL, options: .atomic)
+        let previous = catalog
+        try autoreleasepool {
+            let data = try encode(next)
+            if let previous {
+                // Never leave the first durable import with an empty recovery copy.
+                let recovery = previous.tracks.isEmpty && !next.tracks.isEmpty ? next : previous
+                try encode(recovery).write(to: backupURL, options: .atomic)
+            }
+            try data.write(to: catalogURL, options: .atomic)
         }
-        try data.write(to: catalogURL, options: .atomic)
         catalog = next
         commitCount += 1
     }

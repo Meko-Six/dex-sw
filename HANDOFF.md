@@ -63,13 +63,19 @@ old engine". Merged to `main` on 6 November, with the old engine removed. Result
   device. The players, time-pitches, transition gates, the old jog renderer, loop reading, launch tickets, Apple's 1/512
   speed rule and the time-pitch delay allowance are all removed, as are the engine switch and its Xcode scheme.
   `ConsoleModel` and `DexConsole` are unchanged; `heardPosition(ahead:)` still feeds the lanes.
-- **Checked after the removal:** `swift test` 284 tests (39 + 58 + 32 + 155), 0 failures, 6 optional skips; the Mac,
-  iPad Simulator and iPad builds; `diff:native` within every budget; the 100-cycle soak (flat at 52.7 MiB); the
-  muted live checks on the Bose (no missed blocks, decks 0.002–0.005 ms apart over a minute, starts and seeks within
-  0.31 ms of the click).
+- **Checked after the removal, re-run 9 November:** `swift test` 302 tests (158 audio, 65 core, 44 engine,
+  35 console): 296 passing, 6 optional skips, 0 failures; the Mac, iPad Simulator and iPad builds; `diff:native`
+  within every budget; the 100-cycle soak (flat at 52.7 MiB); the muted live checks on the Bose (no missed blocks,
+  decks 0.002–0.005 ms apart over a minute, starts and seeks within 0.31 ms of the click).
 - **Fixed during the removal:** the engine's 64 MiB cache was counted inside the 128 MiB preparation budget, so a
   memory warning (which halves that budget) would have left no room to load a track for 30 s. It's now fixed memory on
   top of the budget (`AudioMemoryBudget.reserveFixed`), with a test.
+- **Built again under Swift 6.2, 9 November:** `LibraryStorage.transaction` no longer wraps `body` in
+  `autoreleasepool`. Swift 6.2 transfers that closure, and a `body` closure can't be sent
+  (`#SendingRisksDataRace`), so the pool now sits where a transaction actually allocates: `decodeCatalog`, `commit`
+  (both encodes and both writes) and `reloadCatalog`'s recovery write, with actor state assigned outside them. Same
+  coverage as before, one file, no suppressions and no call-site changes. The suite above passes and the iPad
+  Simulator build succeeds.
 - **Gate 3's numbers:** Mac live, five minutes: waveform against sound under 0.9 ms, 0.006 ms drift. iPad, three
   minutes: under 0.44 ms, 0.018 ms drift. Release build: about 5% of a core for the whole process on the Mac, 12.5% on
   the iPad, and 64 MiB more memory than the old engine for the cache. On the Bose, the engine's own error is 1–3 ms;
@@ -93,7 +99,8 @@ The user asked for this on 7 November. State:
   its dB values; TEMPO moved up under its fader, whose length is unchanged.
 - **AUTO trim is built in the app, not yet heard.** `DexCore/Loudness.swift` measures ITU BS.1770 loudness at import
   (Accelerate biquads, about 0.007 s per 32 s of audio in a debug build); older tracks are measured quietly in the background
-  at launch (`readMissingLoudness`). A track loads at the trim that brings its **main groove** (the loudest half of its 3 s
+  at launch (`readMissingLoudness`, for at most a minute per launch; whatever is left follows on later starts). A track loads at
+  the trim that brings its **main groove** (the loudest half of its 3 s
   stretches) to **−10 LUFS**, within ±12 dB, and the chip lights green and reads AUTO. Moving TRIM remembers it for the track
   (`LibraryTrack.trimDb`, saved half a second after the trim rests); RESET, a double-tap or snapping within 0.25 dB returns to
   AUTO and forgets it. Only the console turns trimming on load on (`NativeDeck.trimsOnLoad`), so audio tests stay at unity.
@@ -118,9 +125,14 @@ The user asked for this on 7 November. State:
   - **A and B moved back before the faders, 8 November.** After reading Expert DJ's gain-staging video
     ("How To Set Your Volumes Like A Pro When DJing" on YouTube; the user's transcript isn't in the repo): trim so the loud part sits at the top green with peaks in the yellow, faders up,
     then master, then amp), the user decided the channel meters belong before LEVEL, as on Pioneer mixers, so TRIM can
-    be set with LEVEL down. Still peaks on the one scale; the master meters show what actually goes in. Open from that
-    discussion: headroom. After AUTO a single deck at full LEVEL peaks −0.7 to −5 dBFS, just under red, so an EQ'd blend
-    can reach the limiter; a lower AUTO target (−12 to −14 LUFS) was proposed, to be measured on the 52 tracks first.
+    be set with LEVEL down. Still peaks on the one scale; the master meters show what actually goes in.
+  - **Headroom, measured 9 November at −16 LUFS: no deck over −6 dBFS, two worst decks sum to −0.7.**
+    At −10 a single deck peaks −0.7 to −5 dBFS, so an EQ'd blend reaches the limiter: all 52 bench tracks peak above
+    −6, and the worst correlated pair would reach +5.3 dBFS. Re-run lower, −16 gives trims −11.0 to −6.7 dB and deck
+    peaks −6.7 to −11.0 (median −9.2), 0 of 52 above −6; −14 leaves 11 above it, −12 leaves 44. So −16 is the
+    highest target with real headroom, and the lowest the ±12 dB TRIM covers with a dB to spare (the loudest track clamps
+    at −18). It costs 6 dB against today, not the 12 a strict analogue reading would. The app stays at −10 until the
+    user chooses by ear. Standards, working and sources: [GAIN-STAGING-RESEARCH](docs/GAIN-STAGING-RESEARCH.md).
   - Engine: the mix loop keeps each deck's and each master side's highest sample since the last `dex_engine_read_meters`,
     which takes them. Tests: `EngineMeterTests` (a sine reads its level; TRIM moves the channel meter, LEVEL and the
     crossfader don't, though they move the master; left-only lights only L; two hot decks read over +3 dBFS while the output stays limited; a burst waits for the
@@ -728,5 +740,6 @@ Dev servers (`.claude/launch.json`): Electron renderer on **5299**, mockup on
 - [docs/audio-audit/](docs/audio-audit/): the audit's probe source, evidence index
   and starter prompt, as recorded at transfer, plus the click and mic delay probe.
 - [UI-CAPABILITIES](docs/UI-CAPABILITIES.md) and [CONTROL-MAP](docs/CONTROL-MAP.md): UI inventory and control spec.
+- [GAIN-STAGING-RESEARCH](docs/GAIN-STAGING-RESEARCH.md): gain staging, meter references and the AUTO trim target, with sources.
 - [ANALYSIS-SUMMARY](docs/ANALYSIS-SUMMARY.md) / [ANALYSIS-RESEARCH](docs/ANALYSIS-RESEARCH.md) and [accuracy/](accuracy/README.md): BPM/grid analysis and the marked-song bench.
 - [IDEAS](docs/IDEAS.md): later goals.
