@@ -144,8 +144,10 @@ The user asked for this on 7 November. State:
     same ones the control map's aim points name): green to −6 dBFS, amber to −3, orange to 0, red above, hard boundaries
     rather than a ramp. A meter whose 2 s hold reaches 0 dBFS takes a 3 pt red cap and a red border, and its spoken value
     gains ", clipping". The mockup draws the same rules from the same figures, `paintMeters` toggling `clipping` on
-    `hold >= 0`. The native cap has never been drawn, because no demo state reaches 0 dBFS; the mockup's was seen only
-    with the class set by hand.
+    `hold >= 0`. No demo state reaches 0 dBFS, so the snapshot tool takes `--clip 1`, which sets deck A's meter to the
+    clip level on the render only. Checked 9 November: the 3 pt cap sits at the top of the well above the red border,
+    with the unlit headroom between it and the fill at 83%, and L and R keep their white held segments and no cap. The
+    mockup draws the cap in the same place.
   - Without demo audio, the mockup and snapshot states show still levels (A playing alone, B cued and silent); an empty or
     loading deck shows a silent meter and TRIM 0.0. `diff:native` is within budget on all 42 screens, budgets unchanged.
   - Not yet seen or heard on a device.
