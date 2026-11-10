@@ -175,7 +175,7 @@ struct MeterTests {
 }
 
 struct PlacementTests {
-    let tuning = SliderTuning()
+    let tuning = { var tuning = SliderTuning(); tuning.placement = .outward; return tuning }()
     let bounds = CGRect(x: 0, y: 0, width: 1000, height: 800)
 
     @Test func fillEdgeLinesUpWithTheFinger() {
@@ -193,6 +193,14 @@ struct PlacementTests {
         let b = PanelPlacer.place(chip: right, finger: CGPoint(x: 640, y: 400), fill: 0.5, bounds: bounds, tuning: tuning)
         #expect(a.frame.maxX <= left.minX)
         #expect(b.frame.minX >= right.maxX)
+    }
+
+    @Test func onFingerCentresOnTheFinger() {
+        var onFinger = tuning
+        onFinger.placement = .onFinger
+        let chip = CGRect(x: 300, y: 380, width: 92, height: 52)
+        let layout = PanelPlacer.place(chip: chip, finger: CGPoint(x: 340, y: 400), fill: 0.5, bounds: bounds, tuning: onFinger)
+        #expect(abs(layout.bar.midX - 340) < 0.001)
     }
 
     @Test func staysInsideTheStage() {

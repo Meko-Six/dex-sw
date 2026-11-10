@@ -1,7 +1,8 @@
 import Foundation
 
 /// Every number that shapes the look and feel, so they can be tuned live on the
-/// device. Values the user approves become the defaults here.
+/// device. Values the user approves become the defaults here: the current ones are
+/// the user's iPad tuning of 10 November 2026.
 public struct SliderTuning: Codable, Sendable, Equatable {
     public enum Placement: String, Codable, Sendable, CaseIterable {
         /// Beside the chip, away from the centre of the mixer.
@@ -30,15 +31,15 @@ public struct SliderTuning: Codable, Sendable, Equatable {
     }
 
     // The open panel.
-    public var barWidth = 86.0
+    public var barWidth = 80.0
     /// The bar's height, which is also the drag: moving this far covers the whole range.
-    public var barHeight = 216.0
-    public var barCorner = 4.0
-    public var placement = Placement.outward
+    public var barHeight = 140.0
+    public var barCorner = 3.5
+    public var placement = Placement.onFinger
     public var panelGap = 14.0
     public var numberSize = 46.0
     public var rungHeight = 16.0
-    public var rungGap = 8.0
+    public var rungGap = 4.0
     public var backdrop = true
 
     // The feel.
@@ -47,52 +48,52 @@ public struct SliderTuning: Codable, Sendable, Equatable {
     /// Further sideways travel for each slower step: ¼, then ⅒.
     public var fineStep = 50.0
     /// How hard the bar resists being pulled past either end (0 none … 1 stiff).
-    public var rubberBand = 0.55
-    public var openResponse = 0.24
+    public var rubberBand = 0.30
+    public var openResponse = 0.18
     public var openBounce = 0.15
     /// How long the panel stays up after the finger lifts.
-    public var holdAfterRelease = 0.6
-    public var doubleTapWindow = 0.3
+    public var holdAfterRelease = 0.13
+    public var doubleTapWindow = 0.25
 
     // The meter.
     /// The red rung lights at or above this.
     public var redDB = 0.0
     /// The gap between rungs, in dB.
-    public var rungStepDB = 2.0
+    public var rungStepDB = 1.5
     /// How long the highest rung reached stays lit.
     public var peakHold = 2.0
     /// How fast the meter falls, in dB a second.
     public var releaseDBPerSecond = 20.0
 
     // The chip at rest.
-    public var chipWidth = 92.0
-    public var chipHeight = 52.0
+    public var chipWidth = 105.0
+    public var chipHeight = 58.0
     public var chipFill = true
     public var chipNumber = true
     /// The outline shows the meter: green, yellow near the top, red after a clip.
     public var chipStatus = true
-    public var chipFillOpacity = 0.32
+    public var chipFillOpacity = 0.30
 
     // The always-visible faders: LEVEL and TEMPO.
-    public var levelStyle = FaderStyle.bar
-    public var tempoStyle = FaderStyle.bar
-    public var faderWidth = 56.0
+    public var levelStyle = FaderStyle.cap
+    public var tempoStyle = FaderStyle.cap
+    public var faderWidth = 70.0
     public var levelHeight = 200.0
     public var tempoHeight = 240.0
-    public var capHeight = 18.0
+    public var capHeight = 32.0
     /// LEVEL shows its percentage and the master meter above it while touched.
     public var levelReadout = true
     /// The readout beside the fader (outward), or above it.
-    public var readoutBeside = true
+    public var readoutBeside = false
     public var readoutNumberSize = 26.0
     /// TEMPO's percentage and BPM stay up; off shows them only while touched.
-    public var tempoReadoutAlways = true
+    public var tempoReadoutAlways = false
     /// How many points of travel the detents (TEMPO's 0, CUE/MST's half) hold for.
     public var detentPoints = 14.0
 
     // The lab.
     /// The sketch's grey background, or Dex's near-black stage.
-    public var dexBackground = false
+    public var dexBackground = true
 
     public init() {}
 

@@ -64,7 +64,8 @@ screenshots where touches can't be sent.
 
 ## Next
 
-1. Tune the feel on the iPad, pick the LEVEL and TEMPO styles, and make the approved values the defaults.
+1. Done 10 November: the user's iPad tuning is now the defaults in `SliderTuning`. That means cap faders, LEVEL's readout above, TEMPO's readout only while touched, panels on the finger, a 140 pt bar, 1.5 dB rungs, a 0.13 s hold, and Dex black. Keep tuning, and send changes with TUNE → Copy settings, or read them off the device:
+   `xcrun devicectl device copy from --device <UDID> --domain-type appDataContainer --domain-identifier com.dex.sliderlab --source Library/Preferences/com.dex.sliderlab.plist --destination prefs.plist`
 2. Real tracks through Dex's own engine, so the sound, the trim and the meters are Dex's.
 3. On the Mac: scroll wheel and arrow keys for fine moves.
 4. Tempo.
