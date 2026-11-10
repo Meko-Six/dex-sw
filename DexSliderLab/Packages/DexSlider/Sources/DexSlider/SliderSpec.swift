@@ -2,7 +2,7 @@ import Foundation
 
 /// The mixer and deck controls.
 public enum SliderRole: String, Sendable, Hashable, CaseIterable, Codable {
-    case trim, hi, mid, low, level, tempo, cueMix, phones, master
+    case trim, hi, mid, low, fx, level, tempo, cueMix, phones, master
 
     public var title: String {
         switch self {
@@ -10,6 +10,7 @@ public enum SliderRole: String, Sendable, Hashable, CaseIterable, Codable {
         case .hi: "HI"
         case .mid: "MID"
         case .low: "LOW"
+        case .fx: "FX"
         case .level: "LEVEL"
         case .tempo: "TEMPO"
         case .cueMix: "CUE/MST"
@@ -28,6 +29,15 @@ public struct SliderID: Hashable, Sendable, CustomStringConvertible {
         self.role = role
     }
     public var description: String { "\(deck).\(role.rawValue)" }
+}
+
+/// What a deck's FX chip does: the filter, or an effect that takes its place, as on
+/// Traktor's Mixer FX. Every one has OFF at the centre, the high-pass side one way
+/// and the low-pass side the other; the further from the centre, the more effect.
+public enum DeckEffect: String, Sendable, Hashable, CaseIterable, Codable {
+    case filter, reverb, delay, gater
+
+    public var title: String { rawValue.uppercased() }
 }
 
 /// The meters a panel can show.
@@ -57,6 +67,8 @@ public struct SliderSpec: Sendable, Equatable {
         case tempo(bpm: Double)
         /// The headphone blend, 0 all cue … 1 all master.
         case blend
+        /// FILTER or an effect: −100 … +100 % about OFF, high-pass positive.
+        case fx(DeckEffect)
     }
 
     public var range: ClosedRange<Double>
@@ -74,10 +86,12 @@ public struct SliderSpec: Sendable, Equatable {
     public var detent: Double?
     public var meter: PanelMeter
     public var format: Format
+    /// The chip's name when it isn't the role's: the FX chip shows its effect.
+    public var title: String?
 
     public init(range: ClosedRange<Double>, step: Double? = nil, reset: Double? = nil, mark: Double? = nil,
                 invert: Bool = false, origin: Double? = nil, detent: Double? = nil,
-                meter: PanelMeter, format: Format) {
+                meter: PanelMeter, format: Format, title: String? = nil) {
         self.range = range
         self.step = step
         self.reset = reset
@@ -87,6 +101,7 @@ public struct SliderSpec: Sendable, Equatable {
         self.detent = detent
         self.meter = meter
         self.format = format
+        self.title = title
     }
 
     /// TRIM: absolute dB, ±12, a tenth at a time; double-tap goes back to AUTO.
@@ -128,6 +143,31 @@ public struct SliderSpec: Sendable, Equatable {
         SliderSpec(range: 0...1, meter: .master, format: .percent)
     }
 
+    /// FX: the filter or an effect, ±100 % in whole steps about OFF at the centre,
+    /// where it sticks gently and a double-tap returns it. Positive is the high-pass
+    /// side, which is up unless `upIsHighPass` is off. The meter is the deck's, which
+    /// in Dex reads after the filter.
+    public static func fx(deck: String, effect: DeckEffect = .filter, upIsHighPass: Bool = true) -> SliderSpec {
+        SliderSpec(range: -100...100, step: 1, reset: 0, invert: !upIsHighPass, origin: 0, detent: 0,
+                   meter: .deck(.deck(deck)), format: .fx(effect), title: effect.title)
+    }
+
+    /// The FX chip's effect; nil for every other control.
+    public var effect: DeckEffect? {
+        switch format {
+        case .fx(let effect): effect
+        default: nil
+        }
+    }
+
+    /// The same FX chip with another effect, keeping its direction.
+    public func with(_ effect: DeckEffect) -> SliderSpec {
+        var spec = self
+        spec.format = .fx(effect)
+        spec.title = effect.title
+        return spec
+    }
+
     public var span: Double { range.upperBound - range.lowerBound }
 
     public func clamp(_ value: Double) -> Double {
@@ -161,6 +201,9 @@ public struct SliderSpec: Sendable, Equatable {
         case .blend:
             if percent == 50 { return "50/50" }
             return percent < 50 ? "CUE \(100 - percent)" : "MST \(percent)"
+        case .fx:
+            let whole = Int(clamp(value).rounded())
+            return whole == 0 ? "OFF" : (whole > 0 ? "+" : "\u{2212}") + "\(abs(whole))%"
         }
     }
 
@@ -168,6 +211,10 @@ public struct SliderSpec: Sendable, Equatable {
     public func caption(_ value: Double) -> String? {
         if case .tempo(let bpm) = format {
             return String(format: "%.1f BPM", bpm * (1 + snap(clamp(value)) / 100))
+        }
+        if case .fx(let effect) = format {
+            let whole = clamp(value).rounded()
+            return whole == 0 ? effect.title : effect.title + (whole > 0 ? " HP" : " LP")
         }
         return nil
     }

@@ -23,9 +23,20 @@ public struct SliderChip: View {
         ZStack(alignment: .bottom) {
             shape.fill(SliderTheme.chip)
             if tuning.chipFill {
+                // From the foot, or from the centre for FX.
+                let edge = spec.fill(value), base = spec.origin.map(spec.fill) ?? 0
                 Rectangle()
                     .fill(SliderTheme.chipFill.opacity(tuning.chipFillOpacity))
-                    .frame(height: height * spec.fill(value))
+                    .frame(height: height * abs(edge - base))
+                    .offset(y: -height * min(edge, base))
+            }
+            if let origin = spec.origin {
+                HStack {
+                    Rectangle().fill(SliderTheme.mark).frame(width: 8, height: 2)
+                    Spacer()
+                    Rectangle().fill(SliderTheme.mark).frame(width: 8, height: 2)
+                }
+                .offset(y: -(height - 2) * spec.fill(origin))
             }
             if let mark = spec.mark {
                 Rectangle()
@@ -35,7 +46,7 @@ public struct SliderChip: View {
                     .offset(y: -(height - 2) * spec.fill(mark))
             }
             VStack(spacing: -2) {
-                Text(id.role.title)
+                Text(spec.title ?? id.role.title)
                     .font(SliderTheme.cond(tuning.chipNumber ? 16 : 18))
                 if tuning.chipNumber {
                     Text(spec.readout(value))
@@ -54,7 +65,7 @@ public struct SliderChip: View {
             bank.setFrame(frame, for: id)
         }
         .accessibilityElement()
-        .accessibilityLabel("\(id.deck) \(id.role.title)")
+        .accessibilityLabel("\(id.deck) \(spec.title ?? id.role.title)")
         .accessibilityValue(spec.readout(value))
     }
 

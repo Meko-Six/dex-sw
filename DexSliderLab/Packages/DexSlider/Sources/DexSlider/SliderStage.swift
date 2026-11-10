@@ -28,6 +28,11 @@ public struct SliderStage<Content: View>: View {
                 SliderPanelView(bank: bank, id: id)
                     .zIndex(bank.panels[id]?.touching == true ? 3 : 2)
             }
+            ForEach(bank.pickers.keys.sorted { $0.description < $1.description }, id: \.self) { id in
+                EffectPickerView(bank: bank, id: id)
+                    .transition(.opacity)
+                    .zIndex(4)
+            }
         }
         .coordinateSpace(.named(sliderStageSpace))
         .contentShape(Rectangle())

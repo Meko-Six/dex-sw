@@ -318,3 +318,120 @@ struct RouterTests {
         #expect(heard == [1])
     }
 }
+
+struct FXTests {
+    let tuning = SliderTuning()
+
+    @Test func readsOffAndASignedPercent() {
+        let spec = SliderSpec.fx(deck: "A")
+        #expect(spec.readout(0) == "OFF")
+        #expect(spec.readout(-40) == "\u{2212}40%")
+        #expect(spec.readout(40) == "+40%")
+        #expect(spec.caption(0) == "FILTER")
+        #expect(spec.caption(40) == "FILTER HP")
+        #expect(spec.with(.reverb).caption(-40) == "REVERB LP")
+    }
+
+    @Test func fillsFromTheCentreAndResetsToOff() {
+        let spec = SliderSpec.fx(deck: "A")
+        #expect(spec.fill(0) == 0.5)
+        #expect(spec.reset == 0)
+        #expect(spec.title == "FILTER")
+    }
+
+    @Test func upIsHighPassUnlessFlipped() {
+        for upIsHighPass in [true, false] {
+            let spec = SliderSpec.fx(deck: "A", upIsHighPass: upIsHighPass)
+            var drag = SliderDrag(spec: spec, value: 0, at: CGPoint(x: 0, y: 300))
+            drag.move(to: CGPoint(x: 0, y: 260), travel: tuning.barHeight, tuning: tuning)
+            #expect(upIsHighPass ? drag.value > 0 : drag.value < 0)
+        }
+    }
+
+    @Test func changingTheEffectKeepsTheDirection() {
+        let spec = SliderSpec.fx(deck: "B", upIsHighPass: false).with(.gater)
+        #expect(spec.effect == .gater)
+        #expect(spec.title == "GATER")
+        #expect(spec.invert)
+    }
+}
+
+@MainActor
+struct EffectPickerTests {
+    let fx = SliderID("A", .fx)
+    let chip = CGRect(x: 300, y: 300, width: 105, height: 58)
+
+    func bank() -> SliderBank {
+        let bank = SliderBank()
+        bank.setBounds(CGRect(x: 0, y: 0, width: 1000, height: 800))
+        bank.add(fx, spec: .fx(deck: "A"), value: -30)
+        bank.setFrame(chip, for: fx)
+        bank.add(SliderID("A", .trim), spec: .trim(deck: "A", auto: 0), value: 0)
+        bank.setFrame(CGRect(x: 300, y: 100, width: 105, height: 58), for: SliderID("A", .trim))
+        return bank
+    }
+
+    var centre: CGPoint { CGPoint(x: chip.midX, y: chip.midY) }
+
+    @Test func holdingStillBringsUpTheListWithTheCurrentEffectUnderTheFinger() {
+        let bank = bank()
+        bank.touchDown(1, at: centre, time: 0)
+        bank.longPress(1)
+        let picker = bank.pickers[fx]
+        #expect(picker?.current == 0)
+        #expect(picker?.rows[0].contains(centre) == true)
+        #expect(bank.panels[fx]?.closing == true)
+    }
+
+    @Test func slidingToAnEffectAndLiftingTakesIt() {
+        let bank = bank()
+        bank.touchDown(1, at: centre, time: 0)
+        bank.longPress(1)
+        let below = CGPoint(x: centre.x, y: centre.y + 2 * (PickerPlacer.rowHeight + PickerPlacer.gap))
+        bank.touchMoved(1, to: below)
+        #expect(bank.pickers[fx]?.highlighted == 2)
+        bank.touchUp(1, at: below, time: 1)
+        #expect(bank.controls[fx]?.spec.effect == .delay)
+        #expect(bank.value(fx) == -30) // the amount stays
+        #expect(bank.pickers.isEmpty)
+    }
+
+    @Test func liftingWithoutSlidingWaitsForATap() {
+        let bank = bank()
+        bank.touchDown(1, at: centre, time: 0)
+        bank.longPress(1)
+        bank.touchUp(1, at: centre, time: 1)
+        #expect(bank.pickers[fx]?.touching == false)
+        let reverb = bank.pickers[fx]!.rows[1]
+        bank.touchDown(2, at: CGPoint(x: reverb.midX, y: reverb.midY), time: 2)
+        #expect(bank.controls[fx]?.spec.effect == .reverb)
+        #expect(bank.pickers.isEmpty)
+        #expect(bank.panels[fx]?.touching != true) // the tap took the row, not the chip
+    }
+
+    @Test func aTouchElsewherePutsTheListAwayAndStillWorks() {
+        let bank = bank()
+        bank.touchDown(1, at: centre, time: 0)
+        bank.longPress(1)
+        bank.touchUp(1, at: centre, time: 1)
+        bank.touchDown(2, at: CGPoint(x: 350, y: 120), time: 2)
+        #expect(bank.pickers.isEmpty)
+        #expect(bank.controls[fx]?.spec.effect == .filter)
+        #expect(bank.panels[SliderID("A", .trim)] != nil)
+    }
+
+    @Test func aFingerThatMovedNeverBringsUpTheList() {
+        let bank = bank()
+        bank.touchDown(1, at: centre, time: 0)
+        bank.touchMoved(1, to: CGPoint(x: centre.x, y: centre.y - 30))
+        bank.longPress(1)
+        #expect(bank.pickers.isEmpty)
+    }
+
+    @Test func onlyFXChipsHaveAList() {
+        let bank = bank()
+        bank.touchDown(1, at: CGPoint(x: 350, y: 120), time: 0)
+        bank.longPress(1)
+        #expect(bank.pickers.isEmpty)
+    }
+}

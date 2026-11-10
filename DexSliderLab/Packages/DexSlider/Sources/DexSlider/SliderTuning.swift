@@ -88,7 +88,13 @@ public struct SliderTuning: Codable, Sendable, Equatable {
     public var readoutNumberSize = 26.0
     /// TEMPO's percentage and BPM stay up; off shows them only while touched.
     public var tempoReadoutAlways = false
-    /// How many points of travel the detents (TEMPO's 0, CUE/MST's half) hold for.
+    // FX.
+    /// Up is the high-pass side (thinner); off, up is low-pass.
+    public var fxUpIsHighPass = true
+    /// How long a finger must rest still on an FX chip to bring up the effect list.
+    public var longPress = 0.5
+
+    /// How many points of travel the detents (TEMPO's 0, CUE/MST's half, FX's OFF) hold for.
     public var detentPoints = 14.0
 
     // The lab.
@@ -164,6 +170,8 @@ public struct SliderTuning: Codable, Sendable, Equatable {
         readoutBeside = read(.readoutBeside, base.readoutBeside)
         readoutNumberSize = read(.readoutNumberSize, base.readoutNumberSize)
         tempoReadoutAlways = read(.tempoReadoutAlways, base.tempoReadoutAlways)
+        fxUpIsHighPass = read(.fxUpIsHighPass, base.fxUpIsHighPass)
+        longPress = read(.longPress, base.longPress)
         detentPoints = read(.detentPoints, base.detentPoints)
         dexBackground = read(.dexBackground, base.dexBackground)
     }

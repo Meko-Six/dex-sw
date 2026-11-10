@@ -39,9 +39,25 @@ public final class SliderBank {
         public var factor = 1.0
     }
 
+    /// The effect list a finger held still on an FX chip brings up in place of its
+    /// panel. Slide to an effect and lift to take it, or lift without sliding and
+    /// tap one.
+    public struct Picker: Sendable, Equatable {
+        public var options: [DeckEffect]
+        public var rows: [CGRect]
+        /// The effect in use.
+        public var current: Int
+        /// The row under the finger, if any.
+        public var highlighted: Int?
+        /// Still under the finger that brought it up; false once it waits for a tap.
+        public var touching = true
+        public var frame: CGRect { rows.dropFirst().reduce(rows.first ?? .zero) { $0.union($1) } }
+    }
+
     public private(set) var controls: [SliderID: Control] = [:]
     public private(set) var panels: [SliderID: Panel] = [:]
     public private(set) var faders: [SliderID: FaderTouch] = [:]
+    public private(set) var pickers: [SliderID: Picker] = [:]
     /// Controls that ignore touches: TEMPO while SYNC holds it.
     public private(set) var locked: Set<SliderID> = []
     public var meters: [MeterKey: MeterValue] = [:]
@@ -61,6 +77,10 @@ public final class SliderBank {
         var drag: SliderDrag
         let travel: Double
         let isReset: Bool
+        /// Working the effect list rather than the value.
+        var picking = false
+        /// Moved since the list came up, so lifting takes the row under it.
+        var slid = false
     }
     @ObservationIgnored private var touches: [AnyHashable: Touch] = [:]
     /// Touches that landed outside every control: ignored until they lift.
@@ -169,6 +189,14 @@ public final class SliderBank {
     }
 
     public func touchDown(_ key: AnyHashable, at point: CGPoint, time: TimeInterval) {
+        // A list waiting for a tap: a tap on a row takes it, anything else puts it away.
+        if let (id, row) = waitingRow(at: point) {
+            choose(row, for: id)
+            strays.insert(key)
+            return
+        }
+        for (id, picker) in pickers where !picker.touching { closePicker(id) }
+
         guard let id = hit(point), let control = controls[id], !locked.contains(id),
               !touches.values.contains(where: { $0.id == id }) else {
             strays.insert(key)
@@ -190,7 +218,9 @@ public final class SliderBank {
                              travel: travel, isReset: isReset)
         generation[id, default: 0] += 1
         switch control.kind {
-        case .chip: open(id, finger: point)
+        case .chip:
+            open(id, finger: point)
+            if control.spec.effect != nil { scheduleLongPress(key, id) }
         case .fader:
             if faders[id] != nil {
                 faders[id]?.touching = true
@@ -204,6 +234,18 @@ public final class SliderBank {
 
     public func touchMoved(_ key: AnyHashable, to point: CGPoint) {
         guard var touch = touches[key] else { return }
+        if touch.picking {
+            if hypot(Double(point.x - touch.drag.start.x), Double(point.y - touch.drag.start.y)) > SliderDrag.tapSlop {
+                touch.slid = true
+                touches[key] = touch
+            }
+            let row = pickers[touch.id]?.rows.firstIndex { $0.insetBy(dx: -6, dy: -2).contains(point) }
+            if row != pickers[touch.id]?.highlighted {
+                pickers[touch.id]?.highlighted = row
+                if row != nil { ticks += 1 }
+            }
+            return
+        }
         let wasInDetent = touch.drag.inDetent
         let value = touch.drag.move(to: point, travel: touch.travel, tuning: tuning)
         touches[key] = touch
@@ -228,6 +270,16 @@ public final class SliderBank {
         strays.remove(key)
         guard let touch = touches.removeValue(forKey: key) else { return }
         let id = touch.id
+        if touch.picking {
+            if !touch.slid {
+                pickers[id]?.touching = false
+            } else if let row = pickers[id]?.highlighted {
+                choose(row, for: id)
+            } else {
+                closePicker(id)
+            }
+            return
+        }
         if !touch.drag.moved && !touch.isReset {
             lastTap[id] = (time, touch.drag.start)
         }
@@ -246,6 +298,68 @@ public final class SliderBank {
         guard let old = controls[id]?.value, old != value else { return }
         controls[id]?.value = value
         onChange?(id, value)
+    }
+
+    // MARK: The effect list
+
+    private func scheduleLongPress(_ key: AnyHashable, _ id: SliderID) {
+        let mine = generation[id, default: 0]
+        let wait = tuning.longPress
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(wait))
+            guard let self, self.generation[id] == mine else { return }
+            self.longPress(key)
+        }
+    }
+
+    /// A finger held still on an FX chip: its panel gives way to the effect list,
+    /// the current effect under the finger. The long-press timer calls this; tests
+    /// and the lab's demos call it directly.
+    public func longPress(_ key: AnyHashable) {
+        guard var touch = touches[key], !touch.picking, !touch.drag.moved,
+              let effect = controls[touch.id]?.spec.effect else { return }
+        let id = touch.id
+        touch.picking = true
+        touches[key] = touch
+        let options = DeckEffect.allCases
+        let current = options.firstIndex(of: effect) ?? 0
+        let rows = PickerPlacer.place(finger: touch.drag.start, count: options.count, current: current,
+                                      bounds: bounds, tuning: tuning)
+        withAnimation(.easeOut(duration: 0.15)) {
+            pickers[id] = Picker(options: options, rows: rows, current: current, highlighted: current)
+        }
+        ticks += 1
+        // The panel shrinks back into the chip.
+        panels[id]?.touching = false
+        panels[id]?.closing = true
+        let shrink = max(0.15, tuning.openResponse * 1.4)
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(shrink))
+            guard let self, self.panels[id]?.closing == true else { return }
+            self.panels[id] = nil
+        }
+    }
+
+    private func waitingRow(at point: CGPoint) -> (SliderID, Int)? {
+        for (id, picker) in pickers where !picker.touching {
+            if let row = picker.rows.firstIndex(where: { $0.insetBy(dx: -4, dy: -2).contains(point) }) {
+                return (id, row)
+            }
+        }
+        return nil
+    }
+
+    /// Takes an effect from the list. The amount stays where it was, as a hardware
+    /// knob would.
+    private func choose(_ row: Int, for id: SliderID) {
+        if let picker = pickers[id], picker.options.indices.contains(row), let spec = controls[id]?.spec {
+            controls[id]?.spec = spec.with(picker.options[row])
+        }
+        closePicker(id)
+    }
+
+    private func closePicker(_ id: SliderID) {
+        withAnimation(.easeOut(duration: 0.15)) { pickers[id] = nil }
     }
 
     // MARK: Panels and readouts

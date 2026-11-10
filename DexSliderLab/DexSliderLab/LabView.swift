@@ -1,7 +1,7 @@
 import DexSlider
 import SwiftUI
 
-/// One screen: deck A and deck B, each TRIM, HI, MID, LOW and LEVEL, with the A · L · R · B
+/// One screen: deck A and deck B, each TRIM, HI, MID, LOW, FX and LEVEL, with the A · L · R · B
 /// meters between them as Dex's centre strip has them.
 struct LabView: View {
     @State private var bank: SliderBank
@@ -33,7 +33,7 @@ struct LabView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            Text("Drag any control up or down · slide sideways while dragging for fine · double-tap TRIM, EQ or CUE/MST to reset")
+            Text("Drag any control up or down · slide sideways while dragging for fine · double-tap TRIM, EQ, FX or CUE/MST to reset · hold FX still to change the effect")
                 .font(SliderTheme.cond(14, "DemiBold"))
                 .foregroundStyle(Color.white.opacity(0.45))
                 .padding(.bottom, 12)
@@ -44,6 +44,7 @@ struct LabView: View {
                 .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
         }
         .onChange(of: bank.tuning) { _, tuning in TuningStore.save(tuning) }
+        .onChange(of: bank.tuning.fxUpIsHighPass) { signal.applyFXDirection() }
         .onAppear { signal.start() }
         .onDisappear { signal.stop() }
         .task { await demo() }
@@ -75,6 +76,14 @@ struct LabView: View {
             hold(1, SliderID("A", .tempo), up: -18)
             signal.toggleSync("B")
         case "cue": hold(1, SliderID("M", .cueMix), up: -40)
+        case "fx": hold(1, SliderID("A", .fx), up: -50)
+        case "picker":
+            let id = SliderID("B", .fx)
+            hold(1, id, up: 0)
+            bank.longPress(1)
+            if let frame = bank.frame(id) {
+                bank.touchMoved(1, to: CGPoint(x: frame.midX, y: frame.midY + PickerPlacer.rowHeight + PickerPlacer.gap))
+            }
         default: break
         }
     }
@@ -148,6 +157,8 @@ private struct DeckColumn: View {
             SliderChip(bank: bank, id: SliderID(deck, .hi))
             SliderChip(bank: bank, id: SliderID(deck, .mid))
             SliderChip(bank: bank, id: SliderID(deck, .low))
+            Spacer().frame(height: 6)
+            SliderChip(bank: bank, id: SliderID(deck, .fx))
             Spacer().frame(height: 10)
             SliderFader(bank: bank, id: SliderID(deck, .level))
         }

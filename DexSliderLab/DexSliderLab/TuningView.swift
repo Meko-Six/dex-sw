@@ -42,7 +42,11 @@ struct TuningView: View {
                 row("TEMPO height", $tuning.tempoHeight, 140...420, "pt")
                 row("Cap height", $tuning.capHeight, 10...36, "pt")
                 row("Readout number size", $tuning.readoutNumberSize, 16...48, "pt")
-                row("Sticks at 0 and 50/50 for", $tuning.detentPoints, 0...40, "pt")
+                row("Sticks at 0, 50/50 and FX OFF for", $tuning.detentPoints, 0...40, "pt")
+            }
+            Section("FX") {
+                Toggle("Up is high-pass (off: up is low-pass)", isOn: $tuning.fxUpIsHighPass)
+                row("Hold still to change the effect", $tuning.longPress, 0.25...1.2, "s", decimals: 2)
             }
             Section("Feel") {
                 row("Fine starts after", $tuning.fineStart, 20...150, "pt sideways")

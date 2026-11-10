@@ -36,6 +36,7 @@ struct SliderPanelView: View {
                     .position(x: header.midX, y: header.midY)
 
                 PanelBar(fill: fill, mark: control.spec.mark.map(control.spec.fill),
+                         origin: control.spec.origin.map(control.spec.fill),
                          open: open, corner: open ? tuning.barCorner : 8,
                          chipFillOpacity: tuning.chipFillOpacity)
                     .frame(width: bar.width, height: bar.height)
@@ -64,6 +65,8 @@ struct SliderPanelView: View {
 private struct PanelBar: View {
     let fill: Double
     let mark: Double?
+    /// Where the fill grows from, for FX; nil is the foot.
+    let origin: Double?
     let open: Bool
     let corner: Double
     let chipFillOpacity: Double
@@ -73,9 +76,17 @@ private struct PanelBar: View {
             let height = proxy.size.height
             ZStack(alignment: .bottom) {
                 Rectangle().fill(open ? SliderTheme.track : SliderTheme.chip)
+                let base = origin ?? 0
                 Rectangle()
                     .fill(open ? SliderTheme.fill : SliderTheme.chipFill.opacity(chipFillOpacity))
-                    .frame(height: height * fill)
+                    .frame(height: height * abs(fill - base))
+                    .offset(y: -height * min(fill, base))
+                if let origin {
+                    Rectangle()
+                        .fill(SliderTheme.mark)
+                        .frame(height: 3)
+                        .offset(y: -(height - 3) * origin)
+                }
                 if let mark {
                     Rectangle()
                         .fill(SliderTheme.mark)
@@ -112,6 +123,8 @@ private struct PanelHeader: View {
             Text(caption)
                 .font(SliderTheme.cond(14, "DemiBold"))
                 .foregroundStyle(panel.factor < 1 ? SliderTheme.mark : SliderTheme.dim)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .frame(height: PanelPlacer.captionHeight)
             Spacer(minLength: PanelPlacer.spacing)
         }

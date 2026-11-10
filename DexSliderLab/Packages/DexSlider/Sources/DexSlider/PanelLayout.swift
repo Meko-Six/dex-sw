@@ -72,3 +72,28 @@ public enum PanelPlacer {
         high < low ? low : min(high, max(low, value))
     }
 }
+
+/// Where the effect list sits: a column of rows centred on the finger, with the
+/// current effect under it, so sliding up or down picks a neighbour.
+public enum PickerPlacer {
+    public static let rowHeight = 50.0
+    public static let gap = 6.0
+
+    public static func width(_ tuning: SliderTuning) -> Double {
+        max(tuning.chipWidth + 16, 120)
+    }
+
+    public static func place(finger: CGPoint, count: Int, current: Int, bounds: CGRect,
+                             tuning: SliderTuning) -> [CGRect] {
+        guard count > 0 else { return [] }
+        let width = width(tuning)
+        let pitch = rowHeight + gap
+        let total = Double(count) * pitch - gap
+        let margin = PanelPlacer.margin
+        let top = PanelPlacer.clamp(Double(finger.y) - Double(current) * pitch - rowHeight / 2,
+                                    Double(bounds.minY) + margin, Double(bounds.maxY) - margin - total)
+        let left = PanelPlacer.clamp(Double(finger.x) - width / 2,
+                                     Double(bounds.minX) + margin, Double(bounds.maxX) - margin - width)
+        return (0..<count).map { CGRect(x: left, y: top + Double($0) * pitch, width: width, height: rowHeight) }
+    }
+}

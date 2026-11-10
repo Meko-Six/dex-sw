@@ -26,8 +26,9 @@ enum FaderLaw {
 }
 
 /// A stand-in for real music until the lab plays tracks: a beatmatched four-on-the-
-/// floor pattern per deck (kick, clap, hats) whose peaks follow TRIM, the EQ and
-/// LEVEL as Dex's mixer would, summed into a master before the limiter.
+/// floor pattern per deck (kick, clap, hats) whose peaks follow TRIM, the EQ, FX and
+/// LEVEL as Dex's mixer would, summed into a master before the limiter. Nothing is
+/// heard: FX shows only on the meters, roughly as each effect would move them.
 ///
 /// Peaks vary hit to hit and the track's true peak arrives only now and then, so
 /// setting TRIM by eye works the way it does with music: play a loud part and push
@@ -68,6 +69,7 @@ final class TestSignal {
     let tempo = 124.0
 
     @ObservationIgnored private let bank: SliderBank
+    @ObservationIgnored private var tails: [String: Double] = [:]
     @ObservationIgnored private var ballistics: [MeterKey: (value: MeterValue, heldAt: Double)] = [:]
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private let started = Date()
@@ -80,6 +82,7 @@ final class TestSignal {
             for band in [SliderRole.hi, .mid, .low] {
                 bank.add(SliderID(deck, band), spec: .eq(deck: deck), value: 1)
             }
+            bank.add(SliderID(deck, .fx), spec: .fx(deck: deck, upIsHighPass: bank.tuning.fxUpIsHighPass), value: 0)
             // Deck A playing out, deck B cued in at zero: ready to swap.
             bank.addFader(SliderID(deck, .level), spec: .level(deck: deck), value: deck == "A" ? 1 : 0)
             bank.addFader(SliderID(deck, .tempo), spec: .tempo(bpm: decks[deck]!.bpm), value: 0)
@@ -103,6 +106,15 @@ final class TestSignal {
         decks[deck] = state
         bank.setLocked(state.synced, for: SliderID(deck, .tempo))
         if state.synced { match(deck) }
+    }
+
+    /// TUNE flipped which way is high-pass: both FX chips follow, keeping their effect.
+    func applyFXDirection() {
+        for deck in ["A", "B"] {
+            let id = SliderID(deck, .fx)
+            let effect = bank.controls[id]?.spec.effect ?? .filter
+            bank.setSpec(.fx(deck: deck, effect: effect, upIsHighPass: bank.tuning.fxUpIsHighPass), for: id)
+        }
     }
 
     func bpm(_ deck: String) -> Double {
@@ -176,29 +188,63 @@ final class TestSignal {
         bank.meters = meters
     }
 
-    /// The deck's peak over the last `dt`, linear: before LEVEL (after TRIM and EQ),
-    /// and after it.
+    /// The deck's peak over the last `dt`, linear: before LEVEL (after TRIM, EQ and
+    /// FX), and after it.
     private func deckPeak(_ id: String, now: Double, dt: Double) -> (pre: Double, post: Double) {
         guard let deck = decks[id], deck.playing else { return (0, 0) }
         let beat = 60 / tempo
-        let low = FaderLaw.gain(bank.value(SliderID(id, .low)))
-        let mid = FaderLaw.gain(bank.value(SliderID(id, .mid)))
-        let hi = FaderLaw.gain(bank.value(SliderID(id, .hi)))
+        var low = FaderLaw.gain(bank.value(SliderID(id, .low)))
+        var mid = FaderLaw.gain(bank.value(SliderID(id, .mid)))
+        var hi = FaderLaw.gain(bank.value(SliderID(id, .hi)))
 
-        // Each part's loudest point in the window: its last hit inside it, or the
-        // window's start as it decays.
-        func part(every: Double, offset: Double, decay: Double, body: Double) -> (Double, Int) {
-            let from = now - dt
-            let hitIndex = ((now - offset) / every).rounded(.down)
+        // FX: −1 … 1, high-pass positive. The filter side thins or darkens the parts;
+        // the effects bring in half as much filter and add their own sound.
+        let fx = bank.value(SliderID(id, .fx)) / 100
+        let effect = bank.controls[SliderID(id, .fx)]?.spec.effect ?? .filter
+        let amount = abs(fx)
+        let filter = effect == .filter ? amount : amount * 0.5
+        if fx > 0 {
+            low *= max(0, 1 - 1.4 * filter)
+            mid *= max(0.1, 1 - 0.7 * filter)
+        } else if fx < 0 {
+            hi *= max(0, 1 - 1.4 * filter)
+            mid *= max(0.05, 1 - filter)
+        }
+
+        // Each part's loudest point in the window ending at `t`: its last hit inside
+        // it, or the window's start as it decays.
+        func part(_ t: Double, every: Double, offset: Double, decay: Double, body: Double) -> (Double, Int) {
+            let from = t - dt
+            let hitIndex = ((t - offset) / every).rounded(.down)
             let hitTime = hitIndex * every + offset
             let since = hitTime >= from ? 0 : from - hitTime
             return (body + (1 - body) * exp(-since / decay), Int(hitIndex))
         }
-        let (kick, kickIndex) = part(every: beat, offset: 0, decay: 0.12, body: 0.06)
-        let (clap, _) = part(every: beat * 2, offset: beat, decay: 0.16, body: 0.25)
-        let (hats, _) = part(every: beat, offset: beat / 2, decay: 0.05, body: 0.2)
         // Scaled so the loudest moment, kick and clap together on beats 2 and 4, is 1.
-        let mix = (kick * 0.78 * low + clap * 0.42 * mid + hats * 0.26 * hi) / (0.78 + 0.42 + 0.26 * 0.2)
+        func mixAt(_ t: Double) -> (Double, Int) {
+            let (kick, kickIndex) = part(t, every: beat, offset: 0, decay: 0.12, body: 0.06)
+            let (clap, _) = part(t, every: beat * 2, offset: beat, decay: 0.16, body: 0.25)
+            let (hats, _) = part(t, every: beat, offset: beat / 2, decay: 0.05, body: 0.2)
+            return ((kick * 0.78 * low + clap * 0.42 * mid + hats * 0.26 * hi) / (0.78 + 0.42 + 0.26 * 0.2), kickIndex)
+        }
+        let (dry, kickIndex) = mixAt(now)
+        var mix = dry
+        switch effect {
+        case .filter:
+            break
+        case .reverb:
+            // A long tail that fills the gaps between hits.
+            let tail = max((tails[id] ?? 0) * exp(-dt / 1.4), mix * amount * 0.55)
+            tails[id] = tail
+            mix += tail
+        case .delay:
+            // Dotted-eighth echoes, each quieter.
+            mix += amount * (0.55 * mixAt(now - 0.75 * beat).0 + 0.3 * mixAt(now - 1.5 * beat).0)
+        case .gater:
+            // Sixteenths: open half of each, cut by the amount the other half.
+            let sixteenth = beat / 4
+            if now.truncatingRemainder(dividingBy: sixteenth) >= sixteenth / 2 { mix *= 1 - amount }
+        }
 
         // Every beat lands a little under the track's peak, the odd one right on it;
         // a breakdown every 16 bars drops it by 7 dB.
