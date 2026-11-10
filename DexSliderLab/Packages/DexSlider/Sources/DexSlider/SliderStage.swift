@@ -19,9 +19,14 @@ public struct SliderStage<Content: View>: View {
         ZStack(alignment: .topLeading) {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ForEach(bank.faders.keys.sorted { $0.description < $1.description }, id: \.self) { id in
+                FaderReadout(bank: bank, id: id)
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
             ForEach(bank.panels.keys.sorted { $0.description < $1.description }, id: \.self) { id in
                 SliderPanelView(bank: bank, id: id)
-                    .zIndex(bank.panels[id]?.touching == true ? 2 : 1)
+                    .zIndex(bank.panels[id]?.touching == true ? 3 : 2)
             }
         }
         .coordinateSpace(.named(sliderStageSpace))
@@ -36,6 +41,6 @@ public struct SliderStage<Content: View>: View {
                 .onChanged { events in bank.handle(events) }
                 .onEnded { events in bank.handle(events, ended: true) }
         )
-        .sensoryFeedback(.alignment, trigger: bank.limitBumps)
+        .sensoryFeedback(.alignment, trigger: bank.ticks)
     }
 }

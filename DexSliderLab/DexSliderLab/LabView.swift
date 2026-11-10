@@ -18,15 +18,22 @@ struct LabView: View {
         VStack(spacing: 0) {
             topBar
             SliderStage(bank: bank) {
-                HStack(alignment: .top, spacing: 36) {
-                    DeckColumn(bank: bank, deck: "A")
-                    CentreMeters(bank: bank)
-                        .padding(.top, 8)
-                    DeckColumn(bank: bank, deck: "B")
+                HStack(spacing: 0) {
+                    SliderFader(bank: bank, id: SliderID("A", .tempo))
+                        .padding(.horizontal, 28)
+                    Spacer(minLength: 16)
+                    HStack(alignment: .top, spacing: 30) {
+                        DeckColumn(bank: bank, deck: "A")
+                        CentreColumn(bank: bank)
+                        DeckColumn(bank: bank, deck: "B")
+                    }
+                    Spacer(minLength: 16)
+                    SliderFader(bank: bank, id: SliderID("B", .tempo))
+                        .padding(.horizontal, 28)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            Text("Touch and drag a chip up or down · slide sideways while dragging for fine · double-tap TRIM or EQ to reset")
+            Text("Drag any control up or down · slide sideways while dragging for fine · double-tap TRIM, EQ or CUE/MST to reset")
                 .font(SliderTheme.cond(14, "DemiBold"))
                 .foregroundStyle(Color.white.opacity(0.45))
                 .padding(.bottom, 12)
@@ -64,35 +71,65 @@ struct LabView: View {
             hold(2, SliderID("B", .level), up: 90)
         case "stretch": hold(1, SliderID("A", .level), up: 140)
         case "fine": hold(1, SliderID("B", .trim), up: 30, sideways: 130)
+        case "tempo":
+            hold(1, SliderID("A", .tempo), up: -18)
+            signal.toggleSync("B")
+        case "cue": hold(1, SliderID("M", .cueMix), up: -40)
         default: break
         }
     }
 
+    /// One row when it fits; otherwise the decks' transport drops to a second row.
     private var topBar: some View {
-        HStack(spacing: 18) {
-            Text("SLIDER LAB")
-                .font(SliderTheme.cond(22))
-                .fixedSize()
-                .foregroundStyle(.white)
-            Spacer()
-            DeckTransport(signal: signal, deck: "A")
-            DeckTransport(signal: signal, deck: "B")
-            Spacer()
-            Button {
-                showTuning.toggle()
-            } label: {
-                Text("TUNE")
-                    .font(SliderTheme.cond(18))
-                    .fixedSize()
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(showTuning ? Color.white : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-                    .foregroundStyle(showTuning ? Color.black : Color.white)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 14) {
+                title
+                Spacer()
+                transports
+                Spacer()
+                tune
             }
-            .buttonStyle(.plain)
+            VStack(spacing: 10) {
+                HStack {
+                    title
+                    Spacer()
+                    tune
+                }
+                transports
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+    }
+
+    private var title: some View {
+        Text("SLIDER LAB")
+            .font(SliderTheme.cond(22))
+            .foregroundStyle(.white)
+            .fixedSize()
+    }
+
+    private var transports: some View {
+        HStack(spacing: 24) {
+            DeckTransport(signal: signal, deck: "A")
+            DeckTransport(signal: signal, deck: "B")
+        }
+        .fixedSize()
+    }
+
+    private var tune: some View {
+        Button {
+            showTuning.toggle()
+        } label: {
+            Text("TUNE")
+                .font(SliderTheme.cond(18))
+                .fixedSize()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(showTuning ? Color.white : Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                .foregroundStyle(showTuning ? Color.black : Color.white)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -102,19 +139,35 @@ private struct DeckColumn: View {
     let deck: String
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 10) {
             Text(deck)
                 .font(SliderTheme.cond(22))
                 .foregroundStyle(deck == "A" ? Color(red: 0.153, green: 0.435, blue: 1) : Color(red: 1, green: 0.541, blue: 0.122))
             SliderChip(bank: bank, id: SliderID(deck, .trim))
-            Spacer().frame(height: 18)
+            Spacer().frame(height: 6)
             SliderChip(bank: bank, id: SliderID(deck, .hi))
             SliderChip(bank: bank, id: SliderID(deck, .mid))
             SliderChip(bank: bank, id: SliderID(deck, .low))
-            Spacer().frame(height: 18)
-            SliderChip(bank: bank, id: SliderID(deck, .level))
+            Spacer().frame(height: 10)
+            SliderFader(bank: bank, id: SliderID(deck, .level))
         }
-        .padding(.top, 24)
+    }
+}
+
+/// The centre strip: Dex's A · L · R · B meters, then the headphone and master chips
+/// in the room the kill buttons used to take.
+private struct CentreColumn: View {
+    let bank: SliderBank
+
+    var body: some View {
+        VStack(spacing: 10) {
+            CentreMeters(bank: bank)
+                .padding(.top, 32)
+            Spacer().frame(height: 14)
+            SliderChip(bank: bank, id: SliderID("M", .cueMix))
+            SliderChip(bank: bank, id: SliderID("M", .phones))
+            SliderChip(bank: bank, id: SliderID("M", .master))
+        }
     }
 }
 
@@ -139,11 +192,22 @@ private struct DeckTransport: View {
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
+            Button {
+                signal.toggleSync(deck)
+            } label: {
+                Text("SYNC")
+                    .font(SliderTheme.cond(15))
+                    .frame(width: 52, height: 32)
+                    .background(state.synced ? Color(red: 0.208, green: 0.816, blue: 0.42) : Color.white.opacity(0.12),
+                                in: RoundedRectangle(cornerRadius: 7))
+                    .foregroundStyle(state.synced ? Color.black : Color.white)
+            }
+            .buttonStyle(.plain)
             Picker("Track", selection: Binding(get: { state.source }, set: { signal.load($0, on: deck) })) {
                 ForEach(TestSignal.Source.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
-            .frame(width: 210)
+            .frame(width: 200)
         }
     }
 }

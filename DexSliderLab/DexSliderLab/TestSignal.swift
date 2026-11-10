@@ -58,11 +58,13 @@ final class TestSignal {
     struct Deck {
         var playing = true
         var source = Source.normal
+        /// The track's own BPM, which TEMPO moves from.
+        var bpm = 124.0
+        var synced = false
     }
 
-    var decks: [String: Deck] = ["A": Deck(source: .normal), "B": Deck(source: .hot)]
-    /// Dex's master volume, linear, at its default.
-    let masterVolume = 0.7
+    var decks: [String: Deck] = ["A": Deck(source: .normal, bpm: 124), "B": Deck(source: .hot, bpm: 122)]
+    /// The beat the meters move to. The two decks are taken as beatmatched.
     let tempo = 124.0
 
     @ObservationIgnored private let bank: SliderBank
@@ -79,8 +81,38 @@ final class TestSignal {
                 bank.add(SliderID(deck, band), spec: .eq(deck: deck), value: 1)
             }
             // Deck A playing out, deck B cued in at zero: ready to swap.
-            bank.add(SliderID(deck, .level), spec: .level(deck: deck), value: deck == "A" ? 1 : 0)
+            bank.addFader(SliderID(deck, .level), spec: .level(deck: deck), value: deck == "A" ? 1 : 0)
+            bank.addFader(SliderID(deck, .tempo), spec: .tempo(bpm: decks[deck]!.bpm), value: 0)
         }
+        bank.add(SliderID("M", .cueMix), spec: .cueMix(), value: 0.5)
+        bank.add(SliderID("M", .phones), spec: .phones(), value: 0.6)
+        // Dex's master volume default.
+        bank.add(SliderID("M", .master), spec: .master(), value: 0.7)
+        bank.onChange = { [weak self] id, _ in
+            guard let self, id.role == .tempo else { return }
+            for deck in ["A", "B"] where deck != id.deck && self.decks[deck]?.synced == true {
+                self.match(deck)
+            }
+        }
+    }
+
+    /// SYNC: the deck's TEMPO follows the other deck's BPM and can't be moved by hand.
+    func toggleSync(_ deck: String) {
+        guard var state = decks[deck] else { return }
+        state.synced.toggle()
+        decks[deck] = state
+        bank.setLocked(state.synced, for: SliderID(deck, .tempo))
+        if state.synced { match(deck) }
+    }
+
+    func bpm(_ deck: String) -> Double {
+        (decks[deck]?.bpm ?? 124) * (1 + bank.value(SliderID(deck, .tempo)) / 100)
+    }
+
+    private func match(_ deck: String) {
+        let other = deck == "A" ? "B" : "A"
+        guard let own = decks[deck]?.bpm else { return }
+        bank.setValue((bpm(other) / own - 1) * 100, for: SliderID(deck, .tempo))
     }
 
     func start() {
@@ -118,7 +150,7 @@ final class TestSignal {
     private func tick(now: Double, dt: Double) {
         let a = deckPeak("A", now: now, dt: dt)
         let b = deckPeak("B", now: now, dt: dt)
-        let master = (a.post + b.post) * masterVolume
+        let master = (a.post + b.post) * bank.value(SliderID("M", .master))
         // A touch of width so L and R don't move as one.
         let wobble = 0.03 * sin(now * 2.1)
         let readings: [MeterKey: Double] = [

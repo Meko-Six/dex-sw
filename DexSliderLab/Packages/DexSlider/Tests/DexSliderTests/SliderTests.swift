@@ -29,6 +29,72 @@ struct SpecTests {
     }
 }
 
+struct TempoTests {
+    let tuning = SliderTuning()
+
+    @Test func upIsSlowerAsOnACDJ() {
+        let spec = SliderSpec.tempo(bpm: 124)
+        #expect(spec.fill(-16) == 1)
+        #expect(spec.fill(16) == 0)
+        var drag = SliderDrag(spec: spec, value: 2, at: CGPoint(x: 0, y: 300))
+        drag.move(to: CGPoint(x: 0, y: 300 - tuning.tempoHeight / 32), travel: tuning.tempoHeight, tuning: tuning)
+        #expect(drag.value == 1) // up 1/32 of the travel: 1 % slower
+    }
+
+    @Test func readsTenthsAndBPM() {
+        let spec = SliderSpec.tempo(bpm: 124)
+        #expect(spec.readout(2.42) == "+2.4%")
+        #expect(spec.readout(0) == "0.0%")
+        #expect(spec.readout(-3) == "\u{2212}3.0%")
+        #expect(spec.caption(2.4) == "127.0 BPM")
+    }
+
+    @Test func sticksGentlyAtZero() {
+        let spec = SliderSpec.tempo(bpm: 124)
+        let travel = 320.0, unitsPerPoint = spec.span / travel
+        var drag = SliderDrag(spec: spec, value: 1, at: CGPoint(x: 0, y: 300), detentWidth: 14 * unitsPerPoint)
+        // Down is faster, so up 11 pt from +1 % reaches 0 …
+        drag.move(to: CGPoint(x: 0, y: 289), travel: travel, tuning: tuning)
+        #expect(drag.value == 0)
+        #expect(drag.inDetent)
+        // … and it holds there for the rest of its 14 pt …
+        drag.move(to: CGPoint(x: 0, y: 277), travel: travel, tuning: tuning)
+        #expect(drag.value == 0)
+        // … then carries on, losing nothing past the detent.
+        drag.move(to: CGPoint(x: 0, y: 266), travel: travel, tuning: tuning)
+        #expect(drag.value == -1)
+        #expect(!drag.inDetent)
+    }
+
+    @Test func fasterThanTheRangeStretchesDownward() {
+        var drag = SliderDrag(spec: .tempo(bpm: 124), value: 16, at: CGPoint(x: 0, y: 300))
+        drag.move(to: CGPoint(x: 0, y: 340), travel: 240, tuning: tuning)
+        #expect(drag.value == 16)
+        #expect(drag.overshoot(travel: 240) < 0)
+    }
+}
+
+struct MasterSectionTests {
+    @Test func blendReadsEachSide() {
+        let spec = SliderSpec.cueMix()
+        #expect(spec.readout(0.5) == "50/50")
+        #expect(spec.readout(0.2) == "CUE 80")
+        #expect(spec.readout(0.7) == "MST 70")
+        #expect(spec.reset == 0.5)
+    }
+
+    @Test func nothingLoudResetsOnADoubleTap() {
+        #expect(SliderSpec.phones().reset == nil)
+        #expect(SliderSpec.master().reset == nil)
+        #expect(SliderSpec.tempo(bpm: 120).reset == nil)
+    }
+
+    @Test func noMeterMeansAShorterPanel() {
+        let tuning = SliderTuning()
+        #expect(PanelPlacer.headerHeight(tuning, meter: false) < PanelPlacer.headerHeight(tuning))
+    }
+}
+
 struct DragTests {
     let tuning = SliderTuning()
 
@@ -149,8 +215,8 @@ struct RouterTests {
     func bank() -> SliderBank {
         let bank = SliderBank()
         bank.setBounds(CGRect(x: 0, y: 0, width: 1000, height: 800))
-        bank.add(SliderID("A", .level), spec: .level(deck: "A"), value: 1)
-        bank.add(SliderID("B", .level), spec: .level(deck: "B"), value: 0)
+        bank.addFader(SliderID("A", .level), spec: .level(deck: "A"), value: 1)
+        bank.addFader(SliderID("B", .level), spec: .level(deck: "B"), value: 0)
         bank.add(SliderID("A", .trim), spec: .trim(deck: "A", auto: -2), value: 1.5)
         bank.setFrame(CGRect(x: 300, y: 600, width: 92, height: 52), for: SliderID("A", .level))
         bank.setFrame(CGRect(x: 600, y: 600, width: 92, height: 52), for: SliderID("B", .level))
@@ -160,10 +226,11 @@ struct RouterTests {
 
     @Test func twoFingersCrossfadeTheLevels() {
         let bank = bank()
-        let travel = bank.tuning.barHeight
+        let travel = bank.tuning.faderTravel(.level)
         bank.touchDown(1, at: CGPoint(x: 340, y: 620), time: 0)
         bank.touchDown(2, at: CGPoint(x: 640, y: 620), time: 0)
-        #expect(bank.panels.count == 2)
+        #expect(bank.faders.count == 2)
+        #expect(bank.panels.isEmpty) // faders never expand
         bank.touchMoved(1, to: CGPoint(x: 340, y: 620 + travel / 2))
         bank.touchMoved(2, to: CGPoint(x: 640, y: 620 - travel / 2))
         #expect(abs(bank.value(SliderID("A", .level)) - 0.5) < 1e-9)
@@ -175,7 +242,7 @@ struct RouterTests {
         bank.touchDown(1, at: CGPoint(x: 340, y: 620), time: 0)
         // Slides right across deck B's chip: still deck A's LEVEL, at ⅒ speed that far out.
         bank.touchMoved(1, to: CGPoint(x: 640, y: 620))
-        bank.touchMoved(1, to: CGPoint(x: 640, y: 620 + bank.tuning.barHeight / 4))
+        bank.touchMoved(1, to: CGPoint(x: 640, y: 620 + bank.tuning.faderTravel(.level) / 4))
         #expect(abs(bank.value(SliderID("A", .level)) - 0.975) < 1e-9)
         #expect(bank.value(SliderID("B", .level)) == 0)
     }
@@ -213,12 +280,33 @@ struct RouterTests {
         #expect(bank.value(level) == 0)
     }
 
+    @Test func syncLockRefusesTouches() {
+        let bank = bank()
+        let tempo = SliderID("A", .tempo)
+        bank.addFader(tempo, spec: .tempo(bpm: 124), value: 0)
+        bank.setFrame(CGRect(x: 100, y: 300, width: 56, height: 240), for: tempo)
+        bank.setLocked(true, for: tempo)
+        bank.touchDown(1, at: CGPoint(x: 120, y: 400), time: 0)
+        bank.touchMoved(1, to: CGPoint(x: 120, y: 300))
+        #expect(bank.value(tempo) == 0)
+        #expect(bank.faders.isEmpty)
+    }
+
+    @Test func lockingLetsGoOfAFingerAlreadyOnIt() {
+        let bank = bank()
+        let level = SliderID("A", .level)
+        bank.touchDown(1, at: CGPoint(x: 340, y: 620), time: 0)
+        bank.setLocked(true, for: level)
+        bank.touchMoved(1, to: CGPoint(x: 340, y: 700))
+        #expect(bank.value(level) == 1)
+    }
+
     @Test func reportsEveryChange() {
         let bank = bank()
         var heard: [Double] = []
         bank.onChange = { _, value in heard.append(value) }
         bank.touchDown(1, at: CGPoint(x: 640, y: 620), time: 0)
-        bank.touchMoved(1, to: CGPoint(x: 640, y: 620 - bank.tuning.barHeight))
+        bank.touchMoved(1, to: CGPoint(x: 640, y: 620 - bank.tuning.faderTravel(.level)))
         #expect(heard == [1])
     }
 }

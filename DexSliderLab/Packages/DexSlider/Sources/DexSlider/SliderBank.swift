@@ -6,14 +6,20 @@ import SwiftUI
 /// control (deck A's LEVEL up while deck B's comes down) and the logic can be tested
 /// without a screen. A finger owns the control it first touched for as long as it
 /// stays down, wherever it travels.
+///
+/// Two kinds of control share the routing: chips, which open a panel while touched,
+/// and faders (LEVEL, TEMPO), which are always drawn and only show a readout.
 @MainActor @Observable
 public final class SliderBank {
+    public enum Kind: Sendable, Equatable { case chip, fader }
+
     public struct Control: Sendable, Equatable {
         public var spec: SliderSpec
         public var value: Double
+        public var kind: Kind
     }
 
-    /// An open panel.
+    /// An open chip panel.
     public struct Panel: Sendable, Equatable {
         public var layout: PanelLayout
         /// The chip it grew out of, which it shrinks back into.
@@ -26,12 +32,23 @@ public final class SliderBank {
         public var factor = 1.0
     }
 
+    /// A fader being worked, or just let go.
+    public struct FaderTouch: Sendable, Equatable {
+        public var touching = true
+        public var overshoot = 0.0
+        public var factor = 1.0
+    }
+
     public private(set) var controls: [SliderID: Control] = [:]
     public private(set) var panels: [SliderID: Panel] = [:]
+    public private(set) var faders: [SliderID: FaderTouch] = [:]
+    /// Controls that ignore touches: TEMPO while SYNC holds it.
+    public private(set) var locked: Set<SliderID> = []
     public var meters: [MeterKey: MeterValue] = [:]
     public var tuning: SliderTuning
-    /// Counts each pull against an end, to drive a haptic tick where there is one.
-    public private(set) var limitBumps = 0
+    /// Counts each pull against an end and each arrival in a detent, to drive a
+    /// haptic tick where there is one.
+    public private(set) var ticks = 0
 
     /// Called for every value the user sets, for the audio.
     @ObservationIgnored public var onChange: ((SliderID, Double) -> Void)?
@@ -42,10 +59,11 @@ public final class SliderBank {
     private struct Touch {
         let id: SliderID
         var drag: SliderDrag
+        let travel: Double
         let isReset: Bool
     }
     @ObservationIgnored private var touches: [AnyHashable: Touch] = [:]
-    /// Touches that landed outside every chip: ignored until they lift.
+    /// Touches that landed outside every control: ignored until they lift.
     @ObservationIgnored private var strays: Set<AnyHashable> = []
     @ObservationIgnored private var lastTap: [SliderID: (time: TimeInterval, at: CGPoint)] = [:]
     @ObservationIgnored private var generation: [SliderID: Int] = [:]
@@ -56,8 +74,14 @@ public final class SliderBank {
 
     // MARK: Controls
 
+    /// A chip: TRIM, the EQ, CUE/MST, PHONES, MASTER.
     public func add(_ id: SliderID, spec: SliderSpec, value: Double) {
-        controls[id] = Control(spec: spec, value: spec.snap(spec.clamp(value)))
+        controls[id] = Control(spec: spec, value: spec.snap(spec.clamp(value)), kind: .chip)
+    }
+
+    /// An always-visible fader: LEVEL, TEMPO.
+    public func addFader(_ id: SliderID, spec: SliderSpec, value: Double) {
+        controls[id] = Control(spec: spec, value: spec.snap(spec.clamp(value)), kind: .fader)
     }
 
     public func setSpec(_ spec: SliderSpec, for id: SliderID) {
@@ -66,23 +90,39 @@ public final class SliderBank {
 
     public func value(_ id: SliderID) -> Double { controls[id]?.value ?? 0 }
 
-    /// A change from elsewhere (a new track's AUTO, MIDI): moves the chip, not a drag.
+    /// A change from elsewhere (a new track's AUTO, SYNC, MIDI): moves the control,
+    /// not a drag.
     public func setValue(_ value: Double, for id: SliderID) {
         guard let spec = controls[id]?.spec else { return }
         controls[id]?.value = spec.snap(spec.clamp(value))
     }
 
-    public func meter(_ key: MeterKey) -> MeterValue { meters[key] ?? .silent }
-
-    /// What a control's panel shows, and what its chip outline follows.
-    public func meterValue(for spec: SliderSpec) -> MeterValue {
-        switch spec.meter {
-        case .deck(let key): meter(key)
-        case .master: .louder(meter(.masterL), meter(.masterR))
+    /// Locks a control against touches, and lets go of any finger on it.
+    public func setLocked(_ isLocked: Bool, for id: SliderID) {
+        if isLocked {
+            locked.insert(id)
+            for (key, touch) in touches where touch.id == id { touchUp(key, at: .zero, time: .infinity) }
+        } else {
+            locked.remove(id)
         }
     }
 
-    public func isTouched(_ id: SliderID) -> Bool { panels[id]?.touching ?? false }
+    public func isLocked(_ id: SliderID) -> Bool { locked.contains(id) }
+
+    public func meter(_ key: MeterKey) -> MeterValue { meters[key] ?? .silent }
+
+    /// What a control's panel shows, and what its chip outline follows; nil for none.
+    public func meterValue(for spec: SliderSpec) -> MeterValue? {
+        switch spec.meter {
+        case .deck(let key): meter(key)
+        case .master: .louder(meter(.masterL), meter(.masterR))
+        case .none: nil
+        }
+    }
+
+    public func isTouched(_ id: SliderID) -> Bool {
+        panels[id]?.touching ?? faders[id]?.touching ?? false
+    }
 
     // MARK: Geometry
 
@@ -91,12 +131,16 @@ public final class SliderBank {
     public func setBounds(_ bounds: CGRect) { self.bounds = bounds }
 
     /// An open panel's bar first, so a panel still up after release can be grabbed
-    /// again; then the chips, with a little slop around each.
+    /// again; then the controls, with a little slop around each.
     func hit(_ point: CGPoint) -> SliderID? {
         if let open = panels.first(where: { !$0.value.closing && $0.value.layout.bar.insetBy(dx: -8, dy: -8).contains(point) }) {
             return open.key
         }
         return frames.first { $0.value.insetBy(dx: -6, dy: -6).contains(point) }?.key
+    }
+
+    private func travel(_ id: SliderID, _ kind: Kind) -> Double {
+        kind == .fader ? tuning.faderTravel(id.role) : tuning.barHeight
     }
 
     // MARK: Touches
@@ -125,7 +169,7 @@ public final class SliderBank {
     }
 
     public func touchDown(_ key: AnyHashable, at point: CGPoint, time: TimeInterval) {
-        guard let id = hit(point), let control = controls[id],
+        guard let id = hit(point), let control = controls[id], !locked.contains(id),
               !touches.values.contains(where: { $0.id == id }) else {
             strays.insert(key)
             return
@@ -139,21 +183,45 @@ public final class SliderBank {
             lastTap[id] = nil
         }
         let value = controls[id]?.value ?? control.value
-        touches[key] = Touch(id: id, drag: SliderDrag(spec: control.spec, value: value, at: point), isReset: isReset)
-        open(id, finger: point)
+        let travel = travel(id, control.kind)
+        let detent = travel > 0 ? tuning.detentPoints / travel * control.spec.span : 0
+        touches[key] = Touch(id: id,
+                             drag: SliderDrag(spec: control.spec, value: value, at: point, detentWidth: detent),
+                             travel: travel, isReset: isReset)
+        generation[id, default: 0] += 1
+        switch control.kind {
+        case .chip: open(id, finger: point)
+        case .fader:
+            if faders[id] != nil {
+                faders[id]?.touching = true
+            } else {
+                withAnimation(.spring(response: tuning.openResponse, dampingFraction: 1 - tuning.openBounce)) {
+                    faders[id] = FaderTouch()
+                }
+            }
+        }
     }
 
     public func touchMoved(_ key: AnyHashable, to point: CGPoint) {
         guard var touch = touches[key] else { return }
-        let value = touch.drag.move(to: point, travel: tuning.barHeight, tuning: tuning)
+        let wasInDetent = touch.drag.inDetent
+        let value = touch.drag.move(to: point, travel: touch.travel, tuning: tuning)
         touches[key] = touch
+        if touch.drag.inDetent && !wasInDetent { ticks += 1 }
         set(value, for: touch.id)
-        guard var panel = panels[touch.id] else { return }
-        let overshoot = touch.drag.overshoot(travel: tuning.barHeight)
-        if overshoot != 0 && panel.overshoot == 0 { limitBumps += 1 }
-        panel.overshoot = overshoot
-        panel.factor = touch.drag.factor
-        panels[touch.id] = panel
+        let overshoot = touch.drag.overshoot(travel: touch.travel)
+        let id = touch.id
+        if var panel = panels[id] {
+            if overshoot != 0 && panel.overshoot == 0 { ticks += 1 }
+            panel.overshoot = overshoot
+            panel.factor = touch.drag.factor
+            panels[id] = panel
+        } else if var fader = faders[id] {
+            if overshoot != 0 && fader.overshoot == 0 { ticks += 1 }
+            fader.overshoot = overshoot
+            fader.factor = touch.drag.factor
+            faders[id] = fader
+        }
     }
 
     public func touchUp(_ key: AnyHashable, at point: CGPoint, time: TimeInterval) {
@@ -165,9 +233,12 @@ public final class SliderBank {
         }
         withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
             panels[id]?.overshoot = 0
+            faders[id]?.overshoot = 0
         }
         panels[id]?.touching = false
         panels[id]?.factor = 1
+        faders[id]?.touching = false
+        faders[id]?.factor = 1
         scheduleClose(id)
     }
 
@@ -177,10 +248,9 @@ public final class SliderBank {
         onChange?(id, value)
     }
 
-    // MARK: Panels
+    // MARK: Panels and readouts
 
     private func open(_ id: SliderID, finger: CGPoint) {
-        generation[id, default: 0] += 1
         if panels[id] != nil {
             // Still up from a moment ago: keep it where it is rather than jump.
             panels[id]?.touching = true
@@ -190,7 +260,8 @@ public final class SliderBank {
         guard let chip = frames[id], let control = controls[id] else { return }
         let others = panels.filter { $0.key != id && !$0.value.closing }.map { $0.value.layout.frame }
         let layout = PanelPlacer.place(chip: chip, finger: finger, fill: control.spec.fill(control.value),
-                                       bounds: bounds, tuning: tuning, avoiding: others)
+                                       bounds: bounds, tuning: tuning, meter: control.spec.meter != .none,
+                                       avoiding: others)
         panels[id] = Panel(layout: layout, origin: chip)
     }
 
@@ -198,9 +269,15 @@ public final class SliderBank {
         let mine = generation[id, default: 0]
         let hold = tuning.holdAfterRelease
         let shrink = max(0.15, tuning.openResponse * 1.4)
+        let spring = Animation.spring(response: tuning.openResponse, dampingFraction: 1 - tuning.openBounce)
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(hold))
-            guard let self, self.generation[id] == mine, self.panels[id]?.touching == false else { return }
+            guard let self, self.generation[id] == mine else { return }
+            if self.faders[id]?.touching == false {
+                withAnimation(spring) { self.faders[id] = nil }
+                return
+            }
+            guard self.panels[id]?.touching == false else { return }
             self.panels[id]?.closing = true
             try? await Task.sleep(for: .seconds(shrink))
             guard self.generation[id] == mine, self.panels[id]?.closing == true else { return }

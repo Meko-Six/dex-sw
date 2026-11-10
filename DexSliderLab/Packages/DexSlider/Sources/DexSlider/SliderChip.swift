@@ -60,7 +60,7 @@ public struct SliderChip: View {
 
     private func outline(_ spec: SliderSpec) -> Color {
         if bank.panels[id] != nil && bank.panels[id]?.closing == false { return SliderTheme.text }
-        guard bank.tuning.chipStatus else { return SliderTheme.outline }
-        return SliderTheme.colour(bank.tuning.rungs.tone(bank.meterValue(for: spec)))
+        guard bank.tuning.chipStatus, let meter = bank.meterValue(for: spec) else { return SliderTheme.outline }
+        return SliderTheme.colour(bank.tuning.rungs.tone(meter))
     }
 }

@@ -22,8 +22,9 @@ public enum PanelPlacer {
         (tuning.numberSize * 1.08).rounded()
     }
 
-    public static func headerHeight(_ tuning: SliderTuning) -> Double {
-        meterHeight(tuning) + spacing + numberHeight(tuning) + captionHeight + spacing
+    /// The meter, the number and the caption; without a meter, the number and caption.
+    public static func headerHeight(_ tuning: SliderTuning, meter: Bool = true) -> Double {
+        (meter ? meterHeight(tuning) + spacing : 0) + numberHeight(tuning) + captionHeight + spacing
     }
 
     public static func width(_ tuning: SliderTuning) -> Double {
@@ -37,8 +38,8 @@ public enum PanelPlacer {
     /// chip it takes the side `tuning.placement` asks for, and the other side if that
     /// would cover a panel already open.
     public static func place(chip: CGRect, finger: CGPoint, fill: Double, bounds: CGRect,
-                             tuning: SliderTuning, avoiding others: [CGRect] = []) -> PanelLayout {
-        let header = headerHeight(tuning)
+                             tuning: SliderTuning, meter: Bool = true, avoiding others: [CGRect] = []) -> PanelLayout {
+        let header = headerHeight(tuning, meter: meter)
         let width = width(tuning)
         let height = header + tuning.barHeight
 

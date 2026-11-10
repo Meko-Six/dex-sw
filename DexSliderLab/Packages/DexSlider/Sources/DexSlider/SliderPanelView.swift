@@ -22,7 +22,7 @@ struct SliderPanelView: View {
             ZStack(alignment: .topLeading) {
                 if tuning.backdrop {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(SliderTheme.backdrop.opacity(0.94))
+                        .fill(SliderTheme.backdrop)
                         .shadow(color: .black.opacity(0.45), radius: 18, y: 6)
                         .frame(width: header.width + 28, height: header.height + panel.layout.bar.height + lift + drop + 28)
                         .position(x: panel.layout.frame.midX, y: panel.layout.frame.midY + (drop - lift) / 2)
@@ -98,9 +98,11 @@ private struct PanelHeader: View {
     var body: some View {
         let tuning = bank.tuning
         VStack(spacing: 0) {
-            meter(tuning)
-                .frame(width: tuning.barWidth * 0.64, height: PanelPlacer.meterHeight(tuning))
-            Spacer(minLength: PanelPlacer.spacing)
+            if control.spec.meter != .none {
+                meter(tuning)
+                    .frame(width: tuning.barWidth * 0.64, height: PanelPlacer.meterHeight(tuning))
+                Spacer(minLength: PanelPlacer.spacing)
+            }
             Text(control.spec.readout(control.value))
                 .font(SliderTheme.cond(tuning.numberSize))
                 .foregroundStyle(SliderTheme.text)
@@ -116,14 +118,11 @@ private struct PanelHeader: View {
     }
 
     private var caption: String {
-        if panel.factor < 1 {
-            let speed = panel.factor == 0.5 ? "½" : panel.factor == 0.25 ? "¼" : "⅒"
-            return "FINE \(speed)"
-        }
+        if let fine = FineSpeed.label(panel.factor) { return fine }
         if id.role == .trim, let auto = control.spec.mark {
             return abs(control.value - auto) < 0.05 ? "AUTO" : "AUTO \(SliderSpec.decibels(auto))"
         }
-        return ""
+        return control.spec.caption(control.value) ?? ""
     }
 
     @ViewBuilder private func meter(_ tuning: SliderTuning) -> some View {
@@ -136,6 +135,8 @@ private struct PanelHeader: View {
                 RungColumn(rungs: rungs, value: bank.meter(.masterL), height: tuning.rungHeight, gap: tuning.rungGap)
                 RungColumn(rungs: rungs, value: bank.meter(.masterR), height: tuning.rungHeight, gap: tuning.rungGap)
             }
+        case .none:
+            EmptyView()
         }
     }
 }

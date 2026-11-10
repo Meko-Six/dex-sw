@@ -17,6 +17,8 @@ public enum SliderTheme {
     static let green = Color(hex: 0x66CE77)
     static let yellow = Color(hex: 0xF8D04A)
     static let red = Color(hex: 0xDE5C3C)
+    /// SYNC lit: Dex's green.
+    static let sync = Color(hex: 0x35D06B)
 
     static func colour(_ tone: MeterTone) -> Color {
         switch tone {

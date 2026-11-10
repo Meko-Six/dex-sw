@@ -27,6 +27,23 @@ struct TuningView: View {
                 row("Rung gap", $tuning.rungGap, 2...16, "pt")
                 Toggle("Backdrop", isOn: $tuning.backdrop)
             }
+            Section("LEVEL and TEMPO faders") {
+                Picker("LEVEL", selection: $tuning.levelStyle) {
+                    ForEach(SliderTuning.FaderStyle.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                Toggle("LEVEL readout while touched", isOn: $tuning.levelReadout)
+                Toggle("Readout beside the fader (off: above)", isOn: $tuning.readoutBeside)
+                Picker("TEMPO", selection: $tuning.tempoStyle) {
+                    ForEach(SliderTuning.FaderStyle.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                Toggle("TEMPO readout always shown", isOn: $tuning.tempoReadoutAlways)
+                row("Fader width", $tuning.faderWidth, 30...100, "pt")
+                row("LEVEL height", $tuning.levelHeight, 120...320, "pt")
+                row("TEMPO height", $tuning.tempoHeight, 140...420, "pt")
+                row("Cap height", $tuning.capHeight, 10...36, "pt")
+                row("Readout number size", $tuning.readoutNumberSize, 16...48, "pt")
+                row("Sticks at 0 and 50/50 for", $tuning.detentPoints, 0...40, "pt")
+            }
             Section("Feel") {
                 row("Fine starts after", $tuning.fineStart, 20...150, "pt sideways")
                 row("Each slower step", $tuning.fineStep, 20...150, "pt")

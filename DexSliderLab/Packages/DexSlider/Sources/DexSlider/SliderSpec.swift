@@ -1,8 +1,8 @@
 import Foundation
 
-/// The mixer controls a chip can be.
+/// The mixer and deck controls.
 public enum SliderRole: String, Sendable, Hashable, CaseIterable, Codable {
-    case trim, hi, mid, low, level
+    case trim, hi, mid, low, level, tempo, cueMix, phones, master
 
     public var title: String {
         switch self {
@@ -11,11 +11,15 @@ public enum SliderRole: String, Sendable, Hashable, CaseIterable, Codable {
         case .mid: "MID"
         case .low: "LOW"
         case .level: "LEVEL"
+        case .tempo: "TEMPO"
+        case .cueMix: "CUE/MST"
+        case .phones: "PHONES"
+        case .master: "MASTER"
         }
     }
 }
 
-/// One chip: a deck ("A" or "B") and its role.
+/// One control: a deck ("A", "B", or "M" for the master section) and its role.
 public struct SliderID: Hashable, Sendable, CustomStringConvertible {
     public let deck: String
     public let role: SliderRole
@@ -33,13 +37,14 @@ public enum MeterKey: String, Sendable, Hashable, Codable {
     public static func deck(_ deck: String) -> MeterKey { deck == "B" ? .deckB : .deckA }
 }
 
-/// What the open panel draws above its number: one deck's meter, or the master pair.
+/// What a panel or readout draws above its number.
 public enum PanelMeter: Sendable, Equatable {
     case deck(MeterKey)
     case master
+    case none
 }
 
-/// How a control's value reads, fills and resets.
+/// How a control's value reads, fills, moves and resets.
 public struct SliderSpec: Sendable, Equatable {
     public enum Format: Sendable, Equatable {
         /// Signed decibels to a tenth: "+1.3", "0", "−2.4".
@@ -48,24 +53,38 @@ public struct SliderSpec: Sendable, Equatable {
         case percent
         /// A cut-only EQ position: a percentage, and "KILL" at the foot.
         case eq
+        /// A tempo change in percent to a tenth, with the BPM it gives a track of `bpm`.
+        case tempo(bpm: Double)
+        /// The headphone blend, 0 all cue … 1 all master.
+        case blend
     }
 
     public var range: ClosedRange<Double>
-    /// Values land on multiples of this (TRIM moves in 0.1 dB); nil is continuous.
+    /// Values land on multiples of this (TRIM and TEMPO move in tenths); nil is continuous.
     public var step: Double?
     /// Where a double-tap returns it; nil means a double-tap does nothing.
     public var reset: Double?
     /// A mark drawn on the chip and the bar (TRIM's AUTO); nil draws none.
     public var mark: Double?
+    /// Up lowers the value: TEMPO, where up is slower as on a CDJ.
+    public var invert = false
+    /// The fill grows from here rather than from the foot (TEMPO's 0).
+    public var origin: Double?
+    /// The drag gently sticks here on its way through.
+    public var detent: Double?
     public var meter: PanelMeter
     public var format: Format
 
-    public init(range: ClosedRange<Double>, step: Double? = nil, reset: Double? = nil,
-                mark: Double? = nil, meter: PanelMeter, format: Format) {
+    public init(range: ClosedRange<Double>, step: Double? = nil, reset: Double? = nil, mark: Double? = nil,
+                invert: Bool = false, origin: Double? = nil, detent: Double? = nil,
+                meter: PanelMeter, format: Format) {
         self.range = range
         self.step = step
         self.reset = reset
         self.mark = mark
+        self.invert = invert
+        self.origin = origin
+        self.detent = detent
         self.meter = meter
         self.format = format
     }
@@ -84,7 +103,29 @@ public struct SliderSpec: Sendable, Equatable {
     /// LEVEL: a position, 0 silent to 1 full. No double-tap reset: a stray double-tap
     /// must never throw a deck to full in the middle of a mix.
     public static func level(deck: String) -> SliderSpec {
-        SliderSpec(range: 0...1, reset: nil, meter: .master, format: .percent)
+        SliderSpec(range: 0...1, meter: .master, format: .percent)
+    }
+
+    /// TEMPO: ±16 % in tenths, up slower, sticking gently at 0. No double-tap reset,
+    /// for the same reason as LEVEL.
+    public static func tempo(bpm: Double) -> SliderSpec {
+        SliderSpec(range: -16...16, step: 0.1, invert: true, origin: 0, detent: 0,
+                   meter: .none, format: .tempo(bpm: bpm))
+    }
+
+    /// CUE/MST: the headphone blend; sticks at half and half, and double-tap goes there.
+    public static func cueMix() -> SliderSpec {
+        SliderSpec(range: 0...1, reset: 0.5, detent: 0.5, meter: .none, format: .blend)
+    }
+
+    /// PHONES: headphone level. No double-tap reset: nothing should jump in your ears.
+    public static func phones() -> SliderSpec {
+        SliderSpec(range: 0...1, meter: .none, format: .percent)
+    }
+
+    /// MASTER: the output level, with the master meter. No double-tap reset.
+    public static func master() -> SliderSpec {
+        SliderSpec(range: 0...1, meter: .master, format: .percent)
     }
 
     public var span: Double { range.upperBound - range.lowerBound }
@@ -99,24 +140,47 @@ public struct SliderSpec: Sendable, Equatable {
         return snapped == 0 ? 0 : snapped // no −0
     }
 
-    /// How full the chip and the bar are, 0…1.
+    /// How far up the chip or bar a value sits, 0 foot … 1 top.
     public func fill(_ value: Double) -> Double {
-        span > 0 ? (clamp(value) - range.lowerBound) / span : 0
+        guard span > 0 else { return 0 }
+        let up = (clamp(value) - range.lowerBound) / span
+        return invert ? 1 - up : up
     }
 
     public func readout(_ value: Double) -> String {
+        let percent = Int((clamp(value) * 100).rounded())
         switch format {
-        case .decibels: Self.decibels(value)
-        case .percent: "\(Int((clamp(value) * 100).rounded()))%"
-        case .eq: value <= 0.005 ? "KILL" : "\(Int((clamp(value) * 100).rounded()))%"
+        case .decibels:
+            return Self.decibels(value)
+        case .percent:
+            return "\(percent)%"
+        case .eq:
+            return value <= 0.005 ? "KILL" : "\(percent)%"
+        case .tempo:
+            return Self.tenths(value) + "%"
+        case .blend:
+            if percent == 50 { return "50/50" }
+            return percent < 50 ? "CUE \(100 - percent)" : "MST \(percent)"
         }
+    }
+
+    /// A second line under the number, where the control has one.
+    public func caption(_ value: Double) -> String? {
+        if case .tempo(let bpm) = format {
+            return String(format: "%.1f BPM", bpm * (1 + snap(clamp(value)) / 100))
+        }
+        return nil
     }
 
     /// "+1.3", "0", "−2.4", with a true minus sign.
     public static func decibels(_ value: Double) -> String {
+        (value * 10).rounded() == 0 ? "0" : tenths(value)
+    }
+
+    /// "+2.4", "0.0", "−2.4", with a true minus sign.
+    static func tenths(_ value: Double) -> String {
         let tenths = (value * 10).rounded()
-        if tenths == 0 { return "0" }
         let text = String(format: "%.1f", abs(tenths) / 10)
-        return (tenths > 0 ? "+" : "\u{2212}") + text
+        return tenths == 0 ? text : (tenths > 0 ? "+" : "\u{2212}") + text
     }
 }

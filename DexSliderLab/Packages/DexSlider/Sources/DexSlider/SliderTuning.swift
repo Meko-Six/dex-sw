@@ -20,6 +20,15 @@ public struct SliderTuning: Codable, Sendable, Equatable {
         }
     }
 
+    public enum FaderStyle: String, Codable, Sendable, CaseIterable {
+        /// The lab's bar, the fill showing the position.
+        case bar
+        /// A cap on a slim track, like hardware.
+        case cap
+
+        public var label: String { self == .bar ? "Open bar" : "Cap on a track" }
+    }
+
     // The open panel.
     public var barWidth = 86.0
     /// The bar's height, which is also the drag: moving this far covers the whole range.
@@ -64,6 +73,23 @@ public struct SliderTuning: Codable, Sendable, Equatable {
     public var chipStatus = true
     public var chipFillOpacity = 0.32
 
+    // The always-visible faders: LEVEL and TEMPO.
+    public var levelStyle = FaderStyle.bar
+    public var tempoStyle = FaderStyle.bar
+    public var faderWidth = 56.0
+    public var levelHeight = 200.0
+    public var tempoHeight = 240.0
+    public var capHeight = 18.0
+    /// LEVEL shows its percentage and the master meter above it while touched.
+    public var levelReadout = true
+    /// The readout beside the fader (outward), or above it.
+    public var readoutBeside = true
+    public var readoutNumberSize = 26.0
+    /// TEMPO's percentage and BPM stay up; off shows them only while touched.
+    public var tempoReadoutAlways = true
+    /// How many points of travel the detents (TEMPO's 0, CUE/MST's half) hold for.
+    public var detentPoints = 14.0
+
     // The lab.
     /// The sketch's grey background, or Dex's near-black stage.
     public var dexBackground = false
@@ -80,6 +106,18 @@ public struct SliderTuning: Codable, Sendable, Equatable {
     }
 
     public var rungs: MeterRungs { MeterRungs(redDB: redDB, stepDB: rungStepDB) }
+
+    /// A fader's style.
+    public func style(_ role: SliderRole) -> FaderStyle { role == .tempo ? tempoStyle : levelStyle }
+
+    /// A fader's drawn height.
+    public func faderHeight(_ role: SliderRole) -> Double { role == .tempo ? tempoHeight : levelHeight }
+
+    /// How far a fader's finger travels for the whole range: the bar's height, or the
+    /// cap's run along its track.
+    public func faderTravel(_ role: SliderRole) -> Double {
+        faderHeight(role) - (style(role) == .cap ? capHeight : 0)
+    }
 
     /// A missing or renamed key falls back to its default instead of failing the
     /// whole load, so saved tunings survive new settings.
@@ -115,6 +153,17 @@ public struct SliderTuning: Codable, Sendable, Equatable {
         chipNumber = read(.chipNumber, base.chipNumber)
         chipStatus = read(.chipStatus, base.chipStatus)
         chipFillOpacity = read(.chipFillOpacity, base.chipFillOpacity)
+        levelStyle = read(.levelStyle, base.levelStyle)
+        tempoStyle = read(.tempoStyle, base.tempoStyle)
+        faderWidth = read(.faderWidth, base.faderWidth)
+        levelHeight = read(.levelHeight, base.levelHeight)
+        tempoHeight = read(.tempoHeight, base.tempoHeight)
+        capHeight = read(.capHeight, base.capHeight)
+        levelReadout = read(.levelReadout, base.levelReadout)
+        readoutBeside = read(.readoutBeside, base.readoutBeside)
+        readoutNumberSize = read(.readoutNumberSize, base.readoutNumberSize)
+        tempoReadoutAlways = read(.tempoReadoutAlways, base.tempoReadoutAlways)
+        detentPoints = read(.detentPoints, base.detentPoints)
         dexBackground = read(.dexBackground, base.dexBackground)
     }
 }
