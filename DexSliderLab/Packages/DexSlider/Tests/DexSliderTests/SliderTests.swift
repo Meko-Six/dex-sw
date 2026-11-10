@@ -1,0 +1,224 @@
+import CoreGraphics
+import Testing
+@testable import DexSlider
+
+struct SpecTests {
+    @Test func trimReadsSignedTenths() {
+        #expect(SliderSpec.decibels(1.3) == "+1.3")
+        #expect(SliderSpec.decibels(0.04) == "0")
+        #expect(SliderSpec.decibels(-2.4) == "\u{2212}2.4")
+    }
+
+    @Test func eqReadsKillAtTheFoot() {
+        let spec = SliderSpec.eq(deck: "A")
+        #expect(spec.readout(0) == "KILL")
+        #expect(spec.readout(0.62) == "62%")
+        #expect(spec.readout(1) == "100%")
+    }
+
+    @Test func trimSnapsToTenthsWithoutNegativeZero() {
+        let spec = SliderSpec.trim(deck: "A", auto: -3.2)
+        #expect(spec.snap(1.26) == 1.3)
+        #expect(spec.snap(-0.04).sign == .plus)
+        #expect(spec.fill(0) == 0.5)
+    }
+
+    @Test func levelHasNoDoubleTapReset() {
+        #expect(SliderSpec.level(deck: "A").reset == nil)
+        #expect(SliderSpec.eq(deck: "B").reset == 1)
+    }
+}
+
+struct DragTests {
+    let tuning = SliderTuning()
+
+    @Test func touchingChangesNothing() {
+        let drag = SliderDrag(spec: .level(deck: "A"), value: 0.4, at: CGPoint(x: 100, y: 300))
+        #expect(drag.value == 0.4)
+        #expect(!drag.moved)
+    }
+
+    @Test func barHeightCoversTheWholeRange() {
+        var drag = SliderDrag(spec: .level(deck: "A"), value: 0, at: CGPoint(x: 100, y: 300))
+        drag.move(to: CGPoint(x: 100, y: 300 - tuning.barHeight / 2), travel: tuning.barHeight, tuning: tuning)
+        #expect(abs(drag.value - 0.5) < 1e-9)
+        drag.move(to: CGPoint(x: 100, y: 300 - tuning.barHeight), travel: tuning.barHeight, tuning: tuning)
+        #expect(drag.value == 1)
+    }
+
+    @Test func sidewaysSlowsTheDrag() {
+        #expect(tuning.fineFactor(sideways: 20) == 1)
+        #expect(tuning.fineFactor(sideways: -60) == 0.5)
+        #expect(tuning.fineFactor(sideways: 120) == 0.25)
+        #expect(tuning.fineFactor(sideways: 400) == 0.1)
+
+        var drag = SliderDrag(spec: .trim(deck: "A", auto: 0), value: 0, at: CGPoint(x: 100, y: 300))
+        // Out to ¼ speed first, then up the bar's height: a quarter of 24 dB.
+        drag.move(to: CGPoint(x: 220, y: 300), travel: tuning.barHeight, tuning: tuning)
+        drag.move(to: CGPoint(x: 220, y: 300 - tuning.barHeight), travel: tuning.barHeight, tuning: tuning)
+        #expect(drag.value == 6)
+    }
+
+    @Test func pullingPastTheTopStretchesAndComesBackFirst() {
+        var drag = SliderDrag(spec: .level(deck: "A"), value: 0.9, at: CGPoint(x: 0, y: 300))
+        let tenth = tuning.barHeight / 10
+        drag.move(to: CGPoint(x: 0, y: 300 - 3 * tenth), travel: tuning.barHeight, tuning: tuning)
+        #expect(drag.value == 1)
+        #expect(abs(drag.overshoot(travel: tuning.barHeight) - 2 * tenth) < 1e-9)
+        // Back one tenth: still past the top, still full.
+        drag.move(to: CGPoint(x: 0, y: 300 - 2 * tenth), travel: tuning.barHeight, tuning: tuning)
+        #expect(drag.value == 1)
+        // Back two more: one tenth under the top.
+        drag.move(to: CGPoint(x: 0, y: 300), travel: tuning.barHeight, tuning: tuning)
+        #expect(abs(drag.value - 0.9) < 1e-9)
+        #expect(drag.overshoot(travel: tuning.barHeight) == 0)
+    }
+
+    @Test func rubberBandResistsAndNeverPassesTheBar() {
+        let small = rubberBand(10, dimension: 200, coefficient: 0.55)
+        #expect(small > 0 && small < 10)
+        #expect(rubberBand(-10, dimension: 200, coefficient: 0.55) == -small)
+        #expect(rubberBand(100_000, dimension: 200, coefficient: 0.55) < 200)
+        #expect(rubberBand(10, dimension: 200, coefficient: 0) == 0)
+    }
+}
+
+struct MeterTests {
+    let rungs = MeterRungs(redDB: 0, stepDB: 2)
+
+    @Test func sixRungsUpToRed() {
+        #expect(rungs.thresholds == [-10, -8, -6, -4, -2, 0])
+        #expect(rungs.reached(-20) == 0)
+        #expect(rungs.reached(-5) == 3)
+        #expect(rungs.reached(0.5) == 6)
+    }
+
+    @Test func heldRungStaysLit() {
+        let value = MeterValue(level: -9, hold: -3)
+        #expect(rungs.isLit(0, value))
+        #expect(!rungs.isLit(1, value))
+        #expect(rungs.isLit(3, value)) // −4, the held one
+        #expect(!rungs.isLit(4, value))
+    }
+
+    @Test func outlineFollowsTheHold() {
+        #expect(rungs.tone(MeterValue(level: -30, hold: -7)) == .green)
+        #expect(rungs.tone(MeterValue(level: -30, hold: -5)) == .yellow)
+        #expect(rungs.tone(MeterValue(level: -30, hold: 0)) == .red)
+    }
+}
+
+struct PlacementTests {
+    let tuning = SliderTuning()
+    let bounds = CGRect(x: 0, y: 0, width: 1000, height: 800)
+
+    @Test func fillEdgeLinesUpWithTheFinger() {
+        let chip = CGRect(x: 300, y: 380, width: 92, height: 52)
+        let finger = CGPoint(x: 340, y: 400)
+        let layout = PanelPlacer.place(chip: chip, finger: finger, fill: 0.25, bounds: bounds, tuning: tuning)
+        let edge = layout.bar.maxY - layout.bar.height * 0.25
+        #expect(abs(edge - finger.y) < 0.001)
+    }
+
+    @Test func outwardOpensAwayFromTheCentre() {
+        let left = CGRect(x: 300, y: 380, width: 92, height: 52)
+        let right = CGRect(x: 600, y: 380, width: 92, height: 52)
+        let a = PanelPlacer.place(chip: left, finger: CGPoint(x: 340, y: 400), fill: 0.5, bounds: bounds, tuning: tuning)
+        let b = PanelPlacer.place(chip: right, finger: CGPoint(x: 640, y: 400), fill: 0.5, bounds: bounds, tuning: tuning)
+        #expect(a.frame.maxX <= left.minX)
+        #expect(b.frame.minX >= right.maxX)
+    }
+
+    @Test func staysInsideTheStage() {
+        let chip = CGRect(x: 10, y: 10, width: 92, height: 52)
+        let layout = PanelPlacer.place(chip: chip, finger: CGPoint(x: 20, y: 20), fill: 0, bounds: bounds, tuning: tuning)
+        #expect(bounds.contains(layout.frame))
+    }
+
+    @Test func takesTheOtherSideRatherThanCoverAnOpenPanel() {
+        let chip = CGRect(x: 300, y: 380, width: 92, height: 52)
+        let first = PanelPlacer.place(chip: chip, finger: CGPoint(x: 340, y: 400), fill: 0.5, bounds: bounds, tuning: tuning)
+        let second = PanelPlacer.place(chip: chip.offsetBy(dx: 0, dy: 60), finger: CGPoint(x: 340, y: 460), fill: 0.5,
+                                       bounds: bounds, tuning: tuning, avoiding: [first.frame])
+        #expect(!second.frame.intersects(first.frame))
+    }
+}
+
+@MainActor
+struct RouterTests {
+    func bank() -> SliderBank {
+        let bank = SliderBank()
+        bank.setBounds(CGRect(x: 0, y: 0, width: 1000, height: 800))
+        bank.add(SliderID("A", .level), spec: .level(deck: "A"), value: 1)
+        bank.add(SliderID("B", .level), spec: .level(deck: "B"), value: 0)
+        bank.add(SliderID("A", .trim), spec: .trim(deck: "A", auto: -2), value: 1.5)
+        bank.setFrame(CGRect(x: 300, y: 600, width: 92, height: 52), for: SliderID("A", .level))
+        bank.setFrame(CGRect(x: 600, y: 600, width: 92, height: 52), for: SliderID("B", .level))
+        bank.setFrame(CGRect(x: 300, y: 100, width: 92, height: 52), for: SliderID("A", .trim))
+        return bank
+    }
+
+    @Test func twoFingersCrossfadeTheLevels() {
+        let bank = bank()
+        let travel = bank.tuning.barHeight
+        bank.touchDown(1, at: CGPoint(x: 340, y: 620), time: 0)
+        bank.touchDown(2, at: CGPoint(x: 640, y: 620), time: 0)
+        #expect(bank.panels.count == 2)
+        bank.touchMoved(1, to: CGPoint(x: 340, y: 620 + travel / 2))
+        bank.touchMoved(2, to: CGPoint(x: 640, y: 620 - travel / 2))
+        #expect(abs(bank.value(SliderID("A", .level)) - 0.5) < 1e-9)
+        #expect(abs(bank.value(SliderID("B", .level)) - 0.5) < 1e-9)
+    }
+
+    @Test func aFingerKeepsItsControlOverAnother() {
+        let bank = bank()
+        bank.touchDown(1, at: CGPoint(x: 340, y: 620), time: 0)
+        // Slides right across deck B's chip: still deck A's LEVEL, at ⅒ speed that far out.
+        bank.touchMoved(1, to: CGPoint(x: 640, y: 620))
+        bank.touchMoved(1, to: CGPoint(x: 640, y: 620 + bank.tuning.barHeight / 4))
+        #expect(abs(bank.value(SliderID("A", .level)) - 0.975) < 1e-9)
+        #expect(bank.value(SliderID("B", .level)) == 0)
+    }
+
+    @Test func aSecondFingerCannotTakeAHeldControl() {
+        let bank = bank()
+        bank.touchDown(1, at: CGPoint(x: 340, y: 620), time: 0)
+        bank.touchDown(2, at: CGPoint(x: 350, y: 630), time: 0)
+        bank.touchMoved(2, to: CGPoint(x: 350, y: 900))
+        #expect(bank.value(SliderID("A", .level)) == 1)
+    }
+
+    @Test func aTouchOutsideEveryChipIsIgnoredEvenIfItSlidesOntoOne() {
+        let bank = bank()
+        bank.touchDown(1, at: CGPoint(x: 50, y: 50), time: 0)
+        bank.touchMoved(1, to: CGPoint(x: 340, y: 620))
+        #expect(bank.panels.isEmpty)
+    }
+
+    @Test func doubleTapTrimGoesBackToAuto() {
+        let bank = bank()
+        let trim = SliderID("A", .trim)
+        bank.touchDown(1, at: CGPoint(x: 340, y: 120), time: 10)
+        bank.touchUp(1, at: CGPoint(x: 340, y: 120), time: 10.08)
+        bank.touchDown(2, at: CGPoint(x: 342, y: 122), time: 10.2)
+        #expect(bank.value(trim) == -2)
+    }
+
+    @Test func doubleTapLevelDoesNothing() {
+        let bank = bank()
+        let level = SliderID("B", .level)
+        bank.touchDown(1, at: CGPoint(x: 640, y: 620), time: 10)
+        bank.touchUp(1, at: CGPoint(x: 640, y: 620), time: 10.08)
+        bank.touchDown(2, at: CGPoint(x: 640, y: 620), time: 10.2)
+        #expect(bank.value(level) == 0)
+    }
+
+    @Test func reportsEveryChange() {
+        let bank = bank()
+        var heard: [Double] = []
+        bank.onChange = { _, value in heard.append(value) }
+        bank.touchDown(1, at: CGPoint(x: 640, y: 620), time: 0)
+        bank.touchMoved(1, to: CGPoint(x: 640, y: 620 - bank.tuning.barHeight))
+        #expect(heard == [1])
+    }
+}
