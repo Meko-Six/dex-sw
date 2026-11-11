@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dex Stage Two</title>
+  <style>
+    /* Stage two: everything below the song windows, rebuilt around the slider
+       lab's chips on an even grid, with Pioneer's silkscreen language (flat).
+       Static: positions and states only. The top half is a picture of the
+       current stage (out/layout-kit/Dex current stage @2x.png, top 338 pt).
+       Every coordinate below is in chassis points: 1174 × 476, origin at the
+       chassis's top-left, the same scale as the stage. */
+    :root {
+      --bg: #070708;
+      --text: #f2f2f4;
+      --muted: #a0a0a6;
+      --silk: #8f8f96;
+      --print: #d9d9de;          /* Pioneer's white silkscreen, a touch under white */
+      --a: #276fff;
+      --b: #ff8a1f;
+      --led: #ff8a00;
+      --green: #35d06b;
+      --red: #e8402f;
+      --chip-green: #66ce77;
+      --chip-yellow: #dbe22d;
+      --chip-grey: #55555b;
+      --font-cond: "Avenir Next Condensed", "Helvetica Neue Condensed", Helvetica, Arial, sans-serif;
+      --font-ui: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #08080a; color: var(--text); font: 15px/1.35 var(--font-ui); -webkit-font-smoothing: antialiased; }
+
+    /* ---------- page ---------- */
+    .bar {
+      display: flex; align-items: center; gap: 14px; padding: 10px 20px; border-bottom: 1px solid #1d1d20;
+      font: 700 13px/1 var(--font-cond); letter-spacing: .14em; text-transform: uppercase; color: var(--silk);
+    }
+    .bar h1 { margin: 0; font: inherit; color: var(--text); letter-spacing: .18em; }
+    .bar .sp { flex: 1; }
+    .bar button {
+      appearance: none; border: 1px solid #3a3a40; background: #151517; color: var(--muted); border-radius: 3px;
+      font: 700 13px/1 var(--font-cond); letter-spacing: .12em; padding: 8px 12px; cursor: pointer;
+    }
+    .bar button.on { color: #ff7ad9; border-color: #b0428f; }
+    .wrap { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+    .frame { position: relative; }
+    .ipad {
+      position: absolute; left: 0; top: 0; transform-origin: top left;
+      width: 1194px; height: 834px; border: 10px solid #030304; border-radius: 22px; overflow: hidden;
+      background: #0c0c0d; box-shadow: 0 40px 90px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .05);
+    }
+    /* The whole current stage, shown only down to the foot of the song windows. */
+    .top { display: block; width: 1174px; height: 338px; object-fit: cover; object-position: top; }
+    .notes { max-width: 1194px; width: 100%; color: var(--muted); font-size: 14px; }
+    .notes h2 { font: 700 13px/1 var(--font-cond); letter-spacing: .14em; color: var(--text); margin: 0 0 8px; }
+    .notes ul { margin: 0; padding-left: 18px; columns: 2; column-gap: 32px; }
+    .notes li { margin: 0 0 6px; break-inside: avoid; }
+    .notes b { color: var(--text); font-weight: 600; }
+
+    /* ---------- chassis ---------- */
+    .chassis { position: relative; width: 1174px; height: 476px; background: #161618; border-top: 1px solid #000; overflow: hidden; }
+    .at { position: absolute; }
+    .face { background: #1a1a1d; border-inline: 1px solid rgba(255, 255, 255, .055); }
+    .print { font: 700 13px/14px var(--font-cond); letter-spacing: .1em; color: var(--print); text-align: center; white-space: nowrap; }
+    .scale { font: 700 12px/12px var(--font-cond); color: var(--silk); white-space: nowrap; }
+
+    /* Deck keys: off is an outline in the key's colour; on is the agreed elliptical gradient. */
+    .pill {
+      --key: var(--a);
+      --lit: radial-gradient(ellipse closest-side, #02adee 0%, #05a4f1 65%, #1491f6 95%, #2573fe 125%, #276fff 135%);
+      padding: 0 4px; border-radius: 4px; border: 1.5px solid var(--key); background: #151517; background-origin: border-box; color: var(--key);
+      font: 700 18px/1 var(--font-cond); letter-spacing: .02em; display: flex; align-items: center; justify-content: center; text-align: center;
+    }
+    .pill.sync { --key: #f2f4f3; --lit: radial-gradient(ellipse closest-side, #fff 0%, #f3f3f3 65%, #e6e6e6 85%, #d2d2d2 105%, #d1d1d1 110%); }
+    .pill.master { --key: #e18400; --lit: radial-gradient(ellipse closest-side, #cd9c04 0%, #d49210 65%, #dc8519 85%, #e87022 105%, #f05a27 125%); }
+    /* MASTER TEMPO is red, as its LED is on a CDJ. */
+    .pill.mt { --key: #ec4a37; --lit: radial-gradient(ellipse closest-side, #ff7a5c 0%, #f8654a 45%, #f0553d 70%, #e64634 95%, #d93a2b 115%, #cc3024 135%); font-size: 15px; line-height: 15px; }
+    .pill.on { background-image: var(--lit); border-color: #000; color: #000; }
+
+    /* The slider lab's chip at stage size: 90 × 50, fill from the foot, outline by state. */
+    .chip {
+      --ring: var(--chip-grey);
+      border-radius: 7px; background: #151517; overflow: hidden;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font: 700 14px/1 var(--font-cond); color: #f2f2f4;
+    }
+    .chip::after { content: ""; position: absolute; inset: 0; border-radius: 7px; box-shadow: inset 0 0 0 1.75px var(--ring); pointer-events: none; }
+    .chip .fill { position: absolute; left: 0; right: 0; bottom: 0; height: var(--fill, 0%); background: rgba(200, 200, 206, .30); }
+    .chip .fill.mid { bottom: auto; top: 50%; height: 0; }
+    .chip b, .chip span { position: relative; letter-spacing: .02em; }
+    .chip b { font-size: 14px; }
+    .chip span { font-size: 17px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .chip .mark { position: absolute; right: 2px; width: 9px; height: 2px; background: var(--led); bottom: var(--at); }
+    .chip .mark.l { right: auto; left: 2px; }
+    .chip.green { --ring: var(--chip-green); }
+    .chip.yellow { --ring: var(--chip-yellow); background: color-mix(in srgb, var(--chip-yellow) 12%, #151517); color: #f3f6b0; }
+    .chip.yellow .fill { background: color-mix(in srgb, var(--chip-yellow) 34%, transparent); }
+    /* AUTO lit: the deck keys' gradient, in Dex's green. */
+    .chip.auto { --ring: #000; color: #000; background: radial-gradient(ellipse closest-side, #8be596 0%, #74da82 45%, #62cf72 70%, #55c467 95%, #49ba60 115%, #3fae56 135%); }
+    .chip.auto .fill { display: none; }
+
+    /* Faders: the lab's white cap on a dark track. LEVEL fills below its cap. */
+    .vf { }
+    .vf .slot { position: absolute; left: 50%; top: 4px; bottom: 4px; width: 8px; transform: translateX(-50%); background: #0a0a0b; border-radius: 4px; box-shadow: 0 0 0 1px #2a2a2e; }
+    .vf .lit { position: absolute; left: 50%; bottom: 4px; width: 8px; transform: translateX(-50%); background: #d6d6db; border-radius: 0 0 4px 4px; }
+    .vf .cap {
+      position: absolute; left: 0; right: 0; height: 28px; border-radius: 3px; background: #f1f1f3;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, .6);
+    }
+    .vf .cap::after { content: ""; position: absolute; left: 8px; right: 8px; top: 50%; height: 2px; transform: translateY(-50%); background: #18181a; }
+    .vf .zero { position: absolute; left: 50%; width: 28px; height: 2px; transform: translate(-50%, -50%); background: var(--led); }
+    .ticks i { position: absolute; height: 1px; background: rgba(255, 255, 255, .26); }
+    .ticks i.major { background: rgba(255, 255, 255, .5); }
+
+    /* EQ bracket, as Pioneer prints beside the EQ knobs. */
+    .bracket { border: 1px solid rgba(255, 255, 255, .32); }
+    .bracket.a { border-right: 0; }
+    .bracket.b { border-left: 0; }
+    .bracket-label { background: #1a1a1d; padding: 4px 0; font: 700 12px/12px var(--font-cond); letter-spacing: .08em; color: var(--print); text-align: center; }
+
+    /* Pioneer's stippled panel behind the colour FX. */
+    .stipple {
+      border-radius: 4px;
+      background-color: #18181b;
+      background-image: radial-gradient(rgba(255, 255, 255, .22) 0.8px, transparent 1.1px);
+      background-size: 4px 4px;
+    }
+
+    /* Platter, from the console. */
+    .platter {
+      width: 100%; height: 100%; border-radius: 50%; position: relative; background: #111113;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 0 0 9px #0b0b0d, inset 0 0 0 10px rgba(255, 255, 255, .07);
+      display: grid; place-items: center;
+    }
+    .platter::before { content: ""; position: absolute; inset: 23px; border-radius: 50%; background: repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .035) 0 1px, transparent 1px 4px); }
+    .platter-display { position: absolute; z-index: 2; width: 104px; height: 104px; border-radius: 50%; background: #07080a; box-shadow: 0 0 0 1px #22252a, 0 2px 6px #000; }
+    .platter-display svg { display: block; width: 100%; height: 100%; }
+    .p-edge { fill: none; stroke: #191c21; stroke-width: 1; }
+    .p-ticks { fill: none; stroke: #e4e8ed; stroke-width: 2.4; }
+    .p-accent { fill: none; stroke: var(--accent); stroke-width: 1.8; }
+    .p-inner { fill: none; stroke: #9da4ad; stroke-width: 1.8; stroke-dasharray: 25 4.845; transform: rotate(-45deg); transform-origin: 50px 50px; }
+    .p-hub { fill: #0b0c0f; stroke: #16191d; stroke-width: 1; }
+
+    /* Meter window. */
+    .meter-face { background: #0f0f11; border: 1px solid #2a2a2e; border-radius: 3px; box-shadow: inset 0 2px 6px rgba(0, 0, 0, .6); }
+    .meter-v { background: #0a0a0b; border: 1px solid #26262a; border-radius: 1px; overflow: hidden; }
+    .meter-v .rung { position: absolute; left: 0; right: 0; background: #1b1b1e; }
+    .meter-v .rung.on.g { background: #25a859; }
+    .meter-v .rung.on.a { background: #d8a029; }
+    .meter-v .rung.on.r { background: #d03a2c; }
+    .meter-v .rung.held { background: #d6d6db; }
+    .meter-v .aim { position: absolute; left: 0; right: 0; height: 1px; background: #9b9ba3; }
+    .m-title { font: 700 12px/14px var(--font-cond); letter-spacing: .08em; color: var(--print); text-align: center; }
+    .m-unit { font: 700 11px/12px var(--font-cond); letter-spacing: .04em; color: var(--silk); text-align: center; }
+    .m-num { font: 700 12px/12px var(--font-cond); color: var(--silk); text-align: center; }
+    .m-num.zero { color: var(--text); }
+    .m-clip { font: 700 11px/12px var(--font-cond); letter-spacing: .08em; color: #88504a; text-align: center; }
+
+    /* Keys and rows, from the console. */
+    .key {
+      border-radius: 3px; border: 1px solid rgba(255, 255, 255, .13); background: #151517; color: #cdcdd3;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      font: 700 13px/1.1 var(--font-cond); letter-spacing: .12em;
+    }
+    .key.dot::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #43434a; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .7); }
+    .key.cue { font-size: 20px; letter-spacing: .12em; text-indent: .12em; border: 1.5px solid var(--led); color: #ffab40; }
+    .key.cue.on { color: #000; border-color: #000; background: radial-gradient(ellipse closest-side, #ffb347 0%, #ffa236 50%, #ff9124 85%, #f57d17 115%, #ec6d10 135%); }
+    .jstep { display: flex; align-items: center; justify-content: center; }
+    .jstep svg { width: 26px; height: 26px; fill: currentColor; }
+    .jlen { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #2e2e32; border-radius: 3px; overflow: hidden; }
+    .jlen i { font: 700 18px/1 var(--font-cond); font-style: normal; color: var(--muted); display: grid; place-items: center; background: #121214; border-left: 1px solid #2e2e32; }
+    .jlen i:first-child { border-left: 0; }
+    .jlen i.on { background: #26262a; color: var(--text); box-shadow: inset 0 -2px 0 var(--a); }
+    .big { border-radius: 50%; display: grid; place-items: center; background: #151517; color: #eaeaee; box-shadow: inset 0 0 0 2px #3a3a40; font: 700 19px/1 var(--font-cond); letter-spacing: .14em; text-indent: .14em; }
+    .big.cue { color: #ffab40; box-shadow: inset 0 0 0 2px var(--led); }
+    .big.play.playing { color: var(--green); box-shadow: inset 0 0 0 2px var(--green); }
+    .big svg { width: 26px; height: 26px; fill: currentColor; }
+    .loopbar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 6px; }
+    .loopbar i { font-style: normal; border-radius: 3px; border: 1px solid rgba(255, 255, 255, .12); background: #151517; color: #cdcdd3; display: grid; place-items: center; font: 700 22px/1 var(--font-cond); }
+    .loopbar i.n { font-size: 34px; }
+    .loopbar.on i { background: color-mix(in srgb, var(--led) 15%, #151517); border-color: color-mix(in srgb, var(--led) 60%, #26262b); color: color-mix(in srgb, var(--led) 76%, #fff); }
+
+    /* Crossfader with Pioneer's tick comb either side of the slot. */
+    .xf .slot { position: absolute; left: 0; right: 0; top: 50%; height: 8px; transform: translateY(-50%); background: #000; border-radius: 4px; box-shadow: 0 0 0 1px #2a2a2e; }
+    .xf .comb { position: absolute; left: 0; right: 0; height: 9px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .3) 0 1px, transparent 1px 19.4px); }
+    .xf .thumb { position: absolute; top: 50%; width: 58px; height: 38px; transform: translate(-50%, -50%); border-radius: 3px; background: #232327; border: 1px solid #3e3e45; }
+    .xf .thumb::after { content: ""; position: absolute; top: 6px; bottom: 6px; left: 50%; width: 2px; transform: translateX(-50%); background: #e9e9ee; }
+    .xside { font: 700 15px/1 var(--font-cond); letter-spacing: .06em; color: var(--print); }
+
+    /* Guides: the grid the layout is built on. */
+    .guides { position: absolute; inset: 0; pointer-events: none; display: none; z-index: 50; }
+    body.show-guides .guides { display: block; }
+    .guides .h, .guides .v { position: absolute; background: rgba(255, 64, 200, .55); }
+    .guides .h { left: 0; right: 0; height: 1px; }
+    .guides .v { top: 0; bottom: 0; width: 1px; }
+    .guides .h.c, .guides .v.c { background: rgba(64, 220, 255, .6); }
+    .guides .tag { position: absolute; font: 700 11px/1 var(--font-cond); color: #fff; background: #b0428f; padding: 2px 3px; border-radius: 2px; transform: translate(-50%, -50%); }
+    .guides .tag.c { background: #1f8fb0; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <h1>Dex · Stage two</h1>
+    <span>Static layout · below the song windows</span>
+    <span class="sp"></span>
+    <button id="guidesBtn" onclick="toggleGuides()">Guides (G)</button>
+  </div>
+  <div class="wrap">
+    <div class="frame" id="frame">
+      <div class="ipad" id="ipad">
+        <img class="top" src="stage-two-top.png" alt="Song windows from the current stage">
+        <div class="chassis" id="chassis"></div>
+      </div>
+    </div>
+    <section class="notes">
+      <h2>WHAT CHANGED FROM THE SKETCH</h2>
+      <ul>
+        <li><b>Top row evened out.</b> Four 78 × 40 keys per deck (8 apart), then TRIM · MASTER · TRIM chips, with the same 49 pt gap between every group. KEY is now MASTER TEMPO, at the outer end on both decks.</li>
+        <li><b>One line for tops (76).</b> TEMPO, LEVEL, the HI chip and the meter window all start on it.</li>
+        <li><b>Chip column.</b> HI · MID · LOW 11 apart, so the EQ group is exactly LEVEL's 172 pt; then 16 to FX and 16 to the foot row.</li>
+        <li><b>Foot row on one centre line.</b> Beat jump, channel CUE, CUE/MST, LINK LOWS, PHONES; PHONES is the right-hand chip.</li>
+        <li><b>Labels where Pioneer prints them.</b> TEMPO and LEVEL under their faders, as on a CDJ; the second TEMPO label is gone. EQ bracket beside HI · MID · LOW; a stippled FX panel behind each FX chip.</li>
+        <li><b>Scales.</b> LEVEL 10 … 0 on the outside, TEMPO with an orange 0 and ticks, a tick comb on the crossfader, ‹A and B›.</li>
+        <li><b>States match the song windows above:</b> A is MASTER with MASTER TEMPO on, B is SYNC. A's TRIM is set by hand (orange tick = AUTO); B's is AUTO, lit.</li>
+        <li>Sizes are the lab's at stage scale: chips 90 × 50, LEVEL 60 × 172, TEMPO 60 × 206, 28 pt caps. G shows the grid.</li>
+      </ul>
+    </section>
+  </div>
+
+  <script>
+    /* ---------- the grid (chassis points) ---------- */
+    const W = 1174, H = 476, EDGE = 18;
+    const TOP = { keyY: 14, keyH: 40, keyW: 78, keyGap: 8, chipY: 9 };
+    const CHIP = { w: 90, h: 50 };
+    const BODY = 76;                       // the shared top line
+    const COL = { A: 403, B: W - 403 - CHIP.w };   // chip columns
+    const CHIPS_Y = { hi: 76, mid: 137, low: 198, fx: 264, foot: 330 };
+    const FOOT = { y: 333, h: 44 };        // 44 pt keys on the foot row, centred on the chips' 355
+    const FACE = { x: 259, y: 66, w: W - 2 * 259, h: 324 };
+    const LEVEL = { cx: 331, y: BODY, w: 60, h: 172 };
+    const TEMPO = { x: EDGE, y: BODY, w: 60, h: 206 };
+    const PLATTER = { cx: 214, cy: 196, size: 262 };
+    const METER = { x: 505, y: BODY, w: 164, h: 238, barTop: 118, barBottom: 306,
+      ladder: [-30, -27, -24, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6], amber: 6, red: 10,
+      still: { A: -2.0, L: -3.8, R: -4.3, B: -90 }, hold: { A: -1.0, L: -2.8, R: -3.2, B: -90 } };
+    const ROW = { y: 400, key: 66 };       // CUE · PLAY · loop
+    const XF = { x: 470, w: 234, cy: 433 };
+
+    const at = (x, y, w, h) => `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+    const mx = (x, w) => W - x - w;        // mirror a box for deck B
+
+    const ICON = {
+      play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>',
+      pause: '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+      back: '<svg viewBox="0 0 24 24"><path d="M17 5.5v13L6 12z"/></svg>',
+      fwd: '<svg viewBox="0 0 24 24"><path d="M7 5.5v13L18 12z"/></svg>'
+    };
+
+    /* What the stage shows: the same moment as the song windows above. */
+    const DECK = {
+      A: { accent: 'var(--a)', mt: true, sync: false, master: true, tempo: 0, level: 0.78, cue: false, playing: true, jump: 1, loop: 8, loopOn: true,
+           trim: { title: 'TRIM', value: '+1.0', fill: 54, auto: 44, kind: 'green' }, eq: { hi: 100, mid: 100, low: 62 }, foot: { title: 'CUE/MST', value: '50/50' } },
+      B: { accent: 'var(--b)', mt: false, sync: true, master: false, tempo: 2.31, level: 0.78, cue: true, playing: false, jump: 1, loop: 16, loopOn: false,
+           trim: { title: 'AUTO TRIM', value: '+1.2', fill: 55, kind: 'auto' }, eq: { hi: 100, mid: 100, low: 62 }, foot: { title: 'PHONES', value: '60%' } }
+    };
+
+    /* ---------- parts ---------- */
+    function chip(x, y, title, value, opts = {}) {
+      const fill = opts.fill ?? 0;
+      const fx = opts.fx ? `<i class="mark l" style="--at:calc(50% - 1px)"></i><i class="mark" style="--at:calc(50% - 1px)"></i>` : '';
+      const auto = opts.auto != null ? `<i class="mark" style="--at:calc(${opts.auto}% - 1px)"></i>` : '';
+      return `<div class="chip at ${opts.kind || ''}" style="${at(x, y, CHIP.w, CHIP.h)}">
+        <i class="fill" style="--fill:${opts.fx ? 0 : fill}%"></i>${fx}${auto}<b>${title}</b><span>${value}</span></div>`;
+    }
+
+    function pills(key) {
+      const d = DECK[key];
+      const order = key === 'A' ? ['mt', 'sync', 'master', 'hot'] : ['sync', 'master', 'hot', 'mt'];
+      const left = key === 'A' ? EDGE : W - EDGE - (4 * TOP.keyW + 3 * TOP.keyGap);
+      const label = { mt: 'MASTER<br>TEMPO', sync: 'SYNC', master: 'MASTER', hot: 'HOT CUE' };
+      const cls = { mt: 'mt', sync: 'sync', master: 'master', hot: '' };
+      const on = { mt: d.mt, sync: d.sync, master: d.master, hot: false };
+      return order.map((k, i) => `<div class="pill at ${cls[k]} ${on[k] ? 'on' : ''}"
+        style="${at(left + i * (TOP.keyW + TOP.keyGap), TOP.keyY, TOP.keyW, TOP.keyH)}">${label[k]}</div>`).join('');
+    }
+
+    function platter(key) {
+      const d = DECK[key];
+      const cx = key === 'A' ? PLATTER.cx : W - PLATTER.cx;
+      const ticks = Array.from({ length: 40 }, (_, i) => `<path d="M50 7V11 M50 13V16 M50 18V21" transform="rotate(${i * 9} 50 50)"/>`).join('');
+      return `<div class="at" style="${at(cx - PLATTER.size / 2, PLATTER.cy - PLATTER.size / 2, PLATTER.size, PLATTER.size)};--accent:${d.accent}">
+        <div class="platter"><div class="platter-display"><svg viewBox="0 0 100 100">
+          <defs><mask id="gap-${key}"><rect width="100" height="100" fill="white"/><path d="M50 50 L42.154 -49.692 A100 100 0 0 1 73.345 -47.237 Z" fill="black"/></mask></defs>
+          <circle class="p-edge" cx="50" cy="50" r="48"/><g class="p-ticks" mask="url(#gap-${key})">${ticks}</g>
+          <circle class="p-accent" cx="50" cy="50" r="24"/><circle class="p-inner" cx="50" cy="50" r="19"/><circle class="p-hub" cx="50" cy="50" r="15"/>
+        </svg></div></div></div>`;
+    }
+
+    /* A cap's top for a position 0 (foot) … 1 (top) on a fader of height h. */
+    const capTop = (h, pos) => 4 + (1 - pos) * (h - 8 - 28) - 0;
+
+    function tempoFader(key) {
+      const d = DECK[key];
+      const x = key === 'A' ? TEMPO.x : mx(TEMPO.x, TEMPO.w);
+      const pos = 0.5 - d.tempo / 32;              // up is slower, ±16 %
+      const travel = TEMPO.h - 8 - 28;
+      const ticks = Array.from({ length: 17 }, (_, i) => {
+        const y = 4 + 14 + i * travel / 16;
+        const major = i % 4 === 0;
+        const len = major ? 10 : 6;
+        return `<i class="${major ? 'major' : ''}" style="left:${30 - 8 - len}px;width:${len}px;top:${y.toFixed(1)}px"></i>
+                <i class="${major ? 'major' : ''}" style="left:${30 + 8}px;width:${len}px;top:${y.toFixed(1)}px"></i>`;
+      }).join('');
+      return `<div class="vf at" style="${at(x, TEMPO.y, TEMPO.w, TEMPO.h)}">
+          <div class="ticks">${ticks}</div><span class="slot"></span>
+          <span class="zero" style="top:${TEMPO.h / 2}px"></span>
+          <span class="cap" style="top:${capTop(TEMPO.h, pos).toFixed(1)}px"></span>
+        </div>
+        <span class="print at" style="${at(x, TEMPO.y + TEMPO.h + 8, TEMPO.w, 14)}">TEMPO</span>
+        <span class="scale at" style="${at(x + (key === 'A' ? 1 : TEMPO.w - 13), TEMPO.y + 2, 12, 12)};text-align:center">−</span>
+        <span class="scale at" style="${at(x + (key === 'A' ? 1 : TEMPO.w - 13), TEMPO.y + TEMPO.h - 14, 12, 12)};text-align:center">+</span>`;
+    }
+
+    function levelFader(key) {
+      const d = DECK[key];
+      const x = key === 'A' ? LEVEL.cx - LEVEL.w / 2 : mx(LEVEL.cx - LEVEL.w / 2, LEVEL.w);
+      const top = capTop(LEVEL.h, d.level);
+      const travel = LEVEL.h - 8 - 28;
+      /* Pioneer's 10 … 0 scale on the outside of the fader. */
+      const scale = Array.from({ length: 11 }, (_, i) => {
+        const n = 10 - i;
+        const y = LEVEL.y + 4 + 14 + i * travel / 10;
+        const tickX = key === 'A' ? x - 14 : x + LEVEL.w + 3;
+        const numX = key === 'A' ? x - 34 : x + LEVEL.w + 20;
+        const even = n % 2 === 0;
+        return `<i class="at" style="left:${tickX}px;top:${y.toFixed(1)}px;width:11px;height:1px;background:rgba(255,255,255,${even ? .5 : .26})"></i>
+          ${even ? `<span class="scale at" style="${at(numX, y - 6, 14, 12)};text-align:${key === 'A' ? 'right' : 'left'}">${n}</span>` : ''}`;
+      }).join('');
+      return `<div class="vf at" style="${at(x, LEVEL.y, LEVEL.w, LEVEL.h)}">
+          <span class="slot"></span>
+          <span class="lit" style="height:${(LEVEL.h - 4 - top - 14).toFixed(1)}px"></span>
+          <span class="cap" style="top:${top.toFixed(1)}px"></span>
+        </div>${scale}
+        <span class="print at" style="${at(x, LEVEL.y + LEVEL.h + 8, LEVEL.w, 14)}">LEVEL</span>`;
+    }
+
+    function channel(key) {
+      const d = DECK[key];
+      const cx = COL[key];
+      const eqTop = CHIPS_Y.hi, eqBottom = CHIPS_Y.low + CHIP.h;
+      /* EQ bracket on the outside of the column, in the gap to LEVEL. */
+      const bx = key === 'A' ? cx - 18 : cx + CHIP.w + 8;
+      const levelX = key === 'A' ? LEVEL.cx : W - LEVEL.cx;
+      return `
+        ${chip(cx, CHIPS_Y.hi, 'HI', d.eq.hi + '%', { fill: d.eq.hi, kind: 'green' })}
+        ${chip(cx, CHIPS_Y.mid, 'MID', d.eq.mid + '%', { fill: d.eq.mid, kind: 'green' })}
+        ${chip(cx, CHIPS_Y.low, 'LOW', d.eq.low + '%', { fill: d.eq.low, kind: 'green' })}
+        <div class="bracket at ${key.toLowerCase()}" style="${at(bx, eqTop + 6, 10, eqBottom - eqTop - 12)}"></div>
+        <span class="bracket-label at" style="${at(key === 'A' ? bx - 10 : bx, (eqTop + eqBottom) / 2 - 10, 20, 20)}">EQ</span>
+        <div class="stipple at" style="${at(cx - 6, CHIPS_Y.fx - 6, CHIP.w + 12, CHIP.h + 12)}"></div>
+        ${chip(cx, CHIPS_Y.fx, 'FILTER', 'OFF', { fx: true, kind: 'green' })}
+        ${chip(cx, CHIPS_Y.foot, d.foot.title, d.foot.value, { fill: key === 'A' ? 50 : 60 })}
+        ${levelFader(key)}
+        <div class="key cue at ${d.cue ? 'on' : ''}" style="${at(levelX - 39, FOOT.y, 78, FOOT.h)}">CUE</div>`;
+    }
+
+    function meter() {
+      const { x, y, w, h, barTop, barBottom, ladder } = METER;
+      const span = barBottom - barTop;
+      const yOf = (db) => barBottom - ((db + 30) / 36) * span;
+      const cols = [['A', 522], ['L', 581], ['R', 593], ['B', 652]];
+      const bar = (id, cx) => {
+        const level = METER.still[id], hold = METER.hold[id];
+        const rungOf = (v) => ladder.slice(0, -1).reduce((f, low, i) => (v >= low ? i : f), -1);
+        const lit = rungOf(level), held = rungOf(hold);
+        const rungs = ladder.slice(0, -1).map((low, i) => {
+          const t = Math.round(yOf(ladder[i + 1]) - barTop), b = Math.round(yOf(low) - barTop);
+          const ink = i >= METER.red ? 'r' : i >= METER.amber ? 'a' : 'g';
+          return `<s class="rung ${ink} ${i <= lit ? 'on' : ''} ${i === held && held > lit ? 'held' : ''}" style="top:${t + 1}px;height:${b - t - 2}px"></s>`;
+        }).join('');
+        const aim = Math.round(yOf(id === 'A' || id === 'B' ? -6 : -3) - barTop);
+        return `<div class="meter-v at" style="${at(cx - 5, barTop, 10, span)}">${rungs}<i class="aim" style="top:${aim}px"></i></div>`;
+      };
+      const nums = [552, 622].map((cx) => [6, 0, -6, -12, -18, -24, -30].map((db) =>
+        `<span class="m-num at ${db === 0 ? 'zero' : ''}" style="${at(cx - 14, yOf(db) - 6, 28, 12)}">${db > 0 ? '+' + db : String(db).replace('-', '−')}</span>`).join('')).join('');
+      return `<div class="meter-face at" style="${at(x, y, w, h)}"></div>
+        <span class="m-title at" style="${at(522 - 24, y + 7, 48, 14)}">CH A</span>
+        <span class="m-title at" style="${at(587 - 30, y + 7, 60, 14)}">MASTER</span>
+        <span class="m-title at" style="${at(652 - 24, y + 7, 48, 14)}">CH B</span>
+        <span class="m-unit at" style="${at(552 - 16, y + 25, 32, 12)}">dBFS</span>
+        <span class="m-clip at" style="${at(587 - 18, y + 25, 36, 12)}">CLIP</span>
+        <span class="m-unit at" style="${at(622 - 16, y + 25, 32, 12)}">dBFS</span>
+        ${cols.map(([id, cx]) => bar(id, cx)).join('')}${nums}`;
+    }
+
+    function deckRows(key) {
+      const d = DECK[key];
+      const jx = key === 'A' ? EDGE : W - EDGE - 238;
+      const rx = key === 'A' ? EDGE : W - EDGE - 338;
+      return `
+        <div class="key jstep at" style="${at(jx, FOOT.y, 44, FOOT.h)}">${ICON.back}</div>
+        <div class="jlen at" style="${at(jx + 50, FOOT.y, 138, FOOT.h)}">${[1, 4, 16, 32].map((n) => `<i class="${n === d.jump ? 'on' : ''}">${n}</i>`).join('')}</div>
+        <div class="key jstep at" style="${at(jx + 194, FOOT.y, 44, FOOT.h)}">${ICON.fwd}</div>
+        <div class="big cue at" style="${at(rx, ROW.y, ROW.key, ROW.key)}">CUE</div>
+        <div class="big play at ${d.playing ? 'playing' : ''}" style="${at(rx + ROW.key + 8, ROW.y, ROW.key, ROW.key)}">${d.playing ? ICON.pause : ICON.play}</div>
+        <div class="loopbar at ${d.loopOn ? 'on' : ''}" style="${at(rx + 2 * ROW.key + 26, ROW.y + 7, 180, 52)}"><i>‹</i><i class="n">${d.loop}</i><i>›</i></div>`;
+    }
+
+    function crossfader() {
+      const pos = 0.5;
+      return `<span class="xside at" style="${at(XF.x - 30, XF.cy - 8, 24, 16)};text-align:right">‹A</span>
+        <div class="xf at" style="${at(XF.x, XF.cy - 22, XF.w, 44)}">
+          <span class="comb" style="top:0"></span><span class="comb" style="bottom:0"></span>
+          <span class="slot"></span><span class="thumb" style="left:${pos * XF.w}px"></span>
+        </div>
+        <span class="xside at" style="${at(XF.x + XF.w + 6, XF.cy - 8, 24, 16)}">B›</span>`;
+    }
+
+    function guides() {
+      const hs = [[34, 'top row', 1], [BODY, 'tops 76'], [CHIPS_Y.low + CHIP.h, 'EQ · LEVEL foot 248'], [METER.y + METER.h, 'FX · meter foot 314'],
+                  [355, 'foot row', 1], [XF.cy, 'transport', 1]];
+      const vs = [[EDGE], [W - EDGE], [COL.A], [COL.A + CHIP.w], [COL.B], [COL.B + CHIP.w], [METER.x], [METER.x + METER.w],
+                  [W / 2, 1], [LEVEL.cx, 1], [W - LEVEL.cx, 1], [FACE.x], [W - FACE.x]];
+      const gaps = [[354 + 24.5, 'A'], [493 + 24.5], [632 + 24.5], [771 + 24.5]];
+      return `<div class="guides">
+        ${hs.map(([y, t, c]) => `<i class="h ${c ? 'c' : ''}" style="top:${y}px"></i><span class="tag ${c ? 'c' : ''}" style="left:${c ? 1110 : 1080}px;top:${y}px">${t}</span>`).join('')}
+        ${vs.map(([x, c]) => `<i class="v ${c ? 'c' : ''}" style="left:${x}px"></i>`).join('')}
+        ${gaps.map(([x]) => `<span class="tag" style="left:${x}px;top:34px">49</span>`).join('')}
+        <span class="tag" style="left:${COL.A + 45}px;top:131.5px">11</span><span class="tag" style="left:${COL.A + 45}px;top:192.5px">11</span>
+        <span class="tag" style="left:${COL.A + 45}px;top:256px">16</span><span class="tag" style="left:${COL.A + 45}px;top:322px">16</span>
+      </div>`;
+    }
+
+    function render() {
+      document.getElementById('chassis').innerHTML = `
+        ${platter('A')}${platter('B')}
+        <div class="face at" style="${at(FACE.x, FACE.y, FACE.w, FACE.h)}"></div>
+        ${pills('A')}${pills('B')}
+        ${chip(COL.A, TOP.chipY, DECK.A.trim.title, DECK.A.trim.value, { fill: DECK.A.trim.fill, auto: DECK.A.trim.auto, kind: DECK.A.trim.kind })}
+        ${chip((W - CHIP.w) / 2, TOP.chipY, 'MASTER', '70%', { fill: 70, kind: 'yellow' })}
+        ${chip(COL.B, TOP.chipY, DECK.B.trim.title, DECK.B.trim.value, { fill: DECK.B.trim.fill, kind: DECK.B.trim.kind })}
+        ${tempoFader('A')}${tempoFader('B')}
+        ${channel('A')}${channel('B')}
+        ${meter()}
+        <div class="key dot at" style="${at(W / 2 - 34, FOOT.y, 68, FOOT.h)}">LINK<span style="margin-top:-2px">LOWS</span></div>
+        ${deckRows('A')}${deckRows('B')}
+        ${crossfader()}
+        ${guides()}`;
+    }
+
+    function fit() {
+      const ipad = document.getElementById('ipad'), frame = document.getElementById('frame');
+      const s = Math.min(1, (window.innerWidth - 40) / 1194);
+      ipad.style.transform = `scale(${s})`;
+      frame.style.width = 1194 * s + 'px';
+      frame.style.height = 834 * s + 'px';
+    }
+    function toggleGuides() {
+      document.body.classList.toggle('show-guides');
+      document.getElementById('guidesBtn').classList.toggle('on', document.body.classList.contains('show-guides'));
+    }
+    window.addEventListener('keydown', (e) => { if (e.key === 'g' || e.key === 'G') toggleGuides(); });
+    window.addEventListener('resize', fit);
+    if (new URLSearchParams(location.search).has('guides')) toggleGuides();
+    render();
+    fit();
+  </script>
+</body>
+</html>
