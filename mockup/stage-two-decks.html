@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dex · Stage two · decks</title>
+  <style>
+    /* Stage two, dressed as hardware.
+       The grid is untouched: every coordinate is still the agreed layout in
+       chassis points (1174 × 476), and the top half is still the current
+       stage's song windows. What changes is the surface — what the controls
+       are made of, in the language of the decks in out/UI:
+
+         · flat matte faceplates with a fine vertical brush, seams and
+           cross-head screws at the corners, every legend silkscreen on the panel
+         · keys are caps: a hairline bevel, engraved legend, LED; the agreed
+           elliptical gradient only when the key is lit, with a bloom in its colour
+         · chips are recessed caps with a printed legend, a segment-style value
+           and the fill as a flat tint with a bright level edge
+         · faders sit in toothed metal wells; flat silver caps with grip grooves,
+           printed scales on the panel (DJM's 10 … 0, CDJ's tempo comb)
+         · the platter is the CDJ-900's: dimpled aluminium ring, rubber face,
+           metal hub around the cue display
+         · CUE · PLAY · loop are illuminated keys with LED rings; the meter is
+           an inset window with its scale printed under it
+
+       Flat by design: a surface is one flat fill under a 1 px hairline, never a
+       wash. The only gradients left are the lit keys' and the AUTO chip's — the
+       agreed language — plus the printed textures: panel brush, stipple, cap
+       grooves, jog grooves, crossfader comb.
+
+       Touch: this one is live. Every control is a real target — pointer events
+       with capture (a drag never jumps), 44 pt minimum, extra hit padding on
+       the 78 × 40 deck keys, no hover-only states, no double-tap zoom, no text
+       selection. Options → Targets draws every hit area with its size. */
+    :root {
+      --bg: #070708;
+      --panel-0: #0b0b0d;
+      --panel-1: #111113;
+      --panel-2: #18181b;
+      --panel-3: #202024;
+      --seam: #000;
+      --text: #f2f2f4;
+      --muted: #a0a0a6;
+      --print: #d6d7db;          /* silkscreen white, a touch under white */
+      --silk: #9a9ba1;
+      --silk-dim: #6b6c72;
+      --a: #276fff;
+      --b: #ff8a1f;
+      --led: #ff8a00;
+      --green: #35d06b;
+      --red: #e8402f;
+      --chip-green: #66ce77;
+      --chip-yellow: #dbe22d;
+      --chip-grey: #55555b;
+      --font-cond: "Avenir Next Condensed", "Helvetica Neue Condensed", Helvetica, Arial, sans-serif;
+      --font-ui: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #08080a; color: var(--text); font: 15px/1.35 var(--font-ui); -webkit-font-smoothing: antialiased; }
+
+    /* ---------- page ---------- */
+    .bar {
+      display: flex; align-items: center; gap: 14px; padding: 10px 20px; border-bottom: 1px solid #1d1d20;
+      font: 700 13px/1 var(--font-cond); letter-spacing: .14em; text-transform: uppercase; color: var(--silk);
+    }
+    .bar h1 { margin: 0; font: inherit; color: var(--text); letter-spacing: .18em; }
+    .bar .sp { flex: 1; }
+    .bar button {
+      appearance: none; border: 1px solid #3a3a40; background: #151517; color: var(--muted, #a0a0a6); border-radius: 3px;
+      font: 700 13px/1 var(--font-cond); letter-spacing: .12em; padding: 0 12px; min-height: 36px; cursor: pointer;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    }
+    .bar button.on { color: #ff7ad9; border-color: #b0428f; }
+    .wrap { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+    .frame { position: relative; }
+    .ipad {
+      position: absolute; left: 0; top: 0; transform-origin: top left;
+      width: 1194px; height: 834px; border: 10px solid #030304; border-radius: 22px; overflow: hidden;
+      background: #0c0c0d; box-shadow: 0 40px 90px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .05);
+    }
+    .top { display: block; width: 1174px; height: 338px; object-fit: cover; object-position: top; }
+    .notes { max-width: 1194px; width: 100%; color: var(--muted, #a0a0a6); font-size: 14px; }
+    .notes h2 { font: 700 13px/1 var(--font-cond); letter-spacing: .14em; color: var(--text); margin: 0 0 8px; }
+    .notes ul { margin: 0; padding-left: 18px; columns: 2; column-gap: 32px; }
+    .notes li { margin: 0 0 6px; break-inside: avoid; }
+    .notes b { color: var(--text); font-weight: 600; }
+    .notes h2 + ul + h2 { margin-top: 14px; }
+
+    /* ---------- chassis: the panel itself ---------- */
+    .chassis {
+      position: relative; width: 1174px; height: 476px; overflow: hidden;
+      background:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, .016) 0 1px, transparent 1px 3px),
+        #101013;
+      border-top: 1px solid #000;
+      border-radius: 0 0 12px 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
+      user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+    }
+    .at { position: absolute; }
+
+    /* cross-head screws in the panel corners */
+    .screw {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #2c2d32;
+      box-shadow: inset 0 0 0 1px #000, 0 1px 0 rgba(255, 255, 255, .07);
+    }
+    .screw::before, .screw::after {
+      content: ""; position: absolute; left: 50%; top: 50%; background: #000;
+      transform: translate(-50%, -50%) rotate(38deg);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .09);
+    }
+    .screw::before { width: 4.4px; height: 1px; }
+    .screw::after { width: 1px; height: 4.4px; }
+
+    /* The mixer faceplate: a raised plate under the channel strips and meter. */
+    .face {
+      background: #16161a;
+      border: 1px solid #000; border-radius: 3px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 3px 8px rgba(0, 0, 0, .4);
+    }
+
+    /* ---------- silkscreen ---------- */
+    .print {
+      font: 700 11px/12px var(--font-cond); letter-spacing: .14em; color: var(--print);
+      text-align: center; white-space: nowrap; text-shadow: 0 1px 0 rgba(0, 0, 0, .85);
+    }
+    .scale { font: 700 10px/10px var(--font-cond); color: var(--silk); white-space: nowrap; letter-spacing: .04em; }
+
+    /* ---------- deck keys: caps, not outlines ---------- */
+    .pill {
+      --key: var(--a);
+      --lit: radial-gradient(ellipse closest-side, #02adee 0%, #05a4f1 65%, #1491f6 95%, #2573fe 125%, #276fff 135%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+      padding: 0 4px; border-radius: 5px;
+      border: 1.25px solid color-mix(in srgb, var(--key) 68%, #000);
+      color: var(--key);
+      background: #1b1b1f;
+      background-origin: border-box;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), inset 0 -1px 0 rgba(0, 0, 0, .7), 0 2px 3px rgba(0, 0, 0, .5);
+      font: 700 15px/13px var(--font-cond); letter-spacing: .09em; text-transform: uppercase;
+      text-align: center; text-shadow: 0 1px 0 rgba(0, 0, 0, .8);
+      cursor: pointer; touch-action: manipulation;
+    }
+    /* the unlit LED in the key's corner; it goes quiet once the cap is lit */
+    .pill .led {
+      position: absolute; right: 5px; top: 5px; width: 4px; height: 4px; border-radius: 50%;
+      background: color-mix(in srgb, var(--key) 55%, transparent);
+      box-shadow: 0 0 4px color-mix(in srgb, var(--key) 40%, transparent);
+    }
+    .pill.sync {
+      --key: #f2f4f3;
+      --lit: radial-gradient(ellipse closest-side, #fff 0%, #f3f3f3 65%, #e6e6e6 85%, #d2d2d2 105%, #d1d1d1 110%);
+    }
+    .pill.master {
+      --key: #e18400;
+      --lit: radial-gradient(ellipse closest-side, #cd9c04 0%, #d49210 65%, #dc8519 85%, #e87022 105%, #f05a27 125%);
+    }
+    /* MASTER TEMPO is red, as its LED is on a CDJ. */
+    .pill.mt {
+      --key: #ec4a37;
+      --lit: radial-gradient(ellipse closest-side, #ff7a5c 0%, #f8654a 45%, #f0553d 70%, #e64634 95%, #d93a2b 115%, #cc3024 135%);
+      font-size: 12px; line-height: 12px; letter-spacing: .1em;
+    }
+    .pill.on {
+      background-image: var(--lit);
+      border-color: #000; color: #000;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, .28);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, .55),
+        inset 0 -2px 4px rgba(0, 0, 0, .22),
+        0 0 14px color-mix(in srgb, var(--key) 46%, transparent),
+        0 2px 4px rgba(0, 0, 0, .5);
+    }
+    .pill.on .led { opacity: .18; }
+    .pill:active:not(.on) { transform: translateY(1px); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .6), 0 1px 2px rgba(0, 0, 0, .5); }
+    /* the 78 × 40 caps get 3 pt of hit padding so a finger still lands on 46 */
+    .pill::after { content: ""; position: absolute; inset: -3px; border-radius: 7px; }
+
+    /* ---------- chips: recessed caps with a lit acrylic fill ---------- */
+    .chip {
+      --ring: var(--chip-grey);
+      border-radius: 6px; overflow: hidden;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #16161a;
+      border: 1px solid #000;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), inset 0 -1px 0 rgba(0, 0, 0, .7), 0 2px 3px rgba(0, 0, 0, .45);
+      font: 700 13px/1 var(--font-cond); color: #e9eaee;
+      cursor: ns-resize; touch-action: none;
+    }
+    .chip::after {
+      content: ""; position: absolute; inset: 0; border-radius: 6px; pointer-events: none;
+      box-shadow: inset 0 0 0 1.25px color-mix(in srgb, var(--ring) 88%, #0b0b0d);
+      opacity: .85;
+    }
+    .chip b {
+      position: relative; font-size: 10.5px; font-weight: 700; letter-spacing: .16em;
+      color: #c6c7cc; text-shadow: 0 1px 0 #000; text-transform: uppercase;
+    }
+    .chip span {
+      position: relative; font-size: 19px; margin-top: 3px; letter-spacing: .01em;
+      font-variant-numeric: tabular-nums; color: #eef0f3;
+      text-shadow: 0 1px 2px #000, 0 0 12px rgba(255, 255, 255, .07);
+    }
+    .chip .fill {
+      position: absolute; left: 0; right: 0; bottom: 0; height: var(--fill, 0%);
+      background: color-mix(in srgb, var(--ring) 12%, transparent);
+      box-shadow: inset 0 1.5px 0 color-mix(in srgb, var(--ring) 46%, transparent);
+      transition: height .1s linear;
+    }
+    .chip .fill.mid { bottom: auto; top: 50%; height: 0; }
+    .chip .mark {
+      position: absolute; right: 3px; width: 9px; height: 2px; border-radius: 1px;
+      background: var(--led); bottom: var(--at);
+      box-shadow: 0 0 5px rgba(255, 138, 0, .55);
+    }
+    .chip .mark.l { right: auto; left: 3px; }
+    .chip.green { --ring: var(--chip-green); }
+    .chip.yellow { --ring: var(--chip-yellow); background: #1a1a14; color: #f3f6b0; }
+    .chip.yellow b { color: color-mix(in srgb, var(--chip-yellow) 62%, #6c6c6c); }
+    .chip.yellow .fill { background: color-mix(in srgb, var(--chip-yellow) 22%, transparent); }
+    /* AUTO lit: the deck keys' gradient, in Dex's green. */
+    .chip.auto {
+      --ring: #000; color: #04140a; border-color: #000;
+      background: radial-gradient(ellipse closest-side, #8be596 0%, #74da82 45%, #62cf72 70%, #55c467 95%, #49ba60 115%, #3fae56 135%);
+      box-shadow: 0 0 18px rgba(80, 200, 110, .22), inset 0 1px 0 rgba(255, 255, 255, .5), inset 0 -3px 6px rgba(0, 0, 0, .18);
+    }
+    .chip.auto b { color: #0b2a13; }
+    .chip.auto span { color: #04140a; text-shadow: 0 1px 0 rgba(255, 255, 255, .3); }
+    .chip.auto .fill { display: none; }
+    .chip.auto::after { box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, .8); }
+    .chip:active:not(.auto):not(.on) { background: #121215; }
+    /* a lit state chip: FILTER on, and any key that latches after a tap */
+    .chip.on {
+      --ring: var(--chip-green);
+      background: #16231a;
+      box-shadow: 0 0 12px rgba(80, 200, 110, .10), inset 0 1px 0 rgba(255, 255, 255, .08);
+    }
+    .chip.on b { color: #a9dfb7; }
+    .chip.on span { color: #c4f2cf; }
+
+    /* ---------- faders: toothed metal wells, silver caps ---------- */
+    .vf .bezel {
+      position: absolute; inset: 0; border-radius: 4px;
+      background: #0c0c0f;
+      border: 1px solid #000;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, .9), inset 0 -1px 0 rgba(255, 255, 255, .05);
+    }
+    .vf .slot {
+      position: absolute; left: 50%; top: 6px; bottom: 6px; width: 10px; transform: translateX(-50%);
+      border-radius: 2px;
+      background: #0a0a0c;
+      box-shadow: inset 0 0 0 1px #2a2a2f, inset 0 2px 5px #000;
+    }
+    .vf .slot::after {
+      content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1.5px; transform: translateX(-50%);
+      background: rgba(255, 255, 255, .05);
+    }
+    /* the fill under the cap is frosted, not a white pole */
+    .vf .lit {
+      position: absolute; left: 50%; bottom: 6px; width: 4px; transform: translateX(-50%);
+      border-radius: 1px;
+      background: rgba(255, 255, 255, .16);
+    }
+    .vf .cap {
+      position: absolute; left: 0; right: 0; height: 28px; border-radius: 3px;
+      background: #c9c9cf;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, .7), inset 0 1px 0 #f4f4f6, inset 0 -1px 0 rgba(0, 0, 0, .28);
+    }
+    /* grip grooves at the ends of the cap, like the DJM's channel fader */
+    .vf .cap::before {
+      content: ""; position: absolute; inset: 3px;
+      background: repeating-linear-gradient(90deg, rgba(0, 0, 0, .11) 0 1px, transparent 1px 2.5px);
+      -webkit-mask-image: linear-gradient(90deg, #000 0 16%, transparent 16% 84%, #000 84% 100%);
+              mask-image: linear-gradient(90deg, #000 0 16%, transparent 16% 84%, #000 84% 100%);
+    }
+    .vf .cap::after {
+      content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 2px; transform: translateY(-50%);
+      background: #141416; box-shadow: 0 1px 0 rgba(255, 255, 255, .55);
+    }
+    .vf .zero {
+      position: absolute; left: 50%; width: 26px; height: 1.5px; transform: translate(-50%, -50%);
+      background: var(--led); box-shadow: 0 0 6px rgba(255, 138, 0, .55);
+    }
+    .ticks i { position: absolute; height: 1px; background: rgba(255, 255, 255, .24); }
+    .ticks i.major { background: rgba(255, 255, 255, .46); }
+
+    /* EQ bracket, as Pioneer prints beside the EQ knobs. */
+    .bracket { border: 1px solid rgba(255, 255, 255, .26); }
+    .bracket.a { border-right: 0; }
+    .bracket.b { border-left: 0; }
+    .bracket-label {
+      background: #141417; padding: 4px 0;
+      font: 700 10px/10px var(--font-cond); letter-spacing: .14em; color: var(--print); text-align: center;
+      text-shadow: 0 1px 0 #000;
+    }
+
+    /* Pioneer's stippled panel behind the colour FX. */
+    .stipple {
+      border-radius: 5px;
+      background-color: #131316;
+      background-image: radial-gradient(rgba(255, 255, 255, .14) 0.7px, transparent 1px);
+      background-size: 3px 3px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .045);
+    }
+
+    /* ---------- platter: dimpled aluminium ring, rubber face, metal hub ---------- */
+    .platter {
+      width: 100%; height: 100%; border-radius: 50%; position: relative;
+      background: #0c0c0e;
+      box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, .9),
+        0 6px 14px rgba(0, 0, 0, .6),
+        0 1px 0 rgba(255, 255, 255, .06);
+      display: grid; place-items: center;
+    }
+    .jog-face {
+      position: absolute; inset: 0; border-radius: 50%;
+      background:
+        repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .026) 0 1px, transparent 1px 3px),
+        #101013;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .8);
+    }
+    .jog-ring { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .platter-display {
+      position: absolute; z-index: 2; width: 104px; height: 104px; border-radius: 50%;
+      background: #06070a;
+      box-shadow: 0 0 0 1px #2a2c31, 0 0 0 4px rgba(0, 0, 0, .55), 0 3px 8px #000, inset 0 0 12px rgba(0, 0, 0, .9);
+    }
+    .platter-display svg { display: block; width: 100%; height: 100%; }
+    .p-edge { fill: none; stroke: #14171c; stroke-width: 1; }
+    .p-ticks { fill: none; stroke: #e4e8ed; stroke-width: 2.4; }
+    .p-accent { fill: none; stroke: var(--accent); stroke-width: 1.8; }
+    .p-inner { fill: none; stroke: #9da4ad; stroke-width: 1.8; stroke-dasharray: 25 4.845; transform: rotate(-45deg); transform-origin: 50px 50px; }
+    .p-hub { fill: #0b0c0f; stroke: #16191d; stroke-width: 1; }
+
+    /* ---------- meter window: inset glass ---------- */
+    .meter-face {
+      background: #0f0f12;
+      border: 1px solid #000; border-radius: 4px;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, .85), inset 0 0 0 1px rgba(255, 255, 255, .04), 0 1px 0 rgba(255, 255, 255, .05);
+    }
+    .meter-v {
+      background: #06060a; border: 1px solid #000; border-radius: 1px; overflow: hidden;
+      box-shadow: inset 0 0 0 1px #1e1e22, inset 0 2px 5px #000;
+    }
+    .meter-v .rung { position: absolute; left: 0; right: 0; background: #121216; }
+    .meter-v .rung.on.g { background: #2b9e58; box-shadow: 0 0 4px rgba(37, 168, 89, .3); }
+    .meter-v .rung.on.a { background: #c99a26; box-shadow: 0 0 4px rgba(216, 160, 41, .3); }
+    .meter-v .rung.on.r { background: #c9372a; box-shadow: 0 0 4px rgba(208, 58, 44, .3); }
+    .meter-v .rung.held { background: #d8d8dd; box-shadow: 0 0 5px rgba(255, 255, 255, .35); }
+    .meter-v .aim { position: absolute; left: 0; right: 0; height: 1px; background: #8e8e96; opacity: .7; }
+    .m-title { font: 700 10px/12px var(--font-cond); letter-spacing: .12em; color: var(--print); text-align: center; text-shadow: 0 1px 0 #000; }
+    .m-unit { font: 700 9px/10px var(--font-cond); letter-spacing: .06em; color: var(--silk); text-align: center; }
+    .m-num { font: 700 10px/10px var(--font-cond); color: var(--silk); text-align: center; letter-spacing: .02em; }
+    .m-num.zero { color: var(--text); }
+    .m-clip { font: 700 9px/10px var(--font-cond); letter-spacing: .14em; color: #8a4f48; text-align: center; }
+
+    /* ---------- keys and rows ---------- */
+    .key {
+      border-radius: 4px; border: 1px solid #000; color: #cdced4;
+      background: #1a1a1e;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), inset 0 -1px 0 rgba(0, 0, 0, .7), 0 2px 3px rgba(0, 0, 0, .45);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      font: 700 12px/1.15 var(--font-cond); letter-spacing: .13em; text-transform: uppercase;
+      text-shadow: 0 1px 0 #000; cursor: pointer; touch-action: manipulation;
+    }
+    .key:active { transform: translateY(1px); }
+    .key.dot::before {
+      content: ""; width: 5px; height: 5px; border-radius: 50%; flex: none;
+      background: #2b2b31; box-shadow: inset 0 1px 1px #000;
+    }
+    .key.dot.on::before { background: var(--led); box-shadow: 0 0 7px rgba(255, 138, 0, .8); }
+    .key.cue { font-size: 19px; letter-spacing: .12em; text-indent: .12em; border: 1.25px solid color-mix(in srgb, var(--led) 78%, #000); color: #ffab40; }
+    .key.cue.on {
+      color: #1a0d00; border-color: #000;
+      background: #ff9d2b;
+      box-shadow: 0 0 14px rgba(255, 138, 0, .26), inset 0 1px 0 rgba(255, 255, 255, .45);
+      text-shadow: 0 1px 0 rgba(255, 255, 255, .3);
+    }
+    .jstep { display: flex; align-items: center; justify-content: center; }
+    .jstep svg { width: 24px; height: 24px; fill: currentColor; }
+    /* No block borders: the strip's own height is the cells' height, so each
+       length cell is a full 44 pt tall. The recess is drawn inside instead. */
+    .jlen {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      border-inline: 1px solid #000; border-block: 0; border-radius: 4px; overflow: hidden;
+      background: #08080a;
+      box-shadow: inset 0 1px 0 #000, inset 0 4px 7px -2px rgba(0, 0, 0, .95), inset 0 -1px 0 rgba(255, 255, 255, .05);
+    }
+    .jlen i {
+      font: 700 17px/1 var(--font-cond); font-style: normal; color: #9a9ba1;
+      display: grid; place-items: center; cursor: pointer; touch-action: manipulation;
+      background: #17171b;
+      border-left: 1px solid #000; text-shadow: 0 1px 0 #000;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+    }
+    .jlen i:first-child { border-left: 0; }
+    .jlen i.on {
+      color: #f2f2f4; background: #2a2a2f;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), inset 0 -3px 0 var(--a);
+      text-shadow: 0 0 8px rgba(255, 255, 255, .25);
+    }
+    .big {
+      border-radius: 50%; display: grid; place-items: center;
+      background: #1a1a1e;
+      color: #eaeaee;
+      box-shadow:
+        inset 0 0 0 2px #3a3a42,
+        inset 0 2px 4px rgba(255, 255, 255, .05),
+        0 3px 6px rgba(0, 0, 0, .65);
+      font: 700 19px/1 var(--font-cond); letter-spacing: .14em; text-indent: .14em;
+      text-shadow: 0 1px 0 #000; cursor: pointer; touch-action: manipulation;
+    }
+    .big:active { transform: translateY(1px); }
+    .big.cue {
+      color: #ffab40;
+      box-shadow:
+        inset 0 0 0 2px var(--led), inset 0 0 20px rgba(255, 138, 0, .12),
+        0 0 16px rgba(255, 138, 0, .10), 0 3px 6px rgba(0, 0, 0, .65);
+    }
+    .big.cue.on {
+      color: #1a0d00;
+      background: #ff9d2b;
+      box-shadow: 0 0 20px rgba(255, 138, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .45);
+      text-shadow: 0 1px 0 rgba(255, 255, 255, .3);
+    }
+    .big.play.playing {
+      color: #0c2a17;
+      background: #57c980;
+      box-shadow: 0 0 18px rgba(53, 208, 107, .20), inset 0 1px 0 rgba(255, 255, 255, .30), inset 0 0 0 2px #0d2917;
+      text-shadow: none;
+    }
+    .big svg { width: 26px; height: 26px; fill: currentColor; }
+    .loopbar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 6px; }
+    .loopbar i {
+      font-style: normal; border-radius: 4px; border: 1px solid #000; background: #191a1d;
+      color: #cdced4; display: grid; place-items: center; font: 700 22px/1 var(--font-cond);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), inset 0 -1px 0 rgba(0, 0, 0, .7), 0 2px 3px rgba(0, 0, 0, .45);
+      cursor: pointer; touch-action: manipulation; text-shadow: 0 1px 0 #000;
+    }
+    .loopbar i.n { font-size: 32px; }
+    .loopbar i:active { transform: translateY(1px); }
+    .loopbar.on i {
+      background: #dd8630;
+      border-color: #000; color: #1a0d00;
+      box-shadow: 0 0 10px rgba(255, 138, 0, .16), inset 0 1px 0 rgba(255, 255, 255, .25);
+      text-shadow: 0 1px 0 rgba(255, 255, 255, .28);
+    }
+
+    /* Crossfader: DJM's dark cap with grip lines, in a recessed channel. */
+    .xf { cursor: ew-resize; touch-action: none; }
+    .xf .channel {
+      position: absolute; left: 0; right: 0; top: 50%; height: 12px; transform: translateY(-50%);
+      border-radius: 3px; background: #0b0b0d;
+      border: 1px solid #000;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, .9), inset 0 -1px 0 rgba(255, 255, 255, .05);
+    }
+    .xf .comb { position: absolute; left: 0; right: 0; height: 9px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .26) 0 1px, transparent 1px 19.4px); }
+    .xf .thumb {
+      position: absolute; top: 50%; width: 58px; height: 38px; transform: translate(-50%, -50%); border-radius: 3px;
+      border: 1px solid #000;
+      background: #24242a;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 -1px 0 rgba(0, 0, 0, .6);
+    }
+    .xf .thumb::before {
+      content: ""; position: absolute; inset: 4px 5px;
+      background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .28) 0 1px, transparent 1px 3px);
+    }
+    .xf .thumb::after {
+      content: ""; position: absolute; top: 5px; bottom: 5px; left: 50%; width: 2px; transform: translateX(-50%);
+      background: #ececf0; box-shadow: 0 0 6px rgba(255, 255, 255, .35);
+    }
+    .xside { font: 700 14px/1 var(--font-cond); letter-spacing: .08em; color: var(--print); text-shadow: 0 1px 0 #000; }
+
+    /* Guides: the grid the layout is built on. */
+    .guides { position: absolute; inset: 0; pointer-events: none; display: none; z-index: 50; }
+    body.show-guides .guides { display: block; }
+    .guides .h, .guides .v { position: absolute; background: rgba(255, 64, 200, .55); }
+    .guides .h { left: 0; right: 0; height: 1px; }
+    .guides .v { top: 0; bottom: 0; width: 1px; }
+    .guides .h.c, .guides .v.c { background: rgba(64, 220, 255, .6); }
+    .guides .tag { position: absolute; font: 700 11px/1 var(--font-cond); color: #fff; background: #b0428f; padding: 2px 3px; border-radius: 2px; transform: translate(-50%, -50%); }
+    .guides .tag.c { background: #1f8fb0; }
+
+    /* Targets: every hit area with its size in chassis points. Anything under
+       44 × 44 pt is boxed in red — the iPad's minimum. */
+    .targets { position: absolute; inset: 0; pointer-events: none; display: none; z-index: 60; }
+    body.show-targets .targets { display: block; }
+    .targets i {
+      position: absolute; border: 1px dashed rgba(89, 194, 255, .85); border-radius: 3px;
+    }
+    .targets i.bad { border: 1.5px solid #ff5a3c; background: rgba(255, 90, 60, .07); }
+    .targets b {
+      position: absolute; transform: translate(-50%, -50%); padding: 1px 4px; border-radius: 2px;
+      background: #3aa8ff; color: #00131f; font: 700 10px/1.3 var(--font-cond); letter-spacing: .04em;
+    }
+    .targets b.bad { background: #ff5a3c; color: #210400; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <h1>Dex · Stage two · decks</h1>
+    <span>Fixed layout, hardware surfaces · live on touch</span>
+    <span class="sp"></span>
+    <button id="targetsBtn" onclick="toggleTargets()">Targets (T)</button>
+    <button id="guidesBtn" onclick="toggleGuides()">Guides (G)</button>
+  </div>
+  <div class="wrap">
+    <div class="frame" id="frame">
+      <div class="ipad" id="ipad">
+        <img class="top" src="stage-two-top.png" alt="Song windows from the current stage">
+        <div class="chassis" id="chassis"></div>
+      </div>
+    </div>
+    <section class="notes">
+      <h2>WHAT THE DECKS ADD</h2>
+      <ul>
+        <li><b>Foot row widened.</b> The beat-jump group is now 44 · 178 · 44 with 4 pt gaps — 274, the whole width before the channel CUE — so every length cell is 44 × 44. The channel CUE narrowed 78 → 70 and sits 4 pt right, which keeps its centre on LEVEL's at 331. Nothing else moved: same 1174 × 476 grid, same controls and states.</li>
+        <li><b>Panel.</b> Flat matte black with a fine vertical brush, hairline edges, a raised mixer faceplate and cross-head screws. Every surface is a flat fill — the only gradients left are the lit keys, the AUTO chip and the printed textures (brush, stipple, jog grooves). Legends are silkscreen: 11 pt condensed, letter-spaced, no UI box.</li>
+        <li><b>Deck keys are caps.</b> Bevel, engraved legend, an unlit LED in the key's colour — and the agreed elliptical gradient only when the key is lit, with a bloom in that colour.</li>
+        <li><b>Chips.</b> Recessed caps: printed legend, segment-style value, and the fill as a flat tint with a bright level edge. Green, yellow and AUTO keep their meanings.</li>
+        <li><b>Faders.</b> Toothed metal wells, silver caps with grip grooves, LEVEL's 10 … 0 printed on the panel outside and TEMPO's comb either side of its slot, orange 0 line.</li>
+        <li><b>Platter.</b> The CDJ-900's dimpled aluminium ring and metal hub around the cue display, rubber face with its grooves. CUE · PLAY · loop are illuminated keys with LED rings.</li>
+        <li><b>Meter.</b> A flat inset window, segments lit with a little bloom, CH A · MASTER · CH B and the dBFS scale printed under it.</li>
+      </ul>
+      <h2>ON THE IPAD</h2>
+      <ul>
+        <li><b>Real targets.</b> Pointer events with capture: a drag follows the finger and never jumps; the faders and crossfader are true sliders, EQ chips drag, keys latch.</li>
+        <li><b>44 pt minimum.</b> The 78 × 40 deck keys carry 3 pt of invisible hit padding, so their target is 46 high. <b>Targets (T)</b> draws every hit area with its size; anything under 44 × 44 is red.</li>
+        <li><b>Fingers, not cursors.</b> No hover-only states, no double-tap zoom or delayed taps (<code>touch-action</code>), no text selection or callout on the panel.</li>
+        <li><b>Everything is 44 or more.</b> 47 targets measured, the smallest now the beat-jump cells at exactly 44 × 44; their strip has no top and bottom borders so the cells, not the frame, own the 44 pt. <b>Targets (T)</b> draws them all — nothing is red.</li>
+      </ul>
+    </section>
+  </div>
+
+  <script>
+    /* ---------- the grid (chassis points) ---------- */
+    const W = 1174, H = 476, EDGE = 18;
+    const TOP = { keyY: 14, keyH: 40, keyW: 78, keyGap: 8, chipY: 9 };
+    const CHIP = { w: 90, h: 50 };
+    const BODY = 76;                       // the shared top line
+    const COL = { A: 403, B: W - 403 - CHIP.w };   // chip columns
+    const CHIPS_Y = { hi: 76, mid: 137, low: 198, fx: 264, foot: 330 };
+    const FOOT = { y: 333, h: 44 };        // 44 pt keys on the foot row, centred on the chips' 355
+    const FACE = { x: 259, y: 66, w: W - 2 * 259, h: 324 };
+    const LEVEL = { cx: 331, y: BODY, w: 60, h: 172 };
+    const TEMPO = { x: EDGE, y: BODY, w: 60, h: 206 };
+    const PLATTER = { cx: 214, cy: 196, size: 262 };
+    const METER = { x: 505, y: BODY, w: 164, h: 238, barTop: 118, barBottom: 306,
+      ladder: [-30, -27, -24, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6], amber: 6, red: 10,
+      still: { A: -2.0, L: -3.8, R: -4.3, B: -90 }, hold: { A: -1.0, L: -2.8, R: -3.2, B: -90 } };
+    const ROW = { y: 400, key: 66 };       // CUE · PLAY · loop
+    const XF = { x: 470, w: 234, cy: 433 };
+    const CAP = 28, SLOT = 4;              // fader cap and its inset
+
+    const at = (x, y, w, h) => `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+    const mx = (x, w) => W - x - w;        // mirror a box for deck B
+
+    const ICON = {
+      play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>',
+      pause: '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+      back: '<svg viewBox="0 0 24 24"><path d="M17 5.5v13L6 12z"/></svg>',
+      fwd: '<svg viewBox="0 0 24 24"><path d="M7 5.5v13L18 12z"/></svg>'
+    };
+
+    /* What the stage shows: the same moment as the song windows above. */
+    const DECK = {
+      A: { accent: 'var(--a)', mt: true, sync: false, master: true, tempo: 0, level: 0.78, cue: false, playing: true, jump: 1, loop: 8, loopOn: true,
+           trim: { title: 'TRIM', value: '+1.0', fill: 54, auto: 44, kind: 'green' }, eq: { hi: 100, mid: 100, low: 62 }, foot: { title: 'CUE/MST', value: '50/50' } },
+      B: { accent: 'var(--b)', mt: false, sync: true, master: false, tempo: 2.31, level: 0.78, cue: true, playing: false, jump: 1, loop: 16, loopOn: false,
+           trim: { title: 'AUTO TRIM', value: '+1.2', fill: 55, kind: 'auto' }, eq: { hi: 100, mid: 100, low: 62 }, foot: { title: 'PHONES', value: '60%' } }
+    };
+    let XF_POS = 0.5;
+    const LOOPS = [1, 2, 4, 8, 16, 32];
+    const JUMPS = [1, 4, 16, 32];
+
+    /* ---------- parts ---------- */
+    function chip(x, y, title, value, opts = {}) {
+      const fill = opts.fill ?? 0;
+      const fx = opts.fx ? `<i class="mark l" style="--at:calc(50% - 1px)"></i><i class="mark" style="--at:calc(50% - 1px)"></i>` : '';
+      const auto = opts.auto != null ? `<i class="mark" style="--at:calc(${opts.auto}% - 1px)"></i>` : '';
+      const attrs = [
+        opts.ctl ? `data-ctl="${opts.ctl}"` : '',
+        opts.adjust ? `data-adjust data-value="${parseInt(value, 10)}"` : '',
+        opts.toggle ? 'data-toggle role="button" aria-pressed="false" tabindex="0"' : ''
+      ].join(' ');
+      return `<div class="chip at ${opts.kind || ''}" ${attrs} style="${at(x, y, CHIP.w, CHIP.h)}">
+        <i class="fill" style="--fill:${opts.fx ? 0 : fill}%"></i>${fx}${auto}<b>${title}</b><span>${value}</span></div>`;
+    }
+
+    function pills(key) {
+      const d = DECK[key];
+      const order = key === 'A' ? ['mt', 'sync', 'master', 'hot'] : ['sync', 'master', 'hot', 'mt'];
+      const left = key === 'A' ? EDGE : W - EDGE - (4 * TOP.keyW + 3 * TOP.keyGap);
+      const label = { mt: '<span>MASTER</span><span>TEMPO</span>', sync: 'SYNC', master: 'MASTER', hot: 'HOT<br>CUE' };
+      const cls = { mt: 'mt', sync: 'sync', master: 'master', hot: '' };
+      const on = { mt: d.mt, sync: d.sync, master: d.master, hot: false };
+      return order.map((k, i) => `<div class="pill at ${cls[k]} ${on[k] ? 'on' : ''}"
+        data-toggle data-ctl="key-${key.toLowerCase()}-${k}" ${k === 'hot' ? 'data-momentary' : ''}
+        role="button" aria-pressed="${on[k]}"
+        style="${at(left + i * (TOP.keyW + TOP.keyGap), TOP.keyY, TOP.keyW, TOP.keyH)}"><i class="led"></i>${label[k]}</div>`).join('');
+    }
+
+    /* The CDJ-900's jog: a dimpled aluminium ring around a rubber face and a
+       metal hub, with the cue display in the middle. */
+    function platter(key) {
+      const d = DECK[key];
+      const cx = key === 'A' ? PLATTER.cx : W - PLATTER.cx;
+      /* 34 dimples on a ring that is 11 units wide: 8.2 apart, 6 across, so
+         they nearly touch the way they do on the 900's machined band. */
+      const dimples = Array.from({ length: 34 }, (_, i) => {
+        const a = (i * (360 / 34) - 90) * Math.PI / 180;
+        const x = 50 + Math.cos(a) * 44.6, y = 50 + Math.sin(a) * 44.6;
+        return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.05" fill="#3d3e44" stroke="#9a9ba1" stroke-width=".4" stroke-opacity=".3"/>`;
+      }).join('');
+      const ticks = Array.from({ length: 40 }, (_, i) => `<path d="M50 7V11 M50 13V16 M50 18V21" transform="rotate(${i * 9} 50 50)"/>`).join('');
+      return `<div class="at" style="${at(cx - PLATTER.size / 2, PLATTER.cy - PLATTER.size / 2, PLATTER.size, PLATTER.size)};--accent:${d.accent}"
+                 data-ctl="jog-${key.toLowerCase()}">
+        <div class="platter">
+          <div class="jog-face"></div>
+          <svg class="jog-ring" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="44.6" fill="none" stroke="#5b5c62" stroke-width="11"/>
+            <circle cx="50" cy="50" r="49.3" fill="none" stroke="#050506" stroke-width="1.4"/>
+            <circle cx="50" cy="50" r="39.2" fill="none" stroke="#000" stroke-width="1.6" opacity=".9"/>
+            <circle cx="50" cy="50" r="49.8" fill="none" stroke="rgba(255,255,255,.22)" stroke-width=".5"/>
+            ${dimples}
+            <circle cx="50" cy="50" r="23" fill="#4e4f55"/>
+            <circle cx="50" cy="50" r="23" fill="none" stroke="#25262b" stroke-width=".8"/>
+            <circle cx="50" cy="50" r="21.6" fill="none" stroke="rgba(255,255,255,.12)" stroke-width=".5"/>
+          </svg>
+          <div class="platter-display"><svg viewBox="0 0 100 100">
+            <defs><mask id="gap-${key}"><rect width="100" height="100" fill="white"/><path d="M50 50 L42.154 -49.692 A100 100 0 0 1 73.345 -47.237 Z" fill="black"/></mask></defs>
+            <circle class="p-edge" cx="50" cy="50" r="48"/><g class="p-ticks" mask="url(#gap-${key})">${ticks}</g>
+            <circle class="p-accent" cx="50" cy="50" r="24"/><circle class="p-inner" cx="50" cy="50" r="19"/><circle class="p-hub" cx="50" cy="50" r="15"/>
+          </svg></div>
+        </div></div>`;
+    }
+
+    /* A cap's top for a position 0 (foot) … 1 (top) on a fader of height h. */
+    const capTop = (h, pos) => SLOT + (1 - pos) * (h - 8 - CAP);
+
+    function tempoFader(key) {
+      const d = DECK[key];
+      const x = key === 'A' ? TEMPO.x : mx(TEMPO.x, TEMPO.w);
+      const pos = 0.5 - d.tempo / 32;              // up is slower, ±16 %
+      const travel = TEMPO.h - 8 - CAP;
+      const ticks = Array.from({ length: 17 }, (_, i) => {
+        const y = SLOT + 14 + i * travel / 16;
+        const major = i % 4 === 0;
+        const len = major ? 9 : 5;
+        return `<i class="${major ? 'major' : ''}" style="left:${30 - 8 - len}px;width:${len}px;top:${y.toFixed(1)}px"></i>
+                <i class="${major ? 'major' : ''}" style="left:${30 + 8}px;width:${len}px;top:${y.toFixed(1)}px"></i>`;
+      }).join('');
+      return `<div class="vf at" style="${at(x, TEMPO.y, TEMPO.w, TEMPO.h)}"
+                  data-ctl="tempo-${key}" data-fader="tempo" data-deck="${key}"
+                  role="slider" tabindex="0" aria-label="Tempo, deck ${key}" aria-valuemin="-16" aria-valuemax="16">
+          <span class="bezel"></span>
+          <div class="ticks">${ticks}</div><span class="slot"></span>
+          <span class="zero" style="top:${TEMPO.h / 2}px"></span>
+          <span class="cap" style="top:${capTop(TEMPO.h, pos).toFixed(1)}px"></span>
+        </div>
+        <span class="print at" style="${at(x, TEMPO.y + TEMPO.h + 8, TEMPO.w, 12)}">TEMPO</span>
+        <span class="scale at" style="${at(x + (key === 'A' ? 1 : TEMPO.w - 12), TEMPO.y + 2, 11, 11)};text-align:center">−</span>
+        <span class="scale at" style="${at(x + (key === 'A' ? 1 : TEMPO.w - 12), TEMPO.y + TEMPO.h - 13, 11, 11)};text-align:center">+</span>`;
+    }
+
+    function levelFader(key) {
+      const d = DECK[key];
+      const x = key === 'A' ? LEVEL.cx - LEVEL.w / 2 : mx(LEVEL.cx - LEVEL.w / 2, LEVEL.w);
+      const top = capTop(LEVEL.h, d.level);
+      const travel = LEVEL.h - 8 - CAP;
+      /* Pioneer's 10 … 0 scale on the outside of the fader. */
+      const scale = Array.from({ length: 11 }, (_, i) => {
+        const n = 10 - i;
+        const y = LEVEL.y + SLOT + 14 + i * travel / 10;
+        const tickX = key === 'A' ? x - 13 : x + LEVEL.w + 3;
+        const numX = key === 'A' ? x - 32 : x + LEVEL.w + 19;
+        const even = n % 2 === 0;
+        return `<i class="at" style="left:${tickX}px;top:${y.toFixed(1)}px;width:10px;height:1px;background:rgba(255,255,255,${even ? .46 : .22})"></i>
+          ${even ? `<span class="scale at" style="${at(numX, y - 5, 13, 10)};text-align:${key === 'A' ? 'right' : 'left'}">${n}</span>` : ''}`;
+      }).join('');
+      return `<div class="vf at" style="${at(x, LEVEL.y, LEVEL.w, LEVEL.h)}"
+                  data-ctl="level-${key}" data-fader="level" data-deck="${key}"
+                  role="slider" tabindex="0" aria-label="Channel level, deck ${key}" aria-valuemin="0" aria-valuemax="100">
+          <span class="bezel"></span>
+          <span class="slot"></span>
+          <span class="lit" style="height:${(LEVEL.h - SLOT - top - 14).toFixed(1)}px"></span>
+          <span class="cap" style="top:${top.toFixed(1)}px"></span>
+        </div>${scale}
+        <span class="print at" style="${at(x, LEVEL.y + LEVEL.h + 8, LEVEL.w, 12)}">LEVEL</span>`;
+    }
+
+    function channel(key) {
+      const d = DECK[key];
+      const cx = COL[key];
+      const eqTop = CHIPS_Y.hi, eqBottom = CHIPS_Y.low + CHIP.h;
+      /* EQ bracket on the outside of the column, in the gap to LEVEL. */
+      const bx = key === 'A' ? cx - 18 : cx + CHIP.w + 8;
+      const levelX = key === 'A' ? LEVEL.cx : W - LEVEL.cx;
+      return `
+        ${chip(cx, CHIPS_Y.hi, 'HI', d.eq.hi + '%', { fill: d.eq.hi, kind: 'green', ctl: `eq-hi-${key}`, adjust: true })}
+        ${chip(cx, CHIPS_Y.mid, 'MID', d.eq.mid + '%', { fill: d.eq.mid, kind: 'green', ctl: `eq-mid-${key}`, adjust: true })}
+        ${chip(cx, CHIPS_Y.low, 'LOW', d.eq.low + '%', { fill: d.eq.low, kind: 'green', ctl: `eq-low-${key}`, adjust: true })}
+        <div class="bracket at ${key.toLowerCase()}" style="${at(bx, eqTop + 6, 10, eqBottom - eqTop - 12)}"></div>
+        <span class="bracket-label at" style="${at(key === 'A' ? bx - 10 : bx, (eqTop + eqBottom) / 2 - 10, 20, 20)}">EQ</span>
+        <div class="stipple at" style="${at(cx - 6, CHIPS_Y.fx - 6, CHIP.w + 12, CHIP.h + 12)}"></div>
+        ${chip(cx, CHIPS_Y.fx, 'FILTER', 'OFF', { fx: true, kind: 'green', ctl: `filter-${key}`, toggle: true })}
+        ${chip(cx, CHIPS_Y.foot, d.foot.title, d.foot.value, { fill: key === 'A' ? 50 : 60, ctl: `foot-${key}` })}
+        ${levelFader(key)}
+        <div class="key cue at ${d.cue ? 'on' : ''}" data-toggle data-ctl="cue-${key}" role="button" aria-pressed="${d.cue}"
+             style="${at(levelX - 35, FOOT.y, 70, FOOT.h)}">CUE</div>`;
+    }
+
+    function meter() {
+      const { x, y, w, h, barTop, barBottom, ladder } = METER;
+      const span = barBottom - barTop;
+      const yOf = (db) => barBottom - ((db + 30) / 36) * span;
+      const cols = [['A', 522], ['L', 581], ['R', 593], ['B', 652]];
+      const bar = (id, cx) => {
+        const level = METER.still[id], hold = METER.hold[id];
+        const rungOf = (v) => ladder.slice(0, -1).reduce((f, low, i) => (v >= low ? i : f), -1);
+        const lit = rungOf(level), held = rungOf(hold);
+        const rungs = ladder.slice(0, -1).map((low, i) => {
+          const t = Math.round(yOf(ladder[i + 1]) - barTop), b = Math.round(yOf(low) - barTop);
+          const ink = i >= METER.red ? 'r' : i >= METER.amber ? 'a' : 'g';
+          return `<s class="rung ${ink} ${i <= lit ? 'on' : ''} ${i === held && held > lit ? 'held' : ''}" style="top:${t + 1}px;height:${b - t - 2}px"></s>`;
+        }).join('');
+        const aim = Math.round(yOf(id === 'A' || id === 'B' ? -6 : -3) - barTop);
+        return `<div class="meter-v at" style="${at(cx - 5, barTop, 10, span)}">${rungs}<i class="aim" style="top:${aim}px"></i></div>`;
+      };
+      const nums = [552, 622].map((cx) => [6, 0, -6, -12, -18, -24, -30].map((db) =>
+        `<span class="m-num at ${db === 0 ? 'zero' : ''}" style="${at(cx - 13, yOf(db) - 5, 26, 10)}">${db > 0 ? '+' + db : String(db).replace('-', '−')}</span>`).join('')).join('');
+      return `<div class="meter-face at" style="${at(x, y, w, h)}"></div>
+        <span class="m-title at" style="${at(522 - 24, y + 7, 48, 12)}">CH A</span>
+        <span class="m-title at" style="${at(587 - 30, y + 7, 60, 12)}">MASTER</span>
+        <span class="m-title at" style="${at(652 - 24, y + 7, 48, 12)}">CH B</span>
+        <span class="m-unit at" style="${at(552 - 16, y + 23, 32, 10)}">dBFS</span>
+        <span class="m-clip at" style="${at(587 - 18, y + 23, 36, 10)}">CLIP</span>
+        <span class="m-unit at" style="${at(622 - 16, y + 23, 32, 10)}">dBFS</span>
+        ${cols.map(([id, cx]) => bar(id, cx)).join('')}${nums}`;
+    }
+
+    function deckRows(key) {
+      const d = DECK[key];
+      /* 44 · 178 · 44 with 4 pt gaps: 274, the whole width before the channel
+         CUE, so each of the four length cells is 44 × 44. */
+      const jx = key === 'A' ? EDGE : W - EDGE - 274;
+      const rx = key === 'A' ? EDGE : W - EDGE - 338;
+      return `
+        <div class="key jstep at" data-jumpstep="${key}:-1" data-ctl="jump-back-${key}" style="${at(jx, FOOT.y, 44, FOOT.h)}">${ICON.back}</div>
+        <div class="jlen at" data-strip="${key}" style="${at(jx + 48, FOOT.y, 178, FOOT.h)}">${JUMPS.map((n) => `<i data-jumpcell="${key}:${n}" data-ctl="jump-${key}-${n}" class="${n === d.jump ? 'on' : ''}">${n}</i>`).join('')}</div>
+        <div class="key jstep at" data-jumpstep="${key}:1" data-ctl="jump-fwd-${key}" style="${at(jx + 230, FOOT.y, 44, FOOT.h)}">${ICON.fwd}</div>
+        <div class="big cue at ${d.cue ? 'on' : ''}" data-toggle data-ctl="cue-big-${key}" role="button" aria-pressed="${d.cue}" style="${at(rx, ROW.y, ROW.key, ROW.key)}">CUE</div>
+        <div class="big play at ${d.playing ? 'playing' : ''}" data-play="${key}" data-ctl="play-${key}" role="button" aria-pressed="${d.playing}"
+             style="${at(rx + ROW.key + 8, ROW.y, ROW.key, ROW.key)}">${d.playing ? ICON.pause : ICON.play}</div>
+        <div class="loopbar at ${d.loopOn ? 'on' : ''}" data-ctl="loop-${key}" style="${at(rx + 2 * ROW.key + 26, ROW.y + 7, 180, 52)}">
+          <i data-loop="${key}:-1">‹</i><i class="n" data-loop="${key}:0">${d.loop}</i><i data-loop="${key}:1">›</i></div>`;
+    }
+
+    function crossfader() {
+      const left = 29 + XF_POS * (XF.w - 58);
+      return `<span class="xside at" style="${at(XF.x - 30, XF.cy - 7, 24, 14)};text-align:right">‹A</span>
+        <div class="xf at" data-ctl="crossfader" style="${at(XF.x, XF.cy - 22, XF.w, 44)}">
+          <span class="comb" style="top:1px"></span><span class="comb" style="bottom:1px"></span>
+          <span class="channel"></span><span class="thumb" style="left:${left.toFixed(1)}px"></span>
+        </div>
+        <span class="xside at" style="${at(XF.x + XF.w + 6, XF.cy - 7, 24, 14)}">B›</span>`;
+    }
+
+    function screws() {
+      return [[7, 7], [W - 13, 7], [7, H - 13], [W - 13, H - 13]]
+        .map(([x, y]) => `<i class="screw at" style="${at(x, y, 6, 6)}"></i>`).join('');
+    }
+
+    function guides() {
+      const hs = [[34, 'top row', 1], [BODY, 'tops 76'], [CHIPS_Y.low + CHIP.h, 'EQ · LEVEL foot 248'], [METER.y + METER.h, 'FX · meter foot 314'],
+                  [355, 'foot row', 1], [XF.cy, 'transport', 1]];
+      const vs = [[EDGE], [W - EDGE], [COL.A], [COL.A + CHIP.w], [COL.B], [COL.B + CHIP.w], [METER.x], [METER.x + METER.w],
+                  [W / 2, 1], [LEVEL.cx, 1], [W - LEVEL.cx, 1], [FACE.x], [W - FACE.x]];
+      const gaps = [[354 + 24.5], [493 + 24.5], [632 + 24.5], [771 + 24.5]];
+      return `<div class="guides">
+        ${hs.map(([y, t, c]) => `<i class="h ${c ? 'c' : ''}" style="top:${y}px"></i><span class="tag ${c ? 'c' : ''}" style="left:${c ? 1110 : 1080}px;top:${y}px">${t}</span>`).join('')}
+        ${vs.map(([x, c]) => `<i class="v ${c ? 'c' : ''}" style="left:${x}px"></i>`).join('')}
+        ${gaps.map(([x]) => `<span class="tag" style="left:${x}px;top:34px">49</span>`).join('')}
+        <span class="tag" style="left:${COL.A + 45}px;top:131.5px">11</span><span class="tag" style="left:${COL.A + 45}px;top:192.5px">11</span>
+        <span class="tag" style="left:${COL.A + 45}px;top:256px">16</span><span class="tag" style="left:${COL.A + 45}px;top:322px">16</span>
+      </div>`;
+    }
+
+    function render() {
+      document.getElementById('chassis').innerHTML = `
+        ${platter('A')}${platter('B')}
+        <div class="face at" style="${at(FACE.x, FACE.y, FACE.w, FACE.h)}"></div>
+        ${pills('A')}${pills('B')}
+        ${chip(COL.A, TOP.chipY, DECK.A.trim.title, DECK.A.trim.value, { fill: DECK.A.trim.fill, auto: DECK.A.trim.auto, kind: DECK.A.trim.kind })}
+        ${chip((W - CHIP.w) / 2, TOP.chipY, 'MASTER', '70%', { fill: 70, kind: 'yellow', ctl: 'master-lvl', adjust: true })}
+        ${chip(COL.B, TOP.chipY, DECK.B.trim.title, DECK.B.trim.value, { fill: DECK.B.trim.fill, kind: DECK.B.trim.kind })}
+        ${tempoFader('A')}${tempoFader('B')}
+        ${channel('A')}${channel('B')}
+        ${meter()}
+        <div class="key dot at" data-toggle data-ctl="link-lows" role="button" aria-pressed="false" style="${at(W / 2 - 34, FOOT.y, 68, FOOT.h)}">LINK<span style="margin-top:-2px">LOWS</span></div>
+        ${deckRows('A')}${deckRows('B')}
+        ${crossfader()}
+        ${screws()}
+        ${guides()}
+        <div class="targets" id="targets"></div>`;
+    }
+
+    /* ---------- touch: faders, chips, keys ---------- */
+    const chassis = () => document.getElementById('chassis');
+
+    /* The local position of a pointer in an element's own (unscaled) points,
+       so the maths never depends on the page's transform scale. */
+    function localPoint(el, e) {
+      const r = el.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) / (r.width / el.offsetWidth),
+        y: (e.clientY - r.top) / (r.height / el.offsetHeight)
+      };
+    }
+
+    function setCap(el, pos) {
+      const h = el.offsetHeight, travel = h - 8 - CAP;
+      const top = SLOT + (1 - pos) * travel;
+      el.querySelector('.cap').style.top = top.toFixed(1) + 'px';
+      const lit = el.querySelector('.lit');
+      if (lit) lit.style.height = Math.max(0, h - SLOT - top - 14).toFixed(1) + 'px';
+      el.dataset.pos = pos;
+    }
+
+    function bindFaders() {
+      chassis().querySelectorAll('[data-fader]').forEach((el) => {
+        const kind = el.dataset.fader, key = el.dataset.deck;
+        const put = (pos) => {
+          pos = Math.min(1, Math.max(0, pos));
+          setCap(el, pos);
+          if (kind === 'tempo') {
+            DECK[key].tempo = +((0.5 - pos) * 32).toFixed(2);
+            el.setAttribute('aria-valuenow', DECK[key].tempo);
+          } else {
+            DECK[key].level = pos;
+            el.setAttribute('aria-valuenow', Math.round(pos * 100));
+          }
+        };
+        const fromPointer = (e) => {
+          const h = el.offsetHeight, travel = h - 8 - CAP;
+          const top = Math.min(SLOT + travel, Math.max(SLOT, localPoint(el, e).y - CAP / 2));
+          put(1 - (top - SLOT) / travel);
+        };
+        let dragging = false;
+        el.addEventListener('pointerdown', (e) => {
+          dragging = true; el.setPointerCapture(e.pointerId); fromPointer(e); e.preventDefault();
+        });
+        el.addEventListener('pointermove', (e) => { if (dragging) { fromPointer(e); e.preventDefault(); } });
+        const stop = (e) => {
+          dragging = false;
+          try { el.releasePointerCapture(e.pointerId); } catch (_) {}
+        };
+        el.addEventListener('pointerup', stop);
+        el.addEventListener('pointercancel', () => { dragging = false; });
+        /* set from the state the stage is showing, which also seeds data-pos */
+        put(kind === 'tempo' ? 0.5 - DECK[key].tempo / 32 : DECK[key].level);
+        /* a fader on a keyboard: arrows move it, Home and End are its ends */
+        el.addEventListener('keydown', (e) => {
+          const seeded = +el.dataset.pos;
+          const cur = Number.isFinite(seeded) ? seeded : 0.5;
+          const step = e.shiftKey ? 0.01 : 0.04;
+          if (e.key === 'ArrowUp' || e.key === 'ArrowRight') put(cur + step);
+          else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') put(cur - step);
+          else if (e.key === 'Home') put(1);
+          else if (e.key === 'End') put(0);
+          else return;
+          e.preventDefault();
+        });
+      });
+
+      /* crossfader */
+      const xf = chassis().querySelector('.xf');
+      if (xf) {
+        const thumb = xf.querySelector('.thumb'), w = XF.w;
+        const put = (pos) => {
+          XF_POS = Math.min(1, Math.max(0, pos));
+          thumb.style.left = (29 + XF_POS * (w - 58)).toFixed(1) + 'px';
+        };
+        let dragging = false;
+        const from = (e) => put((localPoint(xf, e).x - 29) / (w - 58));
+        xf.addEventListener('pointerdown', (e) => { dragging = true; xf.setPointerCapture(e.pointerId); from(e); e.preventDefault(); });
+        xf.addEventListener('pointermove', (e) => { if (dragging) { from(e); e.preventDefault(); } });
+        const stop = (e) => { dragging = false; try { xf.releasePointerCapture(e.pointerId); } catch (_) {} };
+        xf.addEventListener('pointerup', stop);
+        xf.addEventListener('pointercancel', () => { dragging = false; });
+      }
+    }
+
+    /* EQ and level chips: a vertical drag on the cap, 0 … 100. */
+    function bindChips() {
+      chassis().querySelectorAll('[data-adjust]').forEach((el) => {
+        const span = el.querySelector('span'), fill = el.querySelector('.fill');
+        let startY = 0, startValue = 0;
+        const show = (v) => {
+          v = Math.min(100, Math.max(0, Math.round(v)));
+          span.textContent = v + '%';
+          fill.style.setProperty('--fill', v + '%');
+          el.dataset.value = v;
+        };
+        el.addEventListener('pointerdown', (e) => {
+          el.setPointerCapture(e.pointerId);
+          startY = e.clientY;
+          startValue = +(el.dataset.value || 0);
+          e.preventDefault();
+        });
+        el.addEventListener('pointermove', (e) => {
+          if (!el.hasPointerCapture(e.pointerId)) return;
+          show(startValue + (startY - e.clientY) * 0.7);
+          e.preventDefault();
+        });
+        el.addEventListener('keydown', (e) => {
+          const cur = +(el.dataset.value || 0);
+          if (e.key === 'ArrowUp') show(cur + (e.shiftKey ? 1 : 5));
+          else if (e.key === 'ArrowDown') show(cur - (e.shiftKey ? 1 : 5));
+          else return;
+          e.preventDefault();
+        });
+        el.addEventListener('pointerup', (e) => {
+          try { el.releasePointerCapture(e.pointerId); } catch (_) {}
+        });
+      });
+    }
+
+    /* Every key that latches. Delegated, so a re-render needs no rebinding. */
+    function bindKeys() {
+      const root = chassis();
+
+      root.addEventListener('click', (e) => {
+        const t = e.target.closest('[data-toggle],[data-play],[data-loop],[data-jumpstep],[data-jumpcell]');
+        if (!t) return;
+
+        if (t.dataset.toggle !== undefined && !t.hasAttribute('data-momentary')) {
+          const on = t.classList.toggle('on');
+          t.setAttribute('aria-pressed', String(on));
+          if (t.classList.contains('chip')) {
+            const span = t.querySelector('span');
+            if (span && /^(OFF|ON)$/.test(span.textContent.trim())) span.textContent = on ? 'ON' : 'OFF';
+          }
+          return;
+        }
+
+        if (t.dataset.play) {
+          const key = t.dataset.play, d = DECK[key];
+          d.playing = !d.playing;
+          t.classList.toggle('playing', d.playing);
+          t.setAttribute('aria-pressed', String(d.playing));
+          t.innerHTML = d.playing ? ICON.pause : ICON.play;
+          return;
+        }
+
+        if (t.dataset.loop) {
+          const [key, dir] = t.dataset.loop.split(':');
+          const bar = t.closest('.loopbar'), n = bar.querySelector('.n');
+          if (dir === '0') {
+            const on = bar.classList.toggle('on');
+            DECK[key].loopOn = on;
+            return;
+          }
+          const i = LOOPS.indexOf(DECK[key].loop);
+          DECK[key].loop = LOOPS[Math.min(LOOPS.length - 1, Math.max(0, i + (+dir)))];
+          n.textContent = DECK[key].loop;
+          bar.classList.add('on');
+          DECK[key].loopOn = true;
+          return;
+        }
+
+        if (t.dataset.jumpcell) {
+          const [key, n] = t.dataset.jumpcell.split(':');
+          [...t.parentElement.children].forEach((c) => c.classList.toggle('on', c === t));
+          DECK[key].jump = +n;
+          return;
+        }
+
+        if (t.dataset.jumpstep) {
+          const [key, step] = t.dataset.jumpstep.split(':');
+          const strip = root.querySelector(`.jlen[data-strip="${key}"]`);
+          const cells = [...strip.children];
+          let i = cells.findIndex((c) => c.classList.contains('on'));
+          i = Math.max(0, Math.min(cells.length - 1, (i < 0 ? 0 : i) + (+step)));
+          cells.forEach((c, n) => c.classList.toggle('on', n === i));
+          DECK[key].jump = JUMPS[i];
+        }
+      });
+
+      /* HOT CUE is momentary: lit under the finger, off on release. */
+      root.querySelectorAll('[data-momentary]').forEach((el) => {
+        el.addEventListener('pointerdown', () => el.classList.add('on'));
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) =>
+          el.addEventListener(ev, () => el.classList.remove('on')));
+      });
+    }
+
+    /* ---------- study overlays ---------- */
+    function toggleGuides() {
+      document.body.classList.toggle('show-guides');
+      document.getElementById('guidesBtn').classList.toggle('on', document.body.classList.contains('show-guides'));
+    }
+
+    function drawTargets() {
+      const ipad = document.getElementById('ipad'), ch = chassis(), box = document.getElementById('targets');
+      if (!document.body.classList.contains('show-targets')) { box.innerHTML = ''; return; }
+      const s = ipad.getBoundingClientRect().width / ipad.offsetWidth;
+      const cr = ch.getBoundingClientRect();
+      box.innerHTML = [...ch.querySelectorAll('[data-ctl]')].map((el) => {
+        const r = el.getBoundingClientRect();
+        const pad = el.classList.contains('pill') ? 3 : 0;
+        const x = (r.left - cr.left) / s - pad, y = (r.top - cr.top) / s - pad;
+        const w = r.width / s + 2 * pad, h = r.height / s + 2 * pad;
+        const bad = w < 44 - 0.5 || h < 44 - 0.5;
+        const size = `${Math.round(w)}×${Math.round(h)}`;
+        return `<i class="${bad ? 'bad' : ''}" style="${at(x, y, w, h)}"></i>
+                <b class="${bad ? 'bad' : ''}" style="left:${x + w / 2}px;top:${y + h / 2}px">${size}</b>`;
+      }).join('');
+    }
+
+    function toggleTargets() {
+      document.body.classList.toggle('show-targets');
+      document.getElementById('targetsBtn').classList.toggle('on', document.body.classList.contains('show-targets'));
+      drawTargets();
+    }
+
+    /* ---------- page ---------- */
+    function fit() {
+      const ipad = document.getElementById('ipad'), frame = document.getElementById('frame');
+      /* A 1194 pt iPad gets the stage at 1:1, so a 44 pt target is 44 pt under
+         the finger; smaller windows scale down from there. */
+      const s = Math.min(1, window.innerWidth / 1194);
+      ipad.style.transform = `scale(${s})`;
+      frame.style.width = 1194 * s + 'px';
+      frame.style.height = 834 * s + 'px';
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target.matches('input, textarea')) return;
+      if (e.key === 'g' || e.key === 'G') toggleGuides();
+      if (e.key === 't' || e.key === 'T') toggleTargets();
+    });
+    window.addEventListener('resize', () => { fit(); drawTargets(); });
+    const q = new URLSearchParams(location.search);
+    render();
+    bindFaders(); bindChips(); bindKeys();
+    fit();
+    if (q.has('guides')) toggleGuides();
+    if (q.has('targets')) toggleTargets();
+  </script>
+</body>
+</html>
