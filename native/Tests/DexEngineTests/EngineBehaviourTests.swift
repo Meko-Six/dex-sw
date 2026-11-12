@@ -215,6 +215,33 @@ final class EngineBehaviourTests: XCTestCase {
         XCTAssertEqual(s.position, held + rate, accuracy: 0.05 * rate)
     }
 
+    func testAudioThatCannotBeReadIsMissingNotSilentAndComesBack() throws {
+        let rig = Rig(chunkFrames: 4096, chunksPerDeck: 256)
+        let track = steady(seconds: 120)
+        track.failing = true
+        rig.load(track)
+        dex_engine_set_key_lock(rig.engine, 0, false)
+        dex_engine_play(rig.engine, 0, nil)
+        rig.render(seconds: 0.5)
+        var s = rig.deckState(0)
+        XCTAssertGreaterThan(s.readFailures, 0)
+        XCTAssertEqual(s.chunksResident, 0, "a failed read keeps nothing")
+        XCTAssertTrue(s.landingPending, "the start waits, as for any audio that isn't there yet")
+        XCTAssertEqual(s.position, 0, "and the clock doesn't run over audio that was never read")
+        // The file is back: the reads are tried again and the start comes out.
+        track.failing = false
+        Thread.sleep(forTimeInterval: 0.3)
+        rig.render(seconds: 1)
+        s = rig.deckState(0)
+        XCTAssertFalse(s.landingPending)
+        XCTAssertGreaterThan(s.position, 0.5 * rate)
+        XCTAssertGreaterThan(rig.tap(0).suffix(4800).map(abs).max() ?? 0, 0.01)
+        // A new track starts the count again.
+        rig.load(steady(seconds: 10))
+        rig.render(seconds: 0.1)
+        XCTAssertEqual(rig.deckState(0).readFailures, 0)
+    }
+
     func testChangingTracksGivesTheMemoryBack() throws {
         let rig = Rig(chunkFrames: 65_536, chunksPerDeck: 8)
         for cycle in 0..<6 {

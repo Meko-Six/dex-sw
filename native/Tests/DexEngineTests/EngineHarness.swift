@@ -9,6 +9,7 @@ final class SynthTrack {
     let rate: Double
     let fill: Fill
     private(set) var reads = 0
+    /// Reads fail while it's set, as a file on a drive that has gone would.
     var failing = false
 
     init(frames: Int64, rate: Double, fill: @escaping Fill) {
@@ -23,8 +24,9 @@ final class SynthTrack {
         s.read = { context, frame, count, left, right in
             let track = Unmanaged<SynthTrack>.fromOpaque(context!).takeUnretainedValue()
             track.reads += 1
+            if track.failing { return -1 }
             track.fill(frame, Int(count), left!, right!)
-            return count
+            return Int32(count)
         }
         s.frames = frames
         s.sampleRate = rate

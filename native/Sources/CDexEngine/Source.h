@@ -28,6 +28,7 @@ struct Track {
     std::atomic<Chunk *> *table = nullptr;
     // Loader only:
     uint32_t *wantStamp = nullptr;
+    int64_t *retryAt = nullptr;  // per chunk: when a read that failed may be tried again, in ms
 
     /// Whether every frame of a range could be read. Frames outside the file count as ready:
     /// they are silence.
@@ -131,6 +132,8 @@ bool loaderPumpOnce(Loader *);
 /// Stops the loader's thread for good, leaving only pumping. Control thread.
 void loaderStopThread(Loader *);
 uint64_t loaderResident(Loader *, int deck);
+/// Reads of the deck's current track that failed. Any thread.
+uint64_t loaderReadFailures(Loader *, int deck);
 
 }  // namespace dex
 #endif

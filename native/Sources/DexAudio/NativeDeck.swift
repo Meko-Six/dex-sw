@@ -173,9 +173,15 @@ public final class NativeDeck: ObservableObject {
             link.setReach(Self.jumpSizes.flatMap { [Double($0) * bar, -Double($0) * bar] })
         }
     }
+    /// How many failed reads of the loaded track have been reported already.
+    private var seenReadFailures: UInt64 = 0
     private func syncEngine() {
         link.sync(clock: &clock, following: playing && hasStreamingVoice && !jog.active)
         if let tempo = link.playedTempo { playRate = tempo }
+        // The count starts again with each track, so this follows it down as well as up.
+        let failures = link.readFailures
+        if failures > seenReadFailures { error = PlaybackError.unreadable.localizedDescription }
+        seenReadFailures = failures
         if link.dropped, link.confirmed { resendEngineState() }
     }
     /// After a command was dropped (the output stopped taking them, and the queue filled), the
@@ -847,7 +853,12 @@ public final class NativeDeck: ObservableObject {
     }
     private func updateGain() { dex_engine_set_fader(link.engine, link.index, level, crossfadeGain) }
     enum PlaybackError: LocalizedError {
-        case unsupportedChannels
-        var errorDescription: String? { "Only mono and stereo files are supported in this checkpoint." }
+        case unsupportedChannels, unreadable
+        var errorDescription: String? {
+            switch self {
+            case .unsupportedChannels: "Only mono and stereo files are supported in this checkpoint."
+            case .unreadable: "Part of this track's audio could not be read. Check the file or drive, then load the track again."
+            }
+        }
     }
 }

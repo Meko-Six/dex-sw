@@ -57,9 +57,11 @@ void dex_engine_go_offline(DexEngine *engine);
 
 // MARK: Audio data
 
-/// Fills `left` and `right` with `count` frames from `frame`, returns how many it wrote. The
-/// frames past that count are silence. Called on the loader thread only.
-typedef uint32_t (*DexSourceRead)(void *context, int64_t frame, uint32_t count, float *left, float *right);
+/// Fills `left` and `right` with `count` frames from `frame`, and returns how many it wrote, or a
+/// negative number if the read failed. After a read that worked, the frames past that count are
+/// silence: the file ended there. After one that failed nothing is kept: the loader tries again
+/// later and counts it in DexDeckState.readFailures. Called on the loader thread only.
+typedef int32_t (*DexSourceRead)(void *context, int64_t frame, uint32_t count, float *left, float *right);
 typedef struct {
     void *context;
     DexSourceRead read;
@@ -154,6 +156,7 @@ typedef struct {
     uint64_t starvedBlocks;    // blocks the playhead itself had no data: the only way to a gap
     uint64_t relocks;          // a follower re-landed on the master's grid
     uint64_t chunksResident;   // audio chunks in memory for this deck
+    uint64_t readFailures;     // reads of this track that failed; that audio is missing, never silence
 } DexDeckState;
 
 typedef struct {

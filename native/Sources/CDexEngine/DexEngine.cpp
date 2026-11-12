@@ -818,6 +818,7 @@ struct DexEngine {
             out.starvedBlocks = d.starvedBlocks;
             out.relocks = d.relocks;
             out.chunksResident = loaderResident(loader, i);
+            out.readFailures = loaderReadFailures(loader, i);
         }
         published.publish();
     }

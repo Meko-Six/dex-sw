@@ -57,6 +57,7 @@ public:
         track->table = new std::atomic<Chunk *>[(size_t)track->chunkCount + 1];
         for (int64_t i = 0; i <= track->chunkCount; ++i) track->table[i].store(nullptr, std::memory_order_relaxed);
         track->wantStamp = new uint32_t[(size_t)track->chunkCount + 1]();
+        track->retryAt = new int64_t[(size_t)track->chunkCount + 1]();
         {
             std::lock_guard<std::mutex> lock(mutex);
             Deck &deck = decks[d];
@@ -67,6 +68,7 @@ public:
             deck.hasHint = true;
             deck.hotspots.clear();
             deck.reach.clear();
+            deck.readFailures.store(0, std::memory_order_relaxed);
         }
         wake.notify_all();
         return track;
@@ -112,6 +114,7 @@ public:
         return worked;
     }
     uint64_t resident(int d) { return decks[d].residentCount.load(std::memory_order_relaxed); }
+    uint64_t readFailures(int d) { return decks[d].readFailures.load(std::memory_order_relaxed); }
 
 private:
     struct Deck {
@@ -126,12 +129,20 @@ private:
         uint32_t stamp = 0;
         uint64_t clock = 0;
         std::atomic<uint64_t> residentCount{0};
+        std::atomic<uint64_t> readFailures{0};
     };
+
+    /// How long a chunk whose read failed is left alone before the next try.
+    static constexpr int64_t kRetryMs = 250;
+    static int64_t nowMs() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
 
     void destroy(Track *track) {
         if (track->source.release) track->source.release(track->source.context);
         delete[] track->table;
         delete[] track->wantStamp;
+        delete[] track->retryAt;
         delete track;
     }
 
@@ -201,12 +212,22 @@ private:
         }
         const size_t capacity = deck.chunks.size();
         size_t considered = std::min(wanted.size(), capacity);
+        const int64_t now = nowMs();
         for (size_t i = 0; i < considered; ++i) {
             int64_t index = wanted[i];
             if (track->table[index].load(std::memory_order_relaxed)) continue;
+            if (track->retryAt[index] > now) continue;  // Its last read failed: not yet.
             Chunk *chunk = takeChunk(deck, *track);
             if (!chunk) { publishResident(deck); return false; }  // Waiting on a render to finish.
-            decode(*track, *chunk, index);
+            if (!decode(*track, *chunk, index)) {
+                // Audio that couldn't be read is missing, never silence: the chunk goes back
+                // unused, so the loop waits for it as for any audio that isn't there yet.
+                deck.free.push_back(chunk);
+                track->retryAt[index] = now + kRetryMs;
+                deck.readFailures.fetch_add(1, std::memory_order_relaxed);
+                publishResident(deck);
+                return true;
+            }
             chunk->owner = track;
             chunk->index = index;
             chunk->lastWanted = ++deck.clock;
@@ -260,14 +281,18 @@ private:
         return chunk;
     }
 
-    void decode(Track &track, Chunk &chunk, int64_t index) {
+    /// False if the read failed, with the chunk's contents then meaningless.
+    bool decode(Track &track, Chunk &chunk, int64_t index) {
         int64_t frame = index << chunkShift;
         uint32_t wanted = (uint32_t)std::min<int64_t>(chunkFrames, track.frames - frame);
-        uint32_t got = track.source.read ? track.source.read(track.source.context, frame, wanted, chunk.samples[0], chunk.samples[1]) : 0;
+        int32_t read = track.source.read ? track.source.read(track.source.context, frame, wanted, chunk.samples[0], chunk.samples[1]) : -1;
+        if (read < 0) return false;
+        uint32_t got = std::min((uint32_t)read, wanted);
         if (got < chunkFrames) {
             std::memset(chunk.samples[0] + got, 0, sizeof(float) * (chunkFrames - got));
             std::memset(chunk.samples[1] + got, 0, sizeof(float) * (chunkFrames - got));
         }
+        return true;
     }
 
     void run() {
@@ -309,5 +334,6 @@ void loaderHint(Loader *loader, int deck, double frame) { loader->hint(deck, fra
 bool loaderPumpOnce(Loader *loader) { return loader->pumpOnce(); }
 void loaderStopThread(Loader *loader) { loader->stopThread(); }
 uint64_t loaderResident(Loader *loader, int deck) { return loader->resident(deck); }
+uint64_t loaderReadFailures(Loader *loader, int deck) { return loader->readFailures(deck); }
 
 }  // namespace dex

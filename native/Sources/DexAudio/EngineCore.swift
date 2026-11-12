@@ -122,12 +122,13 @@ private final class TrackReader {
                 reader.file.framePosition = frame
                 reader.buffer.frameLength = 0
                 let wanted = min(count, reader.buffer.frameCapacity)
+                // A read that fails says so: the engine keeps nothing from it and tries again.
                 guard (try? reader.file.read(into: reader.buffer, frameCount: wanted)) != nil,
-                      let data = reader.buffer.floatChannelData else { return 0 }
+                      let data = reader.buffer.floatChannelData else { return -1 }
                 let frames = Int(reader.buffer.frameLength)
                 left!.update(from: data[0], count: frames)
                 right!.update(from: data[reader.channels > 1 ? 1 : 0], count: frames)
-                return UInt32(frames)
+                return Int32(frames)
             }
         }
         return source
@@ -224,6 +225,8 @@ final class EngineDeck {
     /// The state confirmed everything this deck has sent, so it describes what the deck asked for.
     var confirmed: Bool { core.hasState && core.state.confirmedCommand >= lastCommand }
     var ended: Bool { confirmed && core.deckState(Int(index)).ended }
+    /// Reads of the loaded track that have failed so far. That audio is missing, not silent.
+    var readFailures: UInt64 { confirmed ? core.deckState(Int(index)).readFailures : 0 }
     var renderedPosition: Double? {
         core.refresh()
         guard core.hasState else { return nil }

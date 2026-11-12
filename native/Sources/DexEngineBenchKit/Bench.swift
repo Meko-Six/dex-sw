@@ -90,7 +90,7 @@ final class MemoryTrack {
             guard n > 0 else { return 0 }
             track.samples[0].withUnsafeBufferPointer { left!.update(from: $0.baseAddress! + start, count: n) }
             track.samples[1].withUnsafeBufferPointer { right!.update(from: $0.baseAddress! + start, count: n) }
-            return UInt32(n)
+            return Int32(n)
         }
         return s
     }
@@ -113,12 +113,12 @@ final class FileTrack {
             let track = Unmanaged<FileTrack>.fromOpaque(context!).takeUnretainedValue()
             track.file.framePosition = frame
             track.buffer.frameLength = 0
-            guard (try? track.file.read(into: track.buffer, frameCount: min(count, track.buffer.frameCapacity))) != nil else { return 0 }
+            guard (try? track.file.read(into: track.buffer, frameCount: min(count, track.buffer.frameCapacity))) != nil else { return -1 }
             let n = Int(track.buffer.frameLength)
             let channels = track.buffer.floatChannelData!
             left!.update(from: channels[0], count: n)
             right!.update(from: channels[track.file.processingFormat.channelCount > 1 ? 1 : 0], count: n)
-            return UInt32(n)
+            return Int32(n)
         }
         return s
     }
