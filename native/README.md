@@ -125,8 +125,9 @@ with it; Electron has none.)
 app-owned copy, deduplicated by streamed SHA-256. Grids, corrections and eight
 hot cues persist. Writes are atomic, with a backup, damaged-catalog recovery
 and RETRY on failure. A newer schema is never overwritten. Playlists save
-beside the catalog in `playlists.json` (last writer wins). Data lives in
-Application Support/DexNative.
+beside the catalog in `playlists.json` (last writer wins), with the same
+protections: a backup, an unreadable file kept aside, a newer version's never
+written. Data lives in Application Support/DexNative.
 
 **Lifecycle.** Audio continues when the iPad locks. Interruptions freeze
 positions, and permitted resumption restarts normal playback. Route changes or

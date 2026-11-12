@@ -42,6 +42,97 @@ to team `33B24PEVAC`. All measurements below came from the M3 MacBook Pro at 120
 so another Mac's numbers aren't a direct comparison, and the Bose has to be paired
 again.
 
+## Architecture audit and fixes — 12 November 2026
+
+**Start here if you're picking this up.** The user asked for an architectural review of the
+native app, then for the findings to be worked through, most urgent first. The full findings,
+with what each fix did and what it left, are in [ARCHITECTURE-AUDIT](docs/ARCHITECTURE-AUDIT.md).
+
+**The goal.** Bring the app around the engine up to the engine's standard: one source of
+truth for what is playing, failures that are reported and never hidden, data that can't be
+lost by a bad file, and code that can be changed in one place. The user is a DJ, not a
+developer: explain in plain terms, and anything that changes timing or sound needs their ears
+before it counts as done.
+
+**Verdict.** The engine is production-grade. The app around it is a well-tested late
+prototype. The biggest risk, still open, is that a deck's position, loop, tempo and master
+exist twice: once in the engine (what was played) and once in `NativeDeck` (a prediction,
+patched back by polling).
+
+### Done and pushed
+
+All on `main` in dex-sw. CI passed on `17b76b0`; check its result for the commit after it.
+
+| Fix | What changed |
+| --- | --- |
+| Unreadable audio | A failed read is never stored as silence. The loader retries it every 250 ms, the engine waits for it as for any audio not there yet, and the deck reports it once per spell of trouble |
+| Playlists | Versioned file, backup of the save before, an unreadable file copied aside first, a newer version's never written, nothing written before reading. Saved through `LibraryStorage`, under its lock, off the main thread |
+| Alerts | A problem raised again with the same words shows again after it was dismissed, with a fresh seven seconds. A standing notice isn't raised again by each track loaded |
+| Output changes during start-up | Held and judged when the start finishes, never dropped. Acted on if the engine stopped again or the output (device, channels, rate) is a different one |
+| Catalog reads | The catalog is re-read only when the file on disk is no longer the one last read or written. An import went from five whole-catalog decodes to none |
+| Screen rebuilds | Library rows are remade only for tracks that changed, so a fader move costs the same at any library size |
+| Track loads and a full queue | A load takes nothing when the engine's command queue is full, where before the loader and the audio loop could end up on different tracks |
+| Sample rate | The engine's 48 kHz is one constant, `EngineCore.sampleRate` |
+
+How it was done: the first four by hand, then two agents in parallel on files nobody else
+touched (library storage; the screen model), reviewed before they went in.
+
+### Checked
+
+- `swift test`, 13 November: 323 tests (171 audio, 65 core, 45 engine, 42 console), 0
+  failures, 6 optional skips.
+- The Mac and iPad Simulator builds exit 0. Both print one line, "the following command
+  failed with exit code 0 but produced no further output"; it was not chased.
+- Not run: `npm run diff:native` (no console view changed), the muted live checks, the soak.
+
+### Not checked: never report these as passed
+
+Nothing in this section has been tried in the running app, on the Mac or the iPad.
+
+- **Output changes during start-up.** Only the decision rule is tested. Try it: switch
+  output (Bose on or off, headphones in or out) just as the app starts or comes back, on
+  both devices. Expect "Audio output changed. Press PLAY to continue." and sound after PLAY.
+- **Unreadable audio on a real drive.** Tested with a fake source only. Try a track on a
+  drive, then unplug it while it plays: the deck should fade out, hold its place and raise
+  the alert, not play silence under a moving waveform. Whether it recovers when the drive
+  returns depends on the open file surviving, which is unknown.
+- **Alerts in the app.** `ConsoleModel` has no test target. Try a refused key twice (a beat
+  jump on a deck with no grid), dismissing the alert between: it should show both times.
+- **The library with two apps open at once.** The catalog's new read-skip was tested with
+  two stores in one process, not two processes.
+- **A large library.** The row cache was measured in a harness at 5,000 tracks, not in the app.
+
+### Still to do, in the suggested order
+
+1. **The user's checks above.**
+2. **Typed errors.** Errors are still sentences made in the audio layer; nothing can tell
+   one cause from another. One error type per area, turned into words only in the UI. It
+   touches most files, so do it alone, not beside other work.
+3. **One transport truth.** The big one. The engine's published state becomes the only
+   transport state; the deck sends intents and shows what the engine reports. Do it in
+   stages, each gated by the existing offline tests and then by the user listening. Not for
+   unattended agents. It would also remove most of the main-thread polling.
+4. **The audio lifecycle as an explicit state machine,** once the start-up fix has been
+   tried on devices. A start that fails outright with an output change pending still ends
+   as "no audio" until the app comes forward.
+5. **Restructuring, if wanted at all:** `NativeDeck` split into rules, engine port and
+   observable; the library in its own module; the engine file split by concern. None of it
+   changes what is seen or heard.
+
+Small things left by these fixes: the unreadable-audio alert shows only while the deck
+plays; a failed playlist save isn't retried until the next playlist edit; an unreadable
+playlists file is copied aside again at each launch until a playlist is edited; a change to
+one library track still walks the whole library once.
+
+### Working notes
+
+- The user had limited time on this model and asked for agents to use it well. Two at once
+  worked when each had its own files and its own build folder (`--build-path` under
+  `$TMPDIR`; `native/.gitignore` only covers `.build/`). Each starts cold, so they cost more
+  than working alone.
+- On the original Mac every shell prints an fnm warning that the Node path isn't on PATH,
+  yet `node -v` reports v24.22.1. Unresolved; the fnm line in `~/.zshenv` may want a look.
+
 ## Engine rebuild
 
 The user decided on 5 November to replace the deck engine with one real-time audio loop that
@@ -750,6 +841,8 @@ Dev servers (`.claude/launch.json`): Electron renderer on **5299**, mockup on
 - [native/README](native/README.md): native scope, agreed behaviour, architecture, parity gates.
 - [ENGINE-REBUILD-SPEC](docs/ENGINE-REBUILD-SPEC.md): the replacement engine's brief and rules, and
   [ENGINE-STRETCHER-MEASUREMENTS](docs/ENGINE-STRETCHER-MEASUREMENTS.md): its results and the listening steps.
+- [ARCHITECTURE-AUDIT](docs/ARCHITECTURE-AUDIT.md): the 12 November review of the native app, each
+  finding with its fix and what is still open.
 - [AUDIO-IMPLEMENTATION-PLAN](docs/AUDIO-IMPLEMENTATION-PLAN.md): next-agent brief,
   intent, staged implementation and acceptance for audio/routing/Bluetooth/waveforms.
 - [AUDIO-ARCHITECTURE-AUDIT](docs/AUDIO-ARCHITECTURE-AUDIT.md): original findings,
