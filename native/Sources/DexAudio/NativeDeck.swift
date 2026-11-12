@@ -67,7 +67,10 @@ public final class NativeDeck: ObservableObject {
     @Published public private(set) var hotCues: [Double?] = Array(repeating: nil, count: 8) { didSet { updateHotspots() } }
     @Published public private(set) var peaks: [Float] = []
     @Published public private(set) var waveform: TrackWaveform?
-    @Published public private(set) var error: String?
+    @Published public private(set) var error: String? { didSet { if error != nil { errorRevision &+= 1 } } }
+    /// Counts each time a problem is raised, so one raised again with the same words is told
+    /// from one still standing.
+    public private(set) var errorRevision: UInt64 = 0
     @Published public var tempo = 1.0 { didSet { updateTempo() } }
     @Published public var keyLock = true { didSet { updateTempo() } }
     @Published public var level: Float = 0.8 { didSet { updateGain() } }
@@ -175,12 +178,21 @@ public final class NativeDeck: ObservableObject {
     }
     /// How many failed reads of the loaded track have been reported already.
     private var seenReadFailures: UInt64 = 0
+    private var lastReadFailureAt: Double?
+    /// Reads failing again after this long without a failure are a new spell of trouble.
+    static let readTroubleGap = 2.0
     private func syncEngine() {
         link.sync(clock: &clock, following: playing && hasStreamingVoice && !jog.active)
         if let tempo = link.playedTempo { playRate = tempo }
         // The count starts again with each track, so this follows it down as well as up.
         let failures = link.readFailures
-        if failures > seenReadFailures { error = PlaybackError.unreadable.localizedDescription }
+        if failures > seenReadFailures {
+            // One report for each spell of trouble: reads that keep failing are retried several
+            // times a second, and each of those isn't news.
+            let now = audioNow()
+            if lastReadFailureAt.map({ now - $0 > Self.readTroubleGap }) ?? true { error = PlaybackError.unreadable.localizedDescription }
+            lastReadFailureAt = now
+        }
         seenReadFailures = failures
         if link.dropped, link.confirmed { resendEngineState() }
     }
@@ -853,10 +865,11 @@ public final class NativeDeck: ObservableObject {
     }
     private func updateGain() { dex_engine_set_fader(link.engine, link.index, level, crossfadeGain) }
     enum PlaybackError: LocalizedError {
-        case unsupportedChannels, unreadable
+        case unsupportedChannels, unreadable, engineBusy
         var errorDescription: String? {
             switch self {
             case .unsupportedChannels: "Only mono and stereo files are supported in this checkpoint."
+            case .engineBusy: "The audio engine is busy. Load the track again."
             case .unreadable: "Part of this track's audio could not be read. Check the file or drive, then load the track again."
             }
         }

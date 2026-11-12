@@ -16,6 +16,19 @@ enum OutputLatency {
         return seconds.isFinite ? min(longest, max(0, seconds)) : 0
     }
 
+    /// Which output the engine is feeding and in what shape, to tell a real change of output
+    /// from the notifications a start sets off itself. The delay is left out: a report that
+    /// wavers would read as a change.
+    struct Signature: Equatable, Sendable {
+        let device: String
+        let channels: UInt32
+        let sampleRate: Double
+    }
+    static func signature(of engine: AVAudioEngine) -> Signature {
+        let format = engine.outputNode.outputFormat(forBus: 0)
+        return Signature(device: device(of: engine), channels: format.channelCount, sampleRate: format.sampleRate)
+    }
+
     /// One line on the output in use, for the diagnostics log.
     static func describe(_ engine: AVAudioEngine) -> String {
         let raw = reported(by: engine), used = seconds(for: engine)
@@ -28,6 +41,7 @@ enum OutputLatency {
     }
 
     #if os(macOS)
+    private static func device(of engine: AVAudioEngine) -> String { String(engine.outputNode.auAudioUnit.deviceID) }
     private static func route(of engine: AVAudioEngine) -> String {
         let device = engine.outputNode.auAudioUnit.deviceID
         var name: Unmanaged<CFString>?
@@ -72,6 +86,9 @@ enum OutputLatency {
         return AudioObjectGetPropertyData(object, &property, 0, nil, &size, &value) == noErr
     }
     #else
+    private static func device(of engine: AVAudioEngine) -> String {
+        AVAudioSession.sharedInstance().currentRoute.outputs.map(\.uid).joined(separator: "+")
+    }
     private static func route(of engine: AVAudioEngine) -> String {
         AVAudioSession.sharedInstance().currentRoute.outputs.map { "\($0.portName) (\($0.portType.rawValue))" }.joined(separator: " + ")
     }

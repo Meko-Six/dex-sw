@@ -162,9 +162,17 @@ final class EngineDeck {
 
     func load(url: URL) throws {
         let reader = try TrackReader(url: url)
+        let previousRate = fileRate
         fileRate = reader.file.processingFormat.sampleRate
         var source = reader.source
-        sent(dex_engine_load(engine, index, &source, 0))
+        let sequence = dex_engine_load(engine, index, &source, 0)
+        guard sequence != 0 else {
+            // The engine took nothing, so the deck keeps the track it had, and says so.
+            source.release?(source.context)
+            fileRate = previousRate
+            throw NativeDeck.PlaybackError.engineBusy
+        }
+        sent(sequence)
         plan = nil
     }
     func unload() { sent(dex_engine_unload(engine, index)); plan = nil }

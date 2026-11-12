@@ -103,6 +103,7 @@ typedef struct {
     double loopIn, loopOut;
 } DexJump;
 
+/// Returning 0, a load has taken nothing: the source is still the caller's to release.
 uint64_t dex_engine_load(DexEngine *engine, int deck, const DexTrackSource *source, double position);
 uint64_t dex_engine_unload(DexEngine *engine, int deck);
 uint64_t dex_engine_play(DexEngine *engine, int deck, const DexJump *from); // from NULL: the parked position, at once

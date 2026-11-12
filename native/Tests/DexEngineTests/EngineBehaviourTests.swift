@@ -560,8 +560,16 @@ final class EngineBehaviourTests: XCTestCase {
         for _ in 0..<5000 where dex_engine_set_tempo(rig.engine, 0, 1.0) != 0 { sent += 1 }
         XCTAssertEqual(sent, 1024, "bounded: refused, never blocked or grown")
         XCTAssertEqual(dex_engine_set_tempo(rig.engine, 0, 1.0), 0)
+        // A load that can't be sent takes nothing: the loader stays on the track the loop has.
+        let other = steady(seconds: 10)
+        rig.tracks.append(other)
+        var source = other.source
+        XCTAssertEqual(dex_engine_load(rig.engine, 0, &source, 0), 0)
+        dex_engine_pump_loader(rig.engine)
+        XCTAssertEqual(other.reads, 0, "nothing was read for a track the loop never took")
         rig.render(frames: 256)
         XCTAssertNotEqual(dex_engine_set_tempo(rig.engine, 0, 1.0), 0)
+        XCTAssertNotEqual(dex_engine_load(rig.engine, 0, &source, 0), 0)
     }
 
     func testPausingFadesAndParksAndTheEndOfATrackStops() throws {

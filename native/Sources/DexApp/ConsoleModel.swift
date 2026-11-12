@@ -41,9 +41,13 @@ final class ConsoleModel: ObservableObject {
     private var mixPop: ConsoleState.MixPop?
     private var gridDeck: String?
     private var drop: ConsoleState.Drop?
-    /// The alert the user put away, until a different one comes.
-    private var dismissed: String?
+    /// The alert the user put away, until another is raised, with the same words or not.
+    private var dismissed: Problem?
+    /// The alert the seven-second timer is running for.
+    private var timed: Problem?
     private var alertTimer: Task<Void, Never>?
+    /// The library's rows, kept so that only a change to the library remakes them.
+    private var rows = LibraryRows()
     private var changes: Set<AnyCancellable> = []
     private var rebuildQueued = false
     private var ticker: Task<Void, Never>?
@@ -98,6 +102,7 @@ final class ConsoleModel: ObservableObject {
     }
 
     private func rebuild() {
+        rows.follow(library.tracks) { library.coverURL($0) }
         var next = ConsoleState(decks: decks.map(deckState), masterDeck: mixer.a.isMaster ? 0 : mixer.b.isMaster ? 1 : -1,
                                 splitCue: mixer.splitCue, energyEnabled: energyEnabled, volumeOpen: volumeOpen,
                                 status: status, saveState: library.saveFailed ? .error : library.saving ? .saving : .saved)
@@ -116,56 +121,55 @@ final class ConsoleModel: ObservableObject {
         next.tap = ConsoleState.Tap(status: .error, error: "TAP needs audio input, which the native app does not read yet.")
         next.alert = alert
         next.drop = drop
-        if next.alert != state.alert { timeAlert(next.alert) }
+        let shown = shownProblem
+        if shown != timed { timed = shown; timeAlert(shown) }
         if next != state { state = next }
         updateTicker()
         updateMeters()
     }
 
-    /// The first problem the engine or library reports, until put away.
-    private var alert: ConsoleState.Alert? {
-        let problem: (String, String)? = mixer.error.map { ("NO AUDIO", $0) }
-            ?? mixer.a.error.map { ("DECK A", $0) } ?? mixer.b.error.map { ("DECK B", $0) }
-            ?? library.error.map { ("LIBRARY", $0) } ?? mixer.notice.map { ("AUDIO", $0) } ?? library.notice.map { ("LIBRARY", $0) }
-        guard let problem, problem.1 != dismissed else { return nil }
-        return ConsoleState.Alert(title: problem.0, message: problem.1)
+    /// One raising of a problem: where it came from and which time this is, not just its words.
+    private struct Problem: Equatable {
+        let title: String, message: String
+        let source: Int
+        let revision: UInt64
     }
 
+    /// The first problem the engine or library reports.
+    private var problem: Problem? {
+        let sources: [(String, String?, UInt64)] = [
+            ("NO AUDIO", mixer.error, mixer.errorRevision),
+            ("DECK A", mixer.a.error, mixer.a.errorRevision), ("DECK B", mixer.b.error, mixer.b.errorRevision),
+            ("LIBRARY", library.error, library.errorRevision),
+            ("AUDIO", mixer.notice, mixer.noticeRevision), ("LIBRARY", library.notice, library.noticeRevision)]
+        for (index, source) in sources.enumerated() {
+            if let message = source.1 { return Problem(title: source.0, message: message, source: index, revision: source.2) }
+        }
+        return nil
+    }
+    /// That problem, until put away.
+    private var shownProblem: Problem? { problem.flatMap { $0 == dismissed ? nil : $0 } }
+    private var alert: ConsoleState.Alert? { shownProblem.map { ConsoleState.Alert(title: $0.title, message: $0.message) } }
+
     private func dismissAlert() {
-        dismissed = alert?.message
+        dismissed = problem
         queueRebuild()
     }
 
-    /// Alerts put themselves away after seven seconds, as in the Electron app.
-    private func timeAlert(_ alert: ConsoleState.Alert?) {
+    /// Alerts put themselves away after seven seconds, as in the Electron app. One raised again
+    /// while it shows gets its seven seconds again.
+    private func timeAlert(_ problem: Problem?) {
         alertTimer?.cancel()
-        guard let message = alert?.message else { return }
+        guard let problem else { return }
         alertTimer = Task { [weak self] in
             try? await Task.sleep(for: .seconds(7))
-            guard !Task.isCancelled, let self, self.alert?.message == message else { return }
+            guard !Task.isCancelled, let self, shownProblem == problem else { return }
             dismissAlert()
         }
     }
 
     private var libraryState: ConsoleState.Library {
-        let tracks = library.tracks.map { track in
-            let names = track.tagTitle.map { (artist: track.artist ?? "", title: $0) } ?? splitName(track.title)
-            var row = ConsoleState.Library.Track(
-                id: track.id.uuidString, name: displayName(track), key: track.key?.name, camelot: track.key?.camelot,
-                keyChecked: track.key != nil, bpm: track.grid?.bpm ?? 0,
-                durationSec: track.duration, confidence: track.grid?.confidence ?? 0, gridUncertain: track.gridUncertain,
-                alternates: track.alternatives.map { ConsoleState.Library.Alternate(bpm: $0.bpm, offsetMs: $0.offsetMs, relation: $0.relation) },
-                title: names.title, artist: names.artist)
-            row.album = track.details?.album ?? ""
-            row.genre = track.details?.genre ?? ""
-            row.subgenre = track.details?.subgenre ?? ""
-            row.remixer = track.details?.remixer ?? ""
-            row.release = track.details?.release.map { Tags.releaseText($0) } ?? ""
-            row.art = placeholderArt(track.id.uuidString)
-            row.coverURL = library.coverURL(track)
-            return row
-        }
-        var state = ConsoleState.Library(tracks: tracks, playlists: library.playlists.map {
+        var state = ConsoleState.Library(tracks: rows.rows, playlists: library.playlists.map {
             ConsoleState.Library.Playlist(id: $0.id, name: $0.name, trackIDs: $0.trackIDs)
         }, selected: selected, busy: library.importing || library.findingKeys != nil || library.analysing != nil)
         state.pendingImports = library.pendingImports.map { pending in
@@ -180,7 +184,8 @@ final class ConsoleModel: ObservableObject {
     private func deckState(_ deck: NativeDeck) -> ConsoleState.Deck {
         let id = deck.label, loaded = deck.duration > 0
         let grid = deck.grid.map { ConsoleState.Grid(bpm: $0.bpm, offsetMs: $0.offsetMs, confidence: $0.confidence) }
-        let names = trackNames(deck, library.tracks.first { $0.id == deck.libraryTrackID })
+        let track = rows.track(deck.libraryTrackID)
+        let names = trackNames(deck, track)
         let loop = deck.grid.flatMap { grid in
             deck.loopBounds.map { ConsoleState.Loop(startBeat: grid.beat(at: $0.lowerBound).rounded(), lengthBeats: deck.loopBeats) }
         }
@@ -190,7 +195,7 @@ final class ConsoleModel: ObservableObject {
             position: clock.deck(id).position ?? deck.playhead.seconds, cuePoint: deck.cuePoint, loop: loop,
             wave: deck.waveform.map { .track($0.data) }, title: names.title, artist: names.artist,
             art: loaded ? cover(deck) : nil, rate: deck.tempo, keyLock: deck.keyLock,
-            camelot: loaded ? library.tracks.first { $0.id == deck.libraryTrackID }?.key?.camelot : nil, hotCues: deck.hotCues)
+            camelot: loaded ? track?.key?.camelot : nil, hotCues: deck.hotCues)
         state.previewing = deck.previewing
         state.eq = faders[id]!.eq
         state.kills = ConsoleState.Kills(low: deck.kills.low, mid: deck.kills.mid, high: deck.kills.high)
@@ -566,6 +571,61 @@ final class ConsoleModel: ObservableObject {
         let cover = ConsoleState.Cover(image)
         covers[deck.label] = (image, cover)
         return .cover(cover)
+    }
+}
+
+/// The library's tracks as the console's rows. Making a row costs a regular expression and a
+/// date format, and the model rebuilds on every fader move, so a row is made once and kept
+/// until its track changes.
+struct LibraryRows {
+    private(set) var rows: [ConsoleState.Library.Track] = []
+    /// The tracks `rows` were made from, in the library's order.
+    private var tracks: [LibraryTrack] = []
+    /// Each track's row, and where the first track with that id sits in `tracks`.
+    private var made: [UUID: (track: LibraryTrack, row: ConsoleState.Library.Track, index: Int)] = [:]
+    /// The release date is written in the user's language, so a change of locale remakes every row.
+    private var locale = Locale.current
+
+    /// Takes the library as it now is. Nothing is done while it is as it was; otherwise only
+    /// the tracks that changed get new rows, and rows of tracks that have gone are dropped.
+    mutating func follow(_ next: [LibraryTrack], coverURL: (LibraryTrack) -> URL?) {
+        let current = Locale.current
+        if current != locale { locale = current; tracks = []; rows = []; made = [:] }
+        guard next != tracks else { return }
+        var kept: [UUID: (track: LibraryTrack, row: ConsoleState.Library.Track, index: Int)] = [:]
+        kept.reserveCapacity(next.count)
+        var remade: [ConsoleState.Library.Track] = []
+        remade.reserveCapacity(next.count)
+        for (index, track) in next.enumerated() {
+            let row = if let held = made[track.id], held.track == track { held.row } else { Self.row(track, coverURL: coverURL(track)) }
+            remade.append(row)
+            if kept[track.id] == nil { kept[track.id] = (track, row, index) }
+        }
+        tracks = next; rows = remade; made = kept
+    }
+
+    /// The library's track with this id, without walking the library.
+    func track(_ id: UUID?) -> LibraryTrack? {
+        guard let id, let index = made[id]?.index else { return nil }
+        return tracks[index]
+    }
+
+    static func row(_ track: LibraryTrack, coverURL: URL?) -> ConsoleState.Library.Track {
+        let names = track.tagTitle.map { (artist: track.artist ?? "", title: $0) } ?? splitName(track.title)
+        var row = ConsoleState.Library.Track(
+            id: track.id.uuidString, name: displayName(track), key: track.key?.name, camelot: track.key?.camelot,
+            keyChecked: track.key != nil, bpm: track.grid?.bpm ?? 0,
+            durationSec: track.duration, confidence: track.grid?.confidence ?? 0, gridUncertain: track.gridUncertain,
+            alternates: track.alternatives.map { ConsoleState.Library.Alternate(bpm: $0.bpm, offsetMs: $0.offsetMs, relation: $0.relation) },
+            title: names.title, artist: names.artist)
+        row.album = track.details?.album ?? ""
+        row.genre = track.details?.genre ?? ""
+        row.subgenre = track.details?.subgenre ?? ""
+        row.remixer = track.details?.remixer ?? ""
+        row.release = track.details?.release.map { Tags.releaseText($0) } ?? ""
+        row.art = placeholderArt(track.id.uuidString)
+        row.coverURL = coverURL
+        return row
     }
 }
 

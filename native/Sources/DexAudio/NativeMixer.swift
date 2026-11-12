@@ -26,8 +26,12 @@ public final class NativeMixer: ObservableObject {
     @Published public var cueMix = 0.85 { didSet { applyRouting() } }
     /// The output layout the engine feeds: 2, or 4 when the hardware has them.
     @Published public private(set) var outputChannels: AVAudioChannelCount = 2
-    @Published public private(set) var error: String?
-    @Published public private(set) var notice: String?
+    @Published public private(set) var error: String? { didSet { if error != nil { errorRevision &+= 1 } } }
+    @Published public private(set) var notice: String? { didSet { if notice != nil { noticeRevision &+= 1 } } }
+    /// Counts each time a problem or notice is raised, so one raised again with the same words
+    /// is told from one still standing.
+    public private(set) var errorRevision: UInt64 = 0
+    public private(set) var noticeRevision: UInt64 = 0
     public enum AudioState: Equatable { case ready, interrupted, recovering, unavailable }
     @Published public private(set) var audioState = AudioState.ready
     private var engine = AVAudioEngine()
@@ -76,6 +80,10 @@ public final class NativeMixer: ObservableObject {
     private var resumeIntent = [false, false]
     private var playbackObservers: Set<AnyCancellable> = []
     private var configurationQuietUntil = 0.0
+    /// The engine reported a change while a start was under way; it's judged when that finishes.
+    private var configurationPending = false
+    /// The output the last start left the engine feeding.
+    private var startedOutput: OutputLatency.Signature?
     private var pressureTask: Task<Void, Never>?
     private var startTask: Task<Void, Never>?
     private var startTicket: AudioControlTicket?
@@ -119,7 +127,7 @@ public final class NativeMixer: ObservableObject {
             }.store(in: &playbackObservers)
             deck.audioNow = { [weak self] in
                 guard let self else { return 0 }
-                return engine.isInManualRenderingMode ? Double(engine.manualRenderingSampleTime) / 48_000
+                return engine.isInManualRenderingMode ? Double(engine.manualRenderingSampleTime) / EngineCore.sampleRate
                     : AVAudioTime.seconds(forHostTime: mach_absolute_time())
             }
             deck.routingChanged = { [weak self] in self?.applyRouting() }
@@ -130,7 +138,7 @@ public final class NativeMixer: ObservableObject {
         if mutedAfterEngine {
             let mute = AVAudioMixerNode()
             engine.attach(mute)
-            engine.connect(engineNode, to: mute, format: AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)!)
+            engine.connect(engineNode, to: mute, format: AVAudioFormat(standardFormatWithSampleRate: EngineCore.sampleRate, channels: 2)!)
             mute.outputVolume = 0
             muteNode = mute
         } else { muteNode = nil }
@@ -157,12 +165,30 @@ public final class NativeMixer: ObservableObject {
         observations.install(engine: engine) { [weak self] event in
             Task { @MainActor [weak self] in
                 guard let self, enabled, engine === observed.object, !engine.isInManualRenderingMode else { return }
-                if case .configurationChanged = event,
-                   startTask != nil || (ProcessInfo.processInfo.systemUptime < configurationQuietUntil && engine.isRunning) { return }
-                handle(event)
+                receive(event)
             }
         }
         observing = true
+    }
+    /// A notification from the system. A change of configuration is held while a start is under
+    /// way and judged once it has finished, never dropped; the start's own echoes are let go.
+    private func receive(_ event: AudioLifecycleEvent) {
+        guard case .configurationChanged = event else { handle(event); return }
+        let running = engine.isRunning
+        switch ConfigurationChange.decide(starting: startTask != nil,
+                                          settling: ProcessInfo.processInfo.systemUptime < configurationQuietUntil, running: running,
+                                          sameOutput: running && OutputLatency.signature(of: engine) == startedOutput) {
+        case .wait: configurationPending = true
+        case .ignore: break
+        case .act: handle(event)
+        }
+    }
+    /// After a start: a change reported during it is acted on if the engine has stopped again
+    /// or is no longer feeding the output that start found.
+    private func settleConfiguration() {
+        guard configurationPending, startTask == nil else { return }
+        configurationPending = false
+        if !engine.isRunning || OutputLatency.signature(of: engine) != startedOutput { handle(.configurationChanged) }
     }
     public func setMaster(_ deck: NativeDeck) { deck.becomeMaster() }
     /// While anything plays, keep the decks' clocks on what the engine played, and the master
@@ -243,25 +269,28 @@ public final class NativeMixer: ObservableObject {
                 self.startTask = nil; self.startTicket = nil
                 self.outputChannels = output.channels; self.applyRouting()
                 for deck in self.decks { deck.outputDelay = output.delay + engineDelay }
+                self.startedOutput = output.signature
                 self.finishStart(resume: resume, notice: notice)
+                self.settleConfiguration()
             } catch {
                 guard let self, self.startTicket === ticket, !ticket.isCancelled else { return }
                 self.startTask = nil; self.startTicket = nil
+                self.configurationPending = false
                 self.fail(error)
             }
         }
     }
     /// Returns the output layout the engine was left feeding, and that output's delay.
     nonisolated private static func activateAndStart(_ engine: AVAudioEngine, source: AVAudioNode,
-                                                     ticket: AudioControlTicket) throws -> (channels: AVAudioChannelCount, delay: Double) {
+                                                     ticket: AudioControlTicket) throws -> (channels: AVAudioChannelCount, delay: Double, signature: OutputLatency.Signature?) {
         let connected = engine.outputNode.inputFormat(forBus: 0).channelCount
-        guard !ticket.isCancelled else { return (connected, 0) }
+        guard !ticket.isCancelled else { return (connected, 0, nil) }
         #if os(iOS)
         let session = AVAudioSession.sharedInstance()
         if session.category != .playback || session.mode != .default || !session.categoryOptions.isEmpty {
             try session.setCategory(.playback, mode: .default, options: [])
         }
-        guard !ticket.isCancelled else { return (connected, 0) }
+        guard !ticket.isCancelled else { return (connected, 0, nil) }
         // The SDK documents activation as blocking. This executes on the serial
         // control worker, never the main actor or a high-QoS render thread.
         try session.setActive(true)
@@ -270,7 +299,7 @@ public final class NativeMixer: ObservableObject {
             try? session.setPreferredOutputNumberOfChannels(4)
         }
         #endif
-        guard !ticket.isCancelled else { return (connected, 0) }
+        guard !ticket.isCancelled else { return (connected, 0, nil) }
         // The output device can change while paused; follow its channel count.
         let wanted = CueRouting.channels(hardware: Int(engine.outputNode.outputFormat(forBus: 0).channelCount))
         if !engine.isRunning, wanted != connected {
@@ -280,7 +309,7 @@ public final class NativeMixer: ObservableObject {
         if !engine.isRunning { try engine.start() }
         if ticket.isCancelled { engine.pause() }
         AudioDiagnostics.log.info("output: \(OutputLatency.describe(engine), privacy: .public)")
-        return (channels, OutputLatency.seconds(for: engine))
+        return (channels, OutputLatency.seconds(for: engine), OutputLatency.signature(of: engine))
     }
     private func finishStart(resume: [Bool], notice: String?) {
         guard enabled, !servicesMissing, audioState != .interrupted else { return }
@@ -312,7 +341,7 @@ public final class NativeMixer: ObservableObject {
         }
     }
     private func lastOutputTime() -> Double? {
-        if engine.isInManualRenderingMode { return Double(engine.manualRenderingSampleTime) / 48_000 }
+        if engine.isInManualRenderingMode { return Double(engine.manualRenderingSampleTime) / EngineCore.sampleRate }
         guard let time = engine.outputNode.lastRenderTime, time.isHostTimeValid else { return nil }
         return AVAudioTime.seconds(forHostTime: time.hostTime)
     }

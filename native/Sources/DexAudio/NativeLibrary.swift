@@ -7,9 +7,13 @@ import DexCore
 @MainActor
 public final class NativeLibrary: ObservableObject {
     @Published public private(set) var tracks: [LibraryTrack] = []
-    @Published private var operationError: String?
-    @Published private var saveError: String?
-    @Published public private(set) var notice: String?
+    @Published private var operationError: String? { didSet { if operationError != nil { errorRevision &+= 1 } } }
+    @Published private var saveError: String? { didSet { if saveError != nil { errorRevision &+= 1 } } }
+    @Published public private(set) var notice: String? { didSet { if notice != nil { noticeRevision &+= 1 } } }
+    /// Counts each time a problem or notice is raised, so one raised again with the same words
+    /// is told from one still standing.
+    public private(set) var errorRevision: UInt64 = 0
+    public private(set) var noticeRevision: UInt64 = 0
     private var recoveryNotice: String?
     public var error: String? { saveError ?? operationError }
     /// The last save failed; `retrySave()` tries again.
@@ -56,15 +60,17 @@ public final class NativeLibrary: ObservableObject {
     @Published public private(set) var ready = false
     /// Saved beside the catalog in `playlists.json`, last writer wins, with the save before it
     /// kept as `playlists.backup.json`. A file this build can't read is never written over.
+    /// An edit shows here at once; the storage writes it soon after, off the main actor.
     @Published public private(set) var playlists: [Playlist] = []
     private let storage: LibraryStorage
-    private let playlistsURL: URL
-    private let playlistsBackupURL: URL
     /// The file holds playlists this build must not replace: a newer version's, or ones that
     /// couldn't be read or set aside.
     private var playlistsLocked: String?
-    private var opening: Task<[LibraryTrack], Error>?
+    private var opening: Task<(tracks: [LibraryTrack], playlists: SavedPlaylists), Error>?
     private var writer: Task<Void, Never>?
+    /// One writer for playlists too: it saves the list as it stands when its turn comes.
+    private var playlistWriter: Task<Void, Never>?
+    private var playlistsUnsaved = false
     private var dirty: [UUID: LibraryMutation] = [:]
     private var inFlight: [UUID: LibraryMutation] = [:]
     private var importTasks: [UUID: Task<Void, Never>] = [:]
@@ -84,8 +90,6 @@ public final class NativeLibrary: ObservableObject {
         let root = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(name, isDirectory: true)
         storage = LibraryStorage(directory: root)
-        playlistsURL = root.appendingPathComponent("playlists.json")
-        playlistsBackupURL = root.appendingPathComponent("playlists.backup.json")
     }
     private func overlay(_ track: LibraryTrack) -> LibraryTrack {
         let saved = inFlight[track.id]?.applying(to: track) ?? track
@@ -100,12 +104,14 @@ public final class NativeLibrary: ObservableObject {
     }
     private func ensureOpen() async throws {
         if ready { return }
-        if opening == nil { opening = Task { try await storage.open() } }
+        // The saved playlists are read with the catalog, so the library is never ready,
+        // and so never writes playlists, before it has them.
+        if opening == nil { opening = Task { [storage] in (try await storage.open(), try await storage.openPlaylists()) } }
         do {
             let loaded = try await opening!.value
             if !ready {
-                tracks = loaded; ready = true
-                let playlistNotice = loadPlaylists()
+                tracks = loaded.tracks; ready = true
+                let playlistNotice = loadPlaylists(loaded.playlists)
                 let catalogNotice = await storage.recoveredCatalog
                     ? "Library restored from its previous save. Check your most recent edits." : nil
                 let notices = [catalogNotice, playlistNotice].compactMap { $0 }
@@ -178,7 +184,9 @@ public final class NativeLibrary: ObservableObject {
         prepared.track = overlay(prepared.track)
         if let index = tracks.firstIndex(where: { $0.id == prepared.track.id }) { tracks[index] = prepared.track }
         else { tracks.append(prepared.track) }
-        notice = prepared.warning ?? recoveryNotice
+        // A standing notice isn't raised again by every track that's prepared.
+        let standing = prepared.warning ?? recoveryNotice
+        if notice != standing { notice = standing }
         return prepared
     }
     public func importFiles(_ urls: [URL]) async {
@@ -413,53 +421,24 @@ public final class NativeLibrary: ObservableObject {
 
     // MARK: Playlists
 
-    private struct PlaylistFile: Codable {
-        static let currentVersion = 1
-        var version = PlaylistFile.currentVersion
-        var playlists: [Playlist]
-    }
-    private enum PlaylistRead { case missing, lists([Playlist]), newer, unreadable }
-
-    /// What a playlists file holds. Files from before the version was written are a bare list.
-    private func readPlaylists(_ url: URL) -> PlaylistRead {
-        guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
-        guard let data = try? Data(contentsOf: url) else { return .unreadable }
-        struct Header: Decodable { let version: Int }
-        if let header = try? JSONDecoder().decode(Header.self, from: data) {
-            if header.version > PlaylistFile.currentVersion { return .newer }
-            guard let file = try? JSONDecoder().decode(PlaylistFile.self, from: data) else { return .unreadable }
-            return .lists(file.playlists)
-        }
-        guard let saved = try? JSONDecoder().decode([Playlist].self, from: data) else { return .unreadable }
-        return .lists(saved)
-    }
-
     /// Returns what the DJ should be told, if the playlists didn't simply load.
-    private func loadPlaylists() -> String? {
+    private func loadPlaylists(_ saved: SavedPlaylists) -> String? {
         let known = Set(tracks.map(\.id.uuidString))
-        func restored() -> Bool {
-            guard case .lists(let saved) = readPlaylists(playlistsBackupURL) else { return false }
-            playlists = Playlists.normalize(saved, known: known)
-            return true
-        }
-        switch readPlaylists(playlistsURL) {
-        case .lists(let saved):
-            playlists = Playlists.normalize(saved, known: known)
+        switch saved {
+        case .loaded(let lists):
+            playlists = Playlists.normalize(lists, known: known)
             return nil
-        case .missing:
-            return restored() ? "Playlists restored from their previous save. Check your most recent changes." : nil
+        case .restored(let lists):
+            playlists = Playlists.normalize(lists, known: known)
+            return "Playlists restored from their previous save. Check your most recent changes."
         case .newer:
             playlistsLocked = "These playlists were saved by a newer Dex version. Update Dex to change them."
             return playlistsLocked
-        case .unreadable:
-            // The file stays, under another name, before anything is written in its place.
-            let kept = playlistsURL.deletingLastPathComponent().appendingPathComponent("playlists.damaged-\(UUID().uuidString).json")
-            do { try FileManager.default.copyItem(at: playlistsURL, to: kept) } catch {
-                playlistsLocked = "The playlists file could not be read or set aside, so playlists can't be changed."
-                return playlistsLocked
-            }
-            return restored() ? "Playlists restored from their previous save. Check your most recent changes."
-                : "The playlists file could not be read. It was kept as \(kept.lastPathComponent), and playlists start empty."
+        case .stuck:
+            playlistsLocked = "The playlists file could not be read or set aside, so playlists can't be changed."
+            return playlistsLocked
+        case .unreadable(let kept):
+            return "The playlists file could not be read. It was kept as \(kept), and playlists start empty."
         }
     }
 
@@ -468,15 +447,21 @@ public final class NativeLibrary: ObservableObject {
         guard ready, next != playlists else { return }
         if let playlistsLocked { operationError = playlistsLocked; return }
         playlists = next
-        do {
-            try FileManager.default.createDirectory(at: playlistsURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let data = try JSONEncoder().encode(PlaylistFile(playlists: next))
-            // The save being replaced becomes the recovery copy, if it still reads.
-            if case .lists = readPlaylists(playlistsURL), let previous = try? Data(contentsOf: playlistsURL) {
-                try previous.write(to: playlistsBackupURL, options: .atomic)
-            }
-            try data.write(to: playlistsURL, options: .atomic)
-        } catch { operationError = "Playlists could not be saved: " + error.localizedDescription }
+        playlistsUnsaved = true
+        startPlaylistWriter()
+    }
+    private func startPlaylistWriter() {
+        guard playlistWriter == nil, playlistsUnsaved else { return }
+        playlistWriter = Task { [weak self] in await self?.drainPlaylists() }
+    }
+    /// Edits that land before a write starts become one write, of the latest list.
+    private func drainPlaylists() async {
+        while playlistsUnsaved {
+            playlistsUnsaved = false
+            do { try await storage.savePlaylists(playlists) }
+            catch { operationError = "Playlists could not be saved: " + error.localizedDescription; break }
+        }
+        playlistWriter = nil
     }
 
     /// Makes an empty playlist and returns its id.
@@ -489,6 +474,6 @@ public final class NativeLibrary: ObservableObject {
     public func deletePlaylist(_ id: String) { setPlaylists(Playlists.delete(playlists, id: id)) }
     public func addToPlaylist(_ id: String, tracks: [UUID]) { setPlaylists(Playlists.add(playlists, id: id, tracks: tracks.map(\.uuidString))) }
     public func removeFromPlaylist(_ id: String, track: UUID) { setPlaylists(Playlists.remove(playlists, id: id, track: track.uuidString)) }
-    public func flush() async { startWriter(); await writer?.value }
+    public func flush() async { startWriter(); await writer?.value; await playlistWriter?.value }
     var persistenceCommits: Int { get async { await storage.commitCount } }
 }

@@ -934,6 +934,11 @@ struct DexEngine {
     struct AudioBufferList2 { UInt32 count; AudioBuffer buffers[2]; };
     struct AudioBufferList8 { UInt32 count; AudioBuffer buffers[8]; };
 
+    /// Whether a command would be taken now. One producer, so the answer holds until it sends.
+    bool hasRoom() const {
+        return commandWrite.load(std::memory_order_relaxed) - commandRead.load(std::memory_order_acquire) < kCommandSlots;
+    }
+
     uint64_t send(Command &command) {
         const uint32_t write = commandWrite.load(std::memory_order_relaxed);
         const uint32_t read = commandRead.load(std::memory_order_acquire);
@@ -1075,6 +1080,9 @@ bool dex_engine_is_ready(DexEngine *e, int deck, double frame) {
 }
 
 uint64_t dex_engine_load(DexEngine *e, int deck, const DexTrackSource *source, double position) {
+    // The loader and the loop change tracks together or not at all: with no room for the command,
+    // the loader would move on to a track the loop never hears of.
+    if (!e->hasRoom()) return 0;
     Track *track = loaderOpen(e->loader, deck, *source, position);
     e->controlTrack[deck] = track;
     Command c{};
@@ -1082,6 +1090,7 @@ uint64_t dex_engine_load(DexEngine *e, int deck, const DexTrackSource *source, d
     return e->send(c);
 }
 uint64_t dex_engine_unload(DexEngine *e, int deck) {
+    if (!e->hasRoom()) return 0;
     loaderClose(e->loader, deck);
     e->controlTrack[deck] = nullptr;
     Command c{};

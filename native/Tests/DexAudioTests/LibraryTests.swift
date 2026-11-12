@@ -317,6 +317,73 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(managedFiles, [a.track.filename])
     }
 
+    func testAnUnchangedCatalogIsNotDecodedAgain() async throws {
+        let root = try folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let directory = root.appendingPathComponent("Library")
+        let first = try await LibraryStorage(directory: directory).importFile(audio(in: root))
+        // A store that has never seen the catalog reads it once, then not again while it stays as it is.
+        let store = LibraryStorage(directory: directory)
+        _ = try await store.open()
+        let opened = await store.decodeCount
+        XCTAssertEqual(opened, 1)
+        for _ in 0..<5 { _ = try await store.open() }
+        _ = try await store.prepare(first.track.id)
+        let source = root.appendingPathComponent("Second.wav")
+        try FileManager.default.copyItem(at: try audio(in: root, seconds: 3), to: source)
+        let second = try await store.importFile(source)
+        XCTAssertNotEqual(second.track.id, first.track.id)
+        var edited = second.track; edited.hotCues[4] = 1.5
+        try await store.update(edited)
+        let all = try await store.open()
+        XCTAssertEqual(all.map(\.id), [first.track.id, second.track.id])
+        let after = await store.decodeCount
+        XCTAssertEqual(after, opened, "Opening, preparing, importing and editing must not read the whole catalog again")
+        // What it holds is still what a store reading from scratch finds.
+        let fresh = try await LibraryStorage(directory: directory).open()
+        XCTAssertEqual(fresh, all)
+        XCTAssertEqual(fresh.last?.hotCues[4], 1.5)
+    }
+
+    func testASecondStoreStillSeesEveryCommitOfTheFirst() async throws {
+        let root = try folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let directory = root.appendingPathComponent("Library")
+        let a = LibraryStorage(directory: directory), b = LibraryStorage(directory: directory)
+        let imported = try await a.importFile(audio(in: root))
+        let seen = try await b.open()
+        XCTAssertEqual(seen, [imported.track])
+        let settled = await b.decodeCount
+        // Every commit by the other store is read, once each, however alike the files are:
+        // these differ by one digit, so size alone would not tell them apart.
+        for round in 1...6 {
+            var edited = imported.track; edited.hotCues[0] = Double(round % 2 == 0 ? 1 : 2)
+            try await a.update(edited)
+            let now = try await b.open()
+            XCTAssertEqual(now.first?.hotCues[0], edited.hotCues[0], "Round \(round)")
+            _ = try await b.open()
+        }
+        let after = await b.decodeCount
+        XCTAssertEqual(after - settled, 6, "One read for each commit, none for the opens between")
+        // And the other way: the first store, which wrote last, sees the second's commit.
+        let current = try await b.open()
+        var fromB = try XCTUnwrap(current.first); fromB.hotCues[7] = 0.5
+        try await b.update(fromB)
+        let back = try await a.open()
+        XCTAssertEqual(back.first?.hotCues[7], 0.5)
+        XCTAssertEqual(back.first?.hotCues[0], 1, "Merged with its own last edit, not written over it")
+        // A catalog changed in place, as a restore from a backup tool might, is read again too.
+        let catalog = directory.appendingPathComponent("Library.json")
+        var json = try JSONSerialization.jsonObject(with: Data(contentsOf: catalog)) as! [String: Any]
+        json["tracks"] = [[String: Any]]()
+        let handle = try FileHandle(forWritingTo: catalog)
+        try handle.truncate(atOffset: 0)
+        try handle.write(contentsOf: JSONSerialization.data(withJSONObject: json))
+        try handle.close()
+        let emptied = try await a.open()
+        XCTAssertTrue(emptied.isEmpty)
+    }
+
     @MainActor
     func testSaveFailureRetainsEditsAndRetryPersistsThem() async throws {
         let root = try folder()

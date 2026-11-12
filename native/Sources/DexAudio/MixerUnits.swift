@@ -8,8 +8,8 @@ public enum CueRouting {
     /// The router's output layout for a device with `hardware` channels.
     public static func channels(hardware: Int) -> AVAudioChannelCount { hardware >= 4 ? 4 : 2 }
     public static func format(channels: AVAudioChannelCount) -> AVAudioFormat {
-        channels <= 2 ? AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: channels)!
-            : AVAudioFormat(standardFormatWithSampleRate: 48_000,
+        channels <= 2 ? AVAudioFormat(standardFormatWithSampleRate: EngineCore.sampleRate, channels: channels)!
+            : AVAudioFormat(standardFormatWithSampleRate: EngineCore.sampleRate,
                             channelLayout: AVAudioChannelLayout(layoutTag: kAudioChannelLayoutTag_DiscreteInOrder | channels)!)
     }
 }

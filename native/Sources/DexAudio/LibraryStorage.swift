@@ -27,6 +27,45 @@ private struct SourceIdentity: Codable, Equatable, Sendable {
     }
 }
 
+/// Which file sits at a path and whether it has been written since: enough to tell the
+/// catalog this store last read or wrote from one another store has saved.
+private struct FileStamp: Equatable {
+    let device: Int32
+    let inode: UInt64
+    let size: Int64
+    let modifiedSeconds: Int, modifiedNanos: Int
+    let changedSeconds: Int, changedNanos: Int
+    init(_ info: stat) {
+        device = info.st_dev; inode = info.st_ino; size = info.st_size
+        modifiedSeconds = info.st_mtimespec.tv_sec; modifiedNanos = info.st_mtimespec.tv_nsec
+        changedSeconds = info.st_ctimespec.tv_sec; changedNanos = info.st_ctimespec.tv_nsec
+    }
+}
+
+/// The catalog file this store holds in memory, kept open. Every save puts a new file in
+/// the catalog's place, and while this one is open the system can't give its number to
+/// another, so a file at the path with the same stamp is this very file, unchanged.
+private final class HeldCatalogFile {
+    let descriptor: Int32
+    let stamp: FileStamp
+    init(descriptor: Int32, stamp: FileStamp) { self.descriptor = descriptor; self.stamp = stamp }
+    deinit { Darwin.close(descriptor) }
+}
+
+/// What the saved playlists turned out to be when the library opened.
+enum SavedPlaylists: Sendable {
+    /// The file read, or nothing has been saved yet.
+    case loaded([Playlist])
+    /// The file was missing or unreadable, and the save before it came back.
+    case restored([Playlist])
+    /// The file couldn't be read and there was no earlier save; it was kept under this name.
+    case unreadable(kept: String)
+    /// A newer version's file: never to be replaced.
+    case newer
+    /// The file couldn't be read or copied aside: never to be replaced.
+    case stuck
+}
+
 actor LibraryStorage {
     private struct Alias: Codable { let identity: SourceIdentity; let fingerprint: String }
     private struct Catalog: Codable {
@@ -44,8 +83,12 @@ actor LibraryStorage {
     }
     let directory: URL
     private var catalog: Catalog?
+    /// The file `catalog` came from or went to, nil when that isn't known for certain.
+    private var held: HeldCatalogFile?
     private(set) var recoveredCatalog = false
     private(set) var commitCount = 0
+    /// How many times a catalog file has been read and decoded whole.
+    private(set) var decodeCount = 0
     private(set) var copiedBytes: Int64 = 0
     private let files = FileManager.default
     private let worker = LibraryAudioWorker()
@@ -53,11 +96,12 @@ actor LibraryStorage {
     private var cacheDirectory: URL { directory.appendingPathComponent("Analysis", isDirectory: true) }
     private var catalogURL: URL { directory.appendingPathComponent("Library.json") }
     private var backupURL: URL { directory.appendingPathComponent("Library.backup.json") }
+    private var playlistsURL: URL { directory.appendingPathComponent("playlists.json") }
+    private var playlistsBackupURL: URL { directory.appendingPathComponent("playlists.backup.json") }
     init(directory: URL) { self.directory = directory }
 
-    /// Lock only short catalog transactions, never provider access or analysis.
-    /// Reload under the same OS lock before merging, including across processes.
-    private func transaction<T>(_ body: () throws -> T) throws -> T {
+    /// Holds the library's OS lock, which other stores and other processes share.
+    private func locked<T>(_ body: () throws -> T) throws -> T {
         try files.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
         let lockURL = directory.appendingPathComponent(".Library.lock")
         let descriptor = Darwin.open(lockURL.path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
@@ -67,37 +111,94 @@ actor LibraryStorage {
             if errno != EINTR { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         }
         defer { flock(descriptor, LOCK_UN) }
-        // No pool around the body: `autoreleasepool`'s closure is transferred under
-        // Swift 6, and a `body` closure can't be sent. The Foundation work a transaction
-        // does is pooled where it happens: `decodeCatalog`, `commit`, and the recovery
-        // write in `reloadCatalog`.
-        try reloadCatalog()
         return try body()
     }
+    /// Lock only short catalog transactions, never provider access or analysis.
+    /// Under the same OS lock, read the catalog again before merging unless the file is
+    /// still the one this store last read or wrote, including across processes.
+    private func transaction<T>(_ body: () throws -> T) throws -> T {
+        try locked {
+            // No pool around the body: `autoreleasepool`'s closure is transferred under
+            // Swift 6, and a `body` closure can't be sent. The Foundation work a transaction
+            // does is pooled where it happens: `decodeCatalog`, `commit`, and the recovery
+            // write in `reloadCatalog`.
+            if !catalogIsCurrent() { try reloadCatalog() }
+            return try body()
+        }
+    }
     func open() throws -> [LibraryTrack] { try transaction { catalog!.tracks } }
+    /// Whether the catalog on disk is the file this store holds in memory. Call under the lock.
+    private func catalogIsCurrent() -> Bool {
+        guard catalog != nil, let held else { return false }
+        var info = stat()
+        return stat(catalogURL.path, &info) == 0 && FileStamp(info) == held.stamp
+    }
+    /// Remembers the catalog file just written as the one in memory. Call under the lock,
+    /// straight after the write, so no other store can have replaced it in between.
+    private func holdWrittenCatalog() {
+        held = nil
+        let descriptor = Darwin.open(catalogURL.path, O_RDONLY)
+        guard descriptor >= 0 else { return }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0 else { Darwin.close(descriptor); return }
+        held = HeldCatalogFile(descriptor: descriptor, stamp: FileStamp(info))
+    }
+    /// Reads and decodes the catalog through one open file, and holds that file if it
+    /// didn't change while it was being read.
+    private func readCatalog() throws -> Catalog {
+        held = nil
+        let descriptor = Darwin.open(catalogURL.path, O_RDONLY)
+        guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        var keep = false
+        defer { if !keep { Darwin.close(descriptor) } }
+        var before = stat()
+        guard fstat(descriptor, &before) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        var data = Data()
+        data.reserveCapacity(Int(max(0, before.st_size)))
+        var chunk = [UInt8](repeating: 0, count: 256 * 1024)
+        while true {
+            let count = read(descriptor, &chunk, chunk.count)
+            if count < 0 {
+                if errno == EINTR { continue }
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
+            if count == 0 { break }
+            data.append(chunk, count: count)
+        }
+        let value = try decodeCatalog(data)
+        var after = stat()
+        if fstat(descriptor, &after) == 0, FileStamp(after) == FileStamp(before), Int64(data.count) == after.st_size {
+            held = HeldCatalogFile(descriptor: descriptor, stamp: FileStamp(after))
+            keep = true
+        }
+        return value
+    }
     private func reloadCatalog() throws {
+        held = nil
         if files.fileExists(atPath: catalogURL.path) {
-            do { catalog = try decodeCatalog(catalogURL) }
+            do { catalog = try readCatalog() }
             catch LibraryError.newerVersion { throw LibraryError.newerVersion }
             catch {
-                guard let recovered = try? decodeCatalog(backupURL) else { throw LibraryError.damagedCatalog }
+                guard let recovered = try? decodeCatalog(Data(contentsOf: backupURL)) else { throw LibraryError.damagedCatalog }
                 try autoreleasepool {
                     try files.copyItem(at: catalogURL, to: directory.appendingPathComponent("Library.damaged-\(UUID().uuidString).json"))
                     try encode(recovered).write(to: catalogURL, options: .atomic)
                 }
                 catalog = recovered
+                holdWrittenCatalog()
                 recoveredCatalog = true
             }
         } else if files.fileExists(atPath: backupURL.path) {
-            let recovered = try decodeCatalog(backupURL)
+            let recovered = try decodeCatalog(Data(contentsOf: backupURL))
             try autoreleasepool { try encode(recovered).write(to: catalogURL, options: .atomic) }
             catalog = recovered
+            holdWrittenCatalog()
             recoveredCatalog = true
         } else { catalog = Catalog() }
     }
-    private func decodeCatalog(_ url: URL) throws -> Catalog {
-        try autoreleasepool {
-            let data = try Data(contentsOf: url)
+    private func decodeCatalog(_ data: Data) throws -> Catalog {
+        decodeCount += 1
+        return try autoreleasepool {
             struct Header: Decodable { let version: Int }
             guard try JSONDecoder().decode(Header.self, from: data).version == 1 else { throw LibraryError.newerVersion }
             let value = try JSONDecoder().decode(Catalog.self, from: data)
@@ -123,6 +224,8 @@ actor LibraryStorage {
     }
     private func commit(_ next: Catalog) throws {
         let previous = catalog
+        // If the save fails part-way, the next transaction reads the disk again.
+        held = nil
         try autoreleasepool {
             let data = try encode(next)
             if let previous {
@@ -133,6 +236,7 @@ actor LibraryStorage {
             try data.write(to: catalogURL, options: .atomic)
         }
         catalog = next
+        holdWrittenCatalog()
         commitCount += 1
     }
     private func cacheURL(_ id: UUID) -> URL { cacheDirectory.appendingPathComponent(id.uuidString + ".waveform") }
@@ -146,6 +250,11 @@ actor LibraryStorage {
         let tracks = try open()
         try Task.checkCancellation()
         guard let track = tracks.first(where: { $0.id == id }) else { throw LibraryError.missingTrack }
+        return try await prepare(track, progress: progress)
+    }
+    /// Prepares a track the caller has just read from the catalog, without reading it again first.
+    private func prepare(_ track: LibraryTrack, progress: (@Sendable (NativeLibrary.ImportProgress) -> Void)?) async throws -> PreparedLibraryTrack {
+        let id = track.id
         let url = audioDirectory.appendingPathComponent(track.filename)
         guard files.fileExists(atPath: url.path) else { throw LibraryError.missingAudio }
         let cached = try await worker.cached(cacheURL(id), track: track)
@@ -163,9 +272,9 @@ actor LibraryStorage {
     }
     func importFile(_ source: URL, id: UUID = UUID(), progress: (@Sendable (NativeLibrary.ImportProgress) -> Void)? = nil) async throws -> PreparedLibraryTrack {
         progress?(.opening)
-        _ = try open()
         try Task.checkCancellation()
         let identity = try await worker.inspect(source)
+        // The first look at the catalog: a library that can't be opened stops the import here.
         let existing: LibraryTrack? = try transaction {
             guard let alias = catalog!.sources.first(where: { $0.identity == identity }),
                   let track = catalog!.tracks.first(where: { $0.fingerprint == alias.fingerprint }),
@@ -173,7 +282,7 @@ actor LibraryStorage {
                   Int64(size) == identity.size else { return nil }
             return track
         }
-        if let existing { return try await prepare(existing.id, progress: progress) }
+        if let existing { try Task.checkCancellation(); return try await prepare(existing, progress: progress) }
         let ext = source.pathExtension.lowercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }
         let suffix = ext.isEmpty ? "" : "." + String(ext.prefix(12))
         let staging = audioDirectory.appendingPathComponent(".import-\(UUID().uuidString)" + suffix)
@@ -186,12 +295,16 @@ actor LibraryStorage {
         let scanned: WaveformOverview
         if let duplicate {
             // Repair missing audio before cache preparation, under the catalog lock.
-            try transaction {
+            let saved: LibraryTrack? = try transaction {
                 let destination = audioDirectory.appendingPathComponent(duplicate.filename)
                 if !files.fileExists(atPath: destination.path) { try files.moveItem(at: staging, to: destination) }
                 var next = catalog!; remember(copied.identity, hash: copied.hash, in: &next); try commit(next)
+                return next.tracks.first(where: { $0.id == duplicate.id })
             }
-            return try await prepare(duplicate.id, progress: progress)
+            try Task.checkCancellation()
+            // Another store may have removed it since the copy was compared.
+            guard let saved else { throw LibraryError.missingTrack }
+            return try await prepare(saved, progress: progress)
         }
         progress?(.analysing(0))
         scanned = try await worker.scan(staging, analyzeKey: true) { progress?(.analysing($0)) }
@@ -291,6 +404,68 @@ actor LibraryStorage {
                 next.tracks[index] = edited
             }
             try commit(next)
+        }
+    }
+
+    // MARK: Playlists
+
+    // Saved beside the catalog in `playlists.json`, last writer wins, with the save before it
+    // kept as `playlists.backup.json`. Read and written under the catalog's lock, though not
+    // with the catalog: a catalog that can't be read doesn't stop playlists being saved.
+    private struct PlaylistFile: Codable {
+        static let currentVersion = 1
+        var version = PlaylistFile.currentVersion
+        var playlists: [Playlist]
+    }
+    private enum PlaylistRead { case missing, lists([Playlist]), newer, unreadable }
+
+    /// What a playlists file holds. Files from before the version was written are a bare list.
+    private func readPlaylists(_ url: URL) -> PlaylistRead {
+        guard files.fileExists(atPath: url.path) else { return .missing }
+        guard let data = try? Data(contentsOf: url) else { return .unreadable }
+        struct Header: Decodable { let version: Int }
+        if let header = try? JSONDecoder().decode(Header.self, from: data) {
+            if header.version > PlaylistFile.currentVersion { return .newer }
+            guard let file = try? JSONDecoder().decode(PlaylistFile.self, from: data) else { return .unreadable }
+            return .lists(file.playlists)
+        }
+        guard let saved = try? JSONDecoder().decode([Playlist].self, from: data) else { return .unreadable }
+        return .lists(saved)
+    }
+
+    /// Reads the saved playlists. A file that can't be read is copied aside here, before
+    /// anything can be written in its place.
+    func openPlaylists() throws -> SavedPlaylists {
+        try locked {
+            func restored() -> SavedPlaylists? {
+                guard case .lists(let saved) = readPlaylists(playlistsBackupURL) else { return nil }
+                return .restored(saved)
+            }
+            switch readPlaylists(playlistsURL) {
+            case .lists(let saved): return .loaded(saved)
+            case .missing: return restored() ?? .loaded([])
+            case .newer: return .newer
+            case .unreadable:
+                let kept = directory.appendingPathComponent("playlists.damaged-\(UUID().uuidString).json")
+                do { try files.copyItem(at: playlistsURL, to: kept) } catch { return .stuck }
+                return restored() ?? .unreadable(kept: kept.lastPathComponent)
+            }
+        }
+    }
+
+    func savePlaylists(_ next: [Playlist]) throws {
+        try locked {
+            try autoreleasepool {
+                let data = try JSONEncoder().encode(PlaylistFile(playlists: next))
+                let onDisk = readPlaylists(playlistsURL)
+                // A newer Dex may have saved since this one opened: its playlists stay.
+                if case .newer = onDisk { throw LibraryError.newerVersion }
+                // The save being replaced becomes the recovery copy, if it still reads.
+                if case .lists = onDisk, let previous = try? Data(contentsOf: playlistsURL) {
+                    try previous.write(to: playlistsBackupURL, options: .atomic)
+                }
+                try data.write(to: playlistsURL, options: .atomic)
+            }
         }
     }
 }

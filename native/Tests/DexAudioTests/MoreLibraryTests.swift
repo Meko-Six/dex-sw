@@ -218,7 +218,9 @@ final class MoreLibraryTests: XCTestCase {
         let library = NativeLibrary(directory: directory())
         let track = try await library.prepare(url: try wav())
         let list = library.createPlaylist(named: "Set")
+        await library.flush()   // Two saves, not one: edits made together are written together.
         library.addToPlaylist(list, tracks: [track.track.id])   // The save before this one holds "Set", empty.
+        await library.flush()
         let damaged = Data("{ not json".utf8)
         try damaged.write(to: playlistsURL)
 
@@ -231,6 +233,7 @@ final class MoreLibraryTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: kept[0]), damaged, "What couldn't be read is kept as it was")
         // Changing playlists afterwards still leaves that copy alone.
         reopened.createPlaylist(named: "Later")
+        await reopened.flush()
         XCTAssertEqual(try Data(contentsOf: kept[0]), damaged)
         let again = NativeLibrary(directory: directory())
         await again.open()
@@ -248,6 +251,7 @@ final class MoreLibraryTests: XCTestCase {
         XCTAssertEqual(reopened.playlists, [])
         XCTAssertNotNil(reopened.notice)
         reopened.createPlaylist(named: "New")
+        await reopened.flush()
         XCTAssertNil(reopened.error)
         let kept = try siblings("playlists.damaged-")
         XCTAssertEqual(kept.count, 1)
@@ -265,7 +269,26 @@ final class MoreLibraryTests: XCTestCase {
         reopened.createPlaylist(named: "Mine")
         XCTAssertEqual(reopened.playlists, [], "Nothing changes that couldn't be saved")
         XCTAssertNotNil(reopened.error)
+        await reopened.flush()
         XCTAssertEqual(try Data(contentsOf: playlistsURL), newer)
+    }
+
+    func testAProblemRaisedAgainCountsAgainAndAStandingNoticeDoesNot() async throws {
+        let library = NativeLibrary(directory: directory())
+        let track = try await library.prepare(url: try wav())
+        library.report("Deck A holds this track.")
+        let first = library.errorRevision
+        library.report("Deck A holds this track.")
+        XCTAssertEqual(library.errorRevision, first &+ 1, "The same words raised again are a new problem")
+        // A notice that stands is not raised again by each track prepared.
+        try Data(#"{"version":2,"playlists":[]}"#.utf8).write(to: playlistsURL)
+        let reopened = NativeLibrary(directory: directory())
+        await reopened.open()
+        XCTAssertNotNil(reopened.notice)
+        let standing = reopened.noticeRevision
+        _ = try await reopened.prepare(id: track.track.id)
+        _ = try await reopened.prepare(id: track.track.id)
+        XCTAssertEqual(reopened.noticeRevision, standing)
     }
 
     func testPlaylistsSavedBeforeTheVersionStillLoad() async throws {
@@ -283,10 +306,60 @@ final class MoreLibraryTests: XCTestCase {
         let library = NativeLibrary(directory: directory())
         let track = try await library.prepare(url: try wav())
         library.addToPlaylist(library.createPlaylist(named: "Set"), tracks: [track.track.id])
+        await library.flush()
         let unopened = NativeLibrary(directory: directory())
         unopened.createPlaylist(named: "Too early")
         await unopened.open()
         XCTAssertEqual(unopened.playlists.map(\.name), ["Set"])
+    }
+
+    private func playlistsOnDisk(_ name: String) throws -> [Playlist] {
+        struct File: Decodable { let version: Int; let playlists: [Playlist] }
+        let file = try JSONDecoder().decode(File.self, from: Data(contentsOf: directory().appendingPathComponent(name)))
+        XCTAssertEqual(file.version, 1)
+        return file.playlists
+    }
+
+    func testPlaylistEditsMadeTogetherAreWrittenOnceWithTheLatestList() async throws {
+        let library = NativeLibrary(directory: directory())
+        let track = try await library.prepare(url: try wav())
+        library.createPlaylist(named: "Earlier")
+        // The edit shows at once and returns before anything is written: the write is the storage's.
+        XCTAssertEqual(library.playlists.map(\.name), ["Earlier"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: playlistsURL.path))
+        await library.flush()
+        XCTAssertEqual(try playlistsOnDisk("playlists.json"), library.playlists)
+        let earlier = library.playlists
+
+        let list = library.createPlaylist(named: "Set")
+        let between = library.playlists
+        library.addToPlaylist(list, tracks: [track.track.id])
+        XCTAssertEqual(try playlistsOnDisk("playlists.json"), earlier, "Neither edit is written while the caller still runs")
+        await library.flush()
+        XCTAssertNil(library.error)
+        XCTAssertEqual(library.playlists.last?.trackIDs, [track.track.id.uuidString])
+        XCTAssertEqual(try playlistsOnDisk("playlists.json"), library.playlists, "The latest list is the one saved")
+        let backup = try playlistsOnDisk("playlists.backup.json")
+        XCTAssertTrue(backup == between || backup == earlier, "The recovery copy is the list before, or an older save")
+        XCTAssertNotEqual(backup, library.playlists)
+        let reopened = NativeLibrary(directory: directory())
+        await reopened.open()
+        XCTAssertEqual(reopened.playlists, library.playlists)
+        XCTAssertNil(reopened.notice)
+    }
+
+    func testAFailedPlaylistSaveIsReported() async throws {
+        let library = NativeLibrary(directory: directory())
+        _ = try await library.prepare(url: try wav())
+        // A folder with something in it, where the file belongs, can't be replaced.
+        try FileManager.default.createDirectory(at: playlistsURL, withIntermediateDirectories: false)
+        try Data("in the way".utf8).write(to: playlistsURL.appendingPathComponent("obstruction"))
+        let reopened = NativeLibrary(directory: directory())
+        await reopened.open()
+        reopened.createPlaylist(named: "Set")
+        XCTAssertEqual(reopened.playlists.map(\.name), ["Set"])
+        await reopened.flush()
+        XCTAssertTrue(reopened.error?.hasPrefix("Playlists could not be saved: ") == true, reopened.error ?? "no error")
     }
 
     private func XCTUnwrapAsync<T>(_ value: @autoclosure () async -> T?) async throws -> T {
