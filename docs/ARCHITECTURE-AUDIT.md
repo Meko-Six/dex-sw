@@ -21,7 +21,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 
 | # | Finding | Status |
 | --- | --- | --- |
-| 1 | Two copies of the transport state | **Open.** The big one. Stages 1 and 3 built, 4 in part; none heard yet |
+| 1 | Two copies of the transport state | **Open.** The big one. Stages 1 and 3 heard and passed; 4 in part |
 | 2 | Unreadable audio cached as silence | Fixed, `17b76b0` |
 | 3 | Playlists without the catalog's protection | Fixed, `17b76b0`, then moved into storage |
 | 4 | The audio layer carries screen state, copy and persistence | Open |
@@ -35,7 +35,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 | 12 | Landing cost on the audio thread has no budget | Open, unmeasured |
 | 13 | Smaller: engine creation not null-safe; `48_000` literals | Literals fixed; null safety dropped |
 
-### 1. Two copies of the transport state — open, stages 1 and 3 built
+### 1. Two copies of the transport state — open, stages 1 and 3 done
 
 The engine's header says a deck's position is "what was played, never a prediction". But
 `NativeDeck.land()` schedules a predicted `TransportClock` and `loopClock`, and
@@ -62,7 +62,7 @@ user listening after each, because it changes timing. Not a job for unattended a
 
 **Stages:**
 
-1. **Master election in the engine — built 13 November 2026, not yet heard.** The engine's
+1. **Master election in the engine — built 13 November 2026, heard and passed.** The engine's
    `electMaster` runs each block before the locks: when what's heard playing changes (a held
    CUE doesn't count) and one deck is left playing, it leads. A MASTER holds until then.
    `NativeDeck.isMaster` is now what the
@@ -73,7 +73,7 @@ user listening after each, because it changes timing. Not a job for unattended a
    Test: `EngineBehaviourTests.testTheDeckLeftPlayingAloneLeads`.
 2. SYNC's tempo: show the engine's locked tempo (`DexDeckState.tempo`) instead of working it
    out again in `followMasterTempo`.
-3. **Loops from the engine — built 13 November 2026, not yet heard,** on top of stage 1.
+3. **Loops from the engine — built 13 November 2026, heard and passed,** on top of stage 1.
    `DeckTimeline` (`DexCore/Transport.swift`) replaces `TransportClock` and the Swift
    `loopClock`: each segment carries the loop in force, and every block the engine plays takes
    the engine's published loop, not Swift's. Swift still folds, but only between blocks and
