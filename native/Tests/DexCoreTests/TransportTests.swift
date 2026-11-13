@@ -85,6 +85,23 @@ final class TransportTests: XCTestCase {
         timeline.forgetLanding()
         XCTAssertFalse(timeline.starting(at: 2.9))
     }
+    func testSoundRequestedFollowsTheDecksOwnRequests() {
+        var timeline = DeckTimeline()
+        XCTAssertFalse(timeline.soundRequested)
+        timeline.land(at: 1, position: 10, rate: 1, loop: nil, start: true)
+        XCTAssertTrue(timeline.soundRequested)
+        // Nothing the engine reports takes it back; only the deck does.
+        timeline.follow(blockStart: 1.1, position: 10.1, rate: 0, loop: nil, landing: nil, landingWaiting: false)
+        timeline.forgetLanding()
+        XCTAssertTrue(timeline.soundRequested)
+        timeline.releaseSound()
+        XCTAssertFalse(timeline.soundRequested)
+        timeline.requestSound()
+        XCTAssertTrue(timeline.soundRequested)
+        // A jog or a stop starts the timeline again, with nothing asked for.
+        timeline.reset(at: 2, position: 12)
+        XCTAssertFalse(timeline.soundRequested)
+    }
     func testCueWaitsForNextOutputBeatAcrossPhasesAndRates() throws {
         let grid = try BeatGrid(bpm: 128, offsetMs: 137, confidence: 1)
         for rate in [0.84, 1, 1.16] {

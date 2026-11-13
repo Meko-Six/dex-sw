@@ -21,7 +21,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 
 | # | Finding | Status |
 | --- | --- | --- |
-| 1 | Two copies of the transport state | **Open.** The big one. Stages 1–3 and 4a heard and passed; 4b and 5 left |
+| 1 | Two copies of the transport state | **Open.** The big one. Stages 1–4 done; stage 5 (the poll) left |
 | 2 | Unreadable audio cached as silence | Fixed, `17b76b0` |
 | 3 | Playlists without the catalog's protection | Fixed, `17b76b0`, then moved into storage |
 | 4 | The audio layer carries screen state, copy and persistence | Open |
@@ -35,7 +35,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 | 12 | Landing cost on the audio thread has no budget | Open, unmeasured |
 | 13 | Smaller: engine creation not null-safe; `48_000` literals | Literals fixed; null safety dropped |
 
-### 1. Two copies of the transport state — open, stages 1–3 done
+### 1. Two copies of the transport state — open, stages 1–4 done
 
 The engine's header says a deck's position is "what was played, never a prediction". But
 `NativeDeck.land()` schedules a predicted `TransportClock` and `loopClock`, and
@@ -48,7 +48,9 @@ So position, loop bounds, tempo and master each exist twice:
 - ~~Master election runs in `NativeMixer.holdSync`, a 50 ms poll, while the engine holds its
   own `master`.~~ Moved into the engine (stage 1, below).
 - Seven flags exist only to reconcile the two: `playing`, `hasStreamingVoice`, `startDueAt`,
-  `endHeardAt`, `plan`, `transportAt`, `dropped`.
+  `endHeardAt`, `plan`, `transportAt`, `dropped`. Since stage 4 only `playing` (what the
+  screen shows) and `dropped` (a full queue) are left on the deck; the deck's requests the
+  engine hasn't confirmed live in `DeckTimeline`.
 
 It works and is well tested. The cost is that every new transport feature (loop dragging,
 ROLL, keyboard shortcuts) must be right in both places.
@@ -94,11 +96,12 @@ user listening after each, because it changes timing. Not a job for unattended a
    when the engine says `ended` and the timeline, stopped at the end, reaches it a device's
    delay later. Tests: `TransportTests.testAStartIsPendingUntilTheEngineHasPlayedIt`,
    `EndOfTrackTests` (the stop lands on the same frame as before).
-   **4b, left:** `hasStreamingVoice`, "a voice was asked for", is the deck's own intent and
-   can't be read from the engine before it confirms. After a jog the engine is playing again
-   while the deck means its next press as a fresh start, so swapping it for the published
-   `playing` would change how that press sounds. Keep it as the one intent flag, or change it
-   on its own with the user listening.
+   **4b — done 13 November 2026, by the user's choice:** `hasStreamingVoice` became
+   `DeckTimeline.soundRequested`, beside the other requests not yet confirmed. It is the
+   deck's own intent and can't be read from the engine: after a jog the engine plays again on
+   its own while the deck means its next press as a fresh start, so the published `playing`
+   would change how that press sounds. The user chose to keep it as an intent; nothing heard
+   changes. Test: `TransportTests.testSoundRequestedFollowsTheDecksOwnRequests`.
 5. The 50 ms poll goes, once nothing needs it.
 
 ### 2. Unreadable audio cached as silence — fixed

@@ -264,8 +264,9 @@ diff:native` (no console view changed), the muted live checks, the soak.
    the user heard it pass (13 Nov),** including a 147 BPM track against 123 sitting at −16%
    (123.5) without chasing. **Stage 4a is built and the user heard it pass (13
    Nov):** `startDueAt` and `endHeardAt` gone; a track played to its end, and hot cues, CUE,
-   jumps and loops straight after PLAY, all as before. 4b (`hasStreamingVoice`) is a judgement call, in the
-   audit, and stage 5 removes the poll. The same listen asked for hot cues in
+   jumps and loops straight after PLAY, all as before. **4b is done** (the user's choice):
+   `hasStreamingVoice` is kept as the deck's own request, moved into the timeline as
+   `soundRequested`; nothing heard changes. Stage 5, removing the poll, is all that's left. The same listen asked for hot cues in
    the zoom lanes; they are in the mockup and ported (`.zw-hc`, `HotCueMarker`).
 3. **The audio lifecycle as an explicit state machine,** once the start-up fix has been
    tried on devices. A start that fails outright with an output change pending still ends

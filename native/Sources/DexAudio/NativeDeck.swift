@@ -92,7 +92,6 @@ public final class NativeDeck: ObservableObject {
     /// The one-knob sweep: −1 low-pass … 0 off … 1 high-pass.
     @Published public var filter = 0.0 { didSet { updateFilter() } }
     public let label: String
-    private var hasStreamingVoice = false
     /// Rendering can only be assumed this far past its last confirmed block.
     private let renderedSlack = 0.05
     /// How long until the engine's next block: the soonest a change can come out.
@@ -193,7 +192,7 @@ public final class NativeDeck: ObservableObject {
     /// Reads failing again after this long without a failure are a new spell of trouble.
     static let readTroubleGap = 2.0
     private func syncEngine() {
-        link.sync(following: playing && hasStreamingVoice && !jog.active)
+        link.sync(following: playing && timeline.soundRequested && !jog.active)
         if let tempo = link.playedTempo { playRate = tempo }
         followLockedTempo()
         // The count starts again with each track, so this follows it down as well as up.
@@ -221,7 +220,7 @@ public final class NativeDeck: ObservableObject {
         } else {
             link.leaveScrub()
             if playing {
-                hasStreamingVoice = true
+                timeline.requestSound()
                 land(from: positionAt(audioNow()), quantizedCue: false, continuing: false, barShift: nil, loopShift: nil)
             } else {
                 link.pause(); link.rest(at: position)
@@ -384,7 +383,6 @@ public final class NativeDeck: ObservableObject {
         jog.cancel()
         refreshPosition()
         previewing = false
-        hasStreamingVoice = false
         position = min(duration, max(0, target))
         timeline.reset(at: audioNow(), position: position)
         jog.begin(position: position, duration: duration)
@@ -668,7 +666,7 @@ public final class NativeDeck: ObservableObject {
         return positionAt(confirmed)
     }
     private func stopVoices() {
-        hasStreamingVoice = false
+        timeline.releaseSound()
         link.pause()
     }
 
@@ -678,17 +676,17 @@ public final class NativeDeck: ObservableObject {
         do {
             syncEngine()
             followEngineMaster()
-            if playing, hasStreamingVoice, link.ended {
+            if playing, timeline.soundRequested, link.ended {
                 // The last frame has been played; it's heard a device's delay later, and the
                 // waveform reaches the end then, not before.
-                hasStreamingVoice = false
+                timeline.releaseSound()
                 let now = audioNow(), reached = timeline.unfoldedPosition(at: now)
                 let end = reached > duration && playRate > 0 ? now - (reached - duration) / playRate : now
                 timeline.schedule(at: end, rate: 0, position: duration)
             }
             // The engine has played the last frame and the listener has now heard it: the
             // timeline, stopped at the end from then, has reached it a device's delay later.
-            if playing, !hasStreamingVoice, !jog.active, link.ended,
+            if playing, !timeline.soundRequested, !jog.active, link.ended,
                timeline.unfoldedPosition(at: audioNow() - outputDelay) >= duration {
                 playing = false; position = duration
             }
@@ -711,7 +709,7 @@ public final class NativeDeck: ObservableObject {
         let now = audioNow()
         // A start that hasn't come out yet isn't music playing: a press on top of it starts afresh.
         let starting = timeline.starting(at: now)
-        let replace = playing && hasStreamingVoice && !starting
+        let replace = playing && timeline.soundRequested && !starting
         // The playhead just carries on, and the loop was set when it was committed or cleared.
         if replace, continuing, barShift == nil, (loopShift ?? 0) == 0 {
             timeline.changeLoop(loopBounds, at: now)
@@ -779,7 +777,6 @@ public final class NativeDeck: ObservableObject {
         }
         position = replace ? min(duration, max(0, heardAt(now - outputDelay))) : target
         timeline.land(at: outputTime, position: target, rate: playRate, loop: loopBounds, start: !replace)
-        hasStreamingVoice = true
         playing = true
         link.play(jump)
     }

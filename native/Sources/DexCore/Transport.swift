@@ -67,6 +67,10 @@ public struct DeckTimeline: Sendable {
     /// When a start from stopped comes out, while it hasn't yet: nothing is heard before then.
     /// The engine's time once it has started the landing, which a wait for audio can delay.
     public private(set) var pendingStart: Double?
+    /// The deck has asked the engine for sound and not taken it back: its one request the engine
+    /// can't report until it confirms it. After a jog the engine plays again on its own while the
+    /// deck still means its next press as a fresh start, so this is kept here, not read back.
+    public private(set) var soundRequested = false
     public init() {}
 
     private func segment(at time: Double) -> Segment { segments.last(where: { $0.time <= time }) ?? segments[0] }
@@ -98,6 +102,7 @@ public struct DeckTimeline: Sendable {
         segments = [Segment(time: time, position: position, rate: 0, loop: loop ?? self.loop(at: time))]
         pendingLanding = nil
         pendingStart = nil
+        soundRequested = false
     }
     /// The loop changes at `time`; the playhead carries on as it was.
     public mutating func changeLoop(_ loop: ClosedRange<Double>?, at time: Double) {
@@ -115,7 +120,12 @@ public struct DeckTimeline: Sendable {
         pendingLanding = time
         lastLanding = time
         pendingStart = start ? time : nil
+        soundRequested = true
     }
+    /// Sound is asked for again as it was, as when a dropped command is sent again.
+    public mutating func requestSound() { soundRequested = true }
+    /// The deck takes its request back: paused, or the engine has played the last frame.
+    public mutating func releaseSound() { soundRequested = false }
     /// Nothing asked for is still to come: the next block is the truth, whatever it says.
     public mutating func forgetLanding() { pendingLanding = nil; pendingStart = nil }
     /// Whether a start asked for is still to come out at this time.
