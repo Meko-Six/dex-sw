@@ -50,7 +50,6 @@ final class ConsoleModel: ObservableObject {
     private var rows = LibraryRows()
     private var changes: Set<AnyCancellable> = []
     private var rebuildQueued = false
-    private var ticker: Task<Void, Never>?
     private var meterTask: Task<Void, Never>?
     private var active = true
 
@@ -228,20 +227,8 @@ final class ConsoleModel: ObservableObject {
     private func updateTicker() {
         let running = active && decks.contains(where: \.playing)
         clock.running = running
-        if running, ticker == nil {
-            ticker = Task { [weak self] in
-                var tick = 0
-                while !Task.isCancelled {
-                    guard let self else { return }
-                    mixer.a.refreshPosition(); mixer.b.refreshPosition()
-                    tick += 1
-                    do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
-                }
-            }
-        } else if !running, let ticker {
-            ticker.cancel()
-            self.ticker = nil
-        }
+        // The readouts' 30 Hz comes from the mixer's transport heartbeat, which moves the decks'
+        // positions while anything plays; there is no second loop here.
     }
 
     /// The four meters, read every display frame (about 60 Hz) while anything shows, and ten

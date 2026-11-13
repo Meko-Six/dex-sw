@@ -21,7 +21,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 
 | # | Finding | Status |
 | --- | --- | --- |
-| 1 | Two copies of the transport state | **Open.** The big one. Stages 1–4 done; stage 5 (the poll) left |
+| 1 | Two copies of the transport state | **Done.** All five stages heard and passed, 13 November |
 | 2 | Unreadable audio cached as silence | Fixed, `17b76b0` |
 | 3 | Playlists without the catalog's protection | Fixed, `17b76b0`, then moved into storage |
 | 4 | The audio layer carries screen state, copy and persistence | Open |
@@ -30,12 +30,12 @@ The biggest structural risk is finding 1 below, and it is still open.
 | 7 | Audio lifecycle is an implicit state machine | Partly: dropped changes fixed, the machine itself open |
 | 8 | A full command queue loses a track load | Fixed |
 | 9 | Catalog reloaded and rewritten on every edit | Reload fixed; the double write is deliberate |
-| 10 | Five unsynchronised polling loops on the main thread | Open |
+| 10 | Five unsynchronised polling loops on the main thread | Partly: the two transport loops are one |
 | 11 | The engine is one 1,200-line struct, two decks hard-wired | Open, low value |
 | 12 | Landing cost on the audio thread has no budget | Open, unmeasured |
 | 13 | Smaller: engine creation not null-safe; `48_000` literals | Literals fixed; null safety dropped |
 
-### 1. Two copies of the transport state — open, stages 1–4 done
+### 1. Two copies of the transport state — done
 
 The engine's header says a deck's position is "what was played, never a prediction". But
 `NativeDeck.land()` schedules a predicted `TransportClock` and `loopClock`, and
@@ -102,7 +102,14 @@ user listening after each, because it changes timing. Not a job for unattended a
    its own while the deck means its next press as a fresh start, so the published `playing`
    would change how that press sounds. The user chose to keep it as an intent; nothing heard
    changes. Test: `TransportTests.testSoundRequestedFollowsTheDecksOwnRequests`.
-5. The 50 ms poll goes, once nothing needs it.
+5. **One transport heartbeat — built 13 November 2026, heard and passed.** The poll couldn't
+   simply go: it is what keeps the decks up to date with the engine when nothing on screen
+   asks (the end of a track, the master and SYNC tempo the engine chose, a resend after a full
+   queue), so the app in the background still needs it. Instead the mixer's 50 ms loop and the
+   console's 33 ms readout loop, which did the same catching up, are one: `NativeMixer.runLock`
+   moves both decks' positions at 30 Hz while anything plays, and `ConsoleModel` no longer
+   runs a loop of its own. Making the engine push its changes instead of being asked would
+   remove the last of it, and is a larger piece of work.
 
 ### 2. Unreadable audio cached as silence — fixed
 
@@ -233,7 +240,8 @@ Checked with two stores in one process, not with two real processes.
 
 - **Polling (10):** 50 ms sync, 33 ms readouts, 16 ms meters, 16 ms jog and the display
   link each poll on the main thread. End-of-track and master hand-over depend on it staying
-  healthy. Open; finding 1 would remove most of the need.
+  healthy. Partly fixed by finding 1's stage 5: sync and readouts are one 33 ms heartbeat in
+  the mixer. Meters, jog and the display link are each their own job and stay.
 - **Engine monolith (11):** one struct holds the voice state machine, sync, mixing and
   metering; two decks are hard-wired from `decks[2]` to `"A"`/`"B"` strings. Open, and pure
   restructuring.

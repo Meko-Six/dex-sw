@@ -190,15 +190,17 @@ public final class NativeMixer: ObservableObject {
         if !engine.isRunning || OutputLatency.signature(of: engine) != startedOutput { handle(.configurationChanged) }
     }
     public func setMaster(_ deck: NativeDeck) { deck.becomeMaster() }
-    /// While anything plays, keep the decks' clocks on what the engine played, and show the
-    /// master it elects. The engine holds SYNC's lock itself. It doesn't depend on the display.
+    /// The one transport heartbeat. While anything plays, each deck catches up with the engine at
+    /// the readouts' 30 Hz: its timeline and the position the screen shows, the master and SYNC
+    /// tempo the engine chose, the end of the track, a resend after a full queue. It doesn't
+    /// depend on the display, so all of that carries on with the app in the background.
     private func runLock() {
         guard lockTask == nil, !engine.isInManualRenderingMode else { return }
         lockTask = Task { [weak self] in
             while let self, !Task.isCancelled {
-                self.holdSync()
+                for deck in self.decks { deck.refreshPosition() }
                 guard self.decks.contains(where: { $0.playing }) else { self.lockTask = nil; return }
-                do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
+                do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
             }
         }
     }
