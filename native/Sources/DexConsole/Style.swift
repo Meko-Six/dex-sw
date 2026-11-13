@@ -263,7 +263,8 @@ struct Para: View {
     /// The width the layout broke the lines at; the canvas is given it
     /// rounded to whole pixels, which would wrap a line that just fits.
     @State private var laidOut = LaidOut()
-    final class LaidOut { var width: CGFloat? }
+    /// Only SwiftUI's layout passes touch it, and they run on the main thread.
+    final class LaidOut: @unchecked Sendable { var width: CGFloat? }
 
     init(_ runs: [Run], lineHeight: CGFloat, centred: Bool = false) { self.runs = runs; self.lineHeight = lineHeight; self.centred = centred }
     init(_ string: String, _ face: Face, lineHeight: CGFloat, centred: Bool = false) {

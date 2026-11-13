@@ -45,8 +45,8 @@ struct TrackWave: View, Equatable {
     private static let colours = [Color(red: 46 / 255, green: 115 / 255, blue: 235 / 255),
                                   Color(red: 211 / 255, green: 145 / 255, blue: 49 / 255),
                                   Color(red: 1, green: 249 / 255, blue: 226 / 255)]
-    fileprivate static let rgb: [(CGFloat, CGFloat, CGFloat)] = [(46 / 255, 115 / 255, 235 / 255), (211 / 255, 145 / 255, 49 / 255), (1, 249 / 255, 226 / 255)]
-    fileprivate static let gains: [Float] = [1.6, 1.5, 1.5]
+    nonisolated fileprivate static let rgb: [(CGFloat, CGFloat, CGFloat)] = [(46 / 255, 115 / 255, 235 / 255), (211 / 255, 145 / 255, 49 / 255), (1, 249 / 255, 226 / 255)]
+    nonisolated fileprivate static let gains: [Float] = [1.6, 1.5, 1.5]
 
     var body: some View {
         Canvas { context, size in
@@ -103,7 +103,7 @@ struct TrackWave: View, Equatable {
 
     /// LOW, MID, HIGH per column: the maximum over the bins a column covers,
     /// or, zoomed past the finest level, a blend of the two nearest bins.
-    static func envelopes(_ data: WaveformData, first: Double, perPixel: Double, columns: Int) -> [Float] {
+    nonisolated static func envelopes(_ data: WaveformData, first: Double, perPixel: Double, columns: Int) -> [Float] {
         var result = [Float](repeating: 0, count: columns * 3)
         let level = data.level(secondsPerPixel: perPixel), bin = level.secondsPerBin
         let start = first * perPixel, end = start + Double(columns) * perPixel
