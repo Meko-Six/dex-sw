@@ -21,7 +21,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 
 | # | Finding | Status |
 | --- | --- | --- |
-| 1 | Two copies of the transport state | **Open.** The big one. Stage 1 of 5 (master election) built |
+| 1 | Two copies of the transport state | **Open.** The big one. Stages 1 and 3 built, 4 in part; none heard yet |
 | 2 | Unreadable audio cached as silence | Fixed, `17b76b0` |
 | 3 | Playlists without the catalog's protection | Fixed, `17b76b0`, then moved into storage |
 | 4 | The audio layer carries screen state, copy and persistence | Open |
@@ -35,7 +35,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 | 12 | Landing cost on the audio thread has no budget | Open, unmeasured |
 | 13 | Smaller: engine creation not null-safe; `48_000` literals | Literals fixed; null safety dropped |
 
-### 1. Two copies of the transport state — open, stage 1 of 5 built
+### 1. Two copies of the transport state — open, stages 1 and 3 built
 
 The engine's header says a deck's position is "what was played, never a prediction". But
 `NativeDeck.land()` schedules a predicted `TransportClock` and `loopClock`, and
@@ -73,9 +73,17 @@ user listening after each, because it changes timing. Not a job for unattended a
    Test: `EngineBehaviourTests.testTheDeckLeftPlayingAloneLeads`.
 2. SYNC's tempo: show the engine's locked tempo (`DexDeckState.tempo`) instead of working it
    out again in `followMasterTempo`.
-3. Loops: the engine's published loop bounds replace `loopClock`, and Swift stops folding.
-4. Position: what's shown comes from the published block (`dex_engine_position_at`) plus any
-   landing not yet confirmed, retiring `TransportClock` and the reconciling flags.
+3. **Loops from the engine — built 13 November 2026, not yet heard,** on top of stage 1.
+   `DeckTimeline` (`DexCore/Transport.swift`) replaces `TransportClock` and the Swift
+   `loopClock`: each segment carries the loop in force, and every block the engine plays takes
+   the engine's published loop, not Swift's. Swift still folds, but only between blocks and
+   only by bounds the engine published or a change it hasn't played yet. Tests:
+   `TransportTests` (loop, rate and landing cases).
+4. Position: what's shown comes from the published block plus any landing not yet
+   confirmed. **Done in part with stage 3:** the timeline lives on `EngineDeck`, the rule for a
+   landing not yet heard is `DeckTimeline.follow`, and `plan` and `transportAt` are gone.
+   Left: `hasStreamingVoice`, `startDueAt` and `endHeardAt` give way to the published
+   `playing`, `landingPending` and `ended`.
 5. The 50 ms poll goes, once nothing needs it.
 
 ### 2. Unreadable audio cached as silence — fixed

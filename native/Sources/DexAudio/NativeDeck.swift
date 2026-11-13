@@ -5,9 +5,9 @@ import Combine
 import DexCore
 import Darwin
 
-/// One deck: the musical rules (cues, jumps, loops, SYNC, the jog's gesture) and its clock.
+/// One deck: the musical rules (cues, jumps, loops, SYNC, the jog's gesture) and its timeline.
 /// Every change of position ends in a landing the engine carries out in its own loop, on a
-/// chosen output frame; the clock follows what the engine says it played.
+/// chosen output frame; the timeline follows what the engine says it played.
 /// Remaining feature-parity gates are tracked in native/README.md.
 @MainActor
 public final class NativeDeck: ObservableObject {
@@ -51,12 +51,16 @@ public final class NativeDeck: ObservableObject {
     @Published public private(set) var isMaster = false
     weak var partner: NativeDeck?
     var audioNow: () -> Double = { AVAudioTime.seconds(forHostTime: mach_absolute_time()) }
-    /// The engine's and the output device's delay. `clock` runs on the engine's time, which
+    /// The engine's and the output device's delay. `timeline` runs on the engine's time, which
     /// reaches the listener this much later; `position` is what they hear, so the waveform
     /// and anything captured from it land on the beat they heard. Both decks share it, so
     /// SYNC and scheduling stay on the engine's time.
     var outputDelay = 0.0
-    private var clock = TransportClock()
+    /// Where the deck is over output time; it lives on the deck's line to the engine.
+    private var timeline: DeckTimeline {
+        get { link.timeline }
+        _modify { yield &link.timeline }
+    }
     /// The speed really playing, from the engine, SYNC's correction included. `tempo` is what was asked for.
     private(set) var playRate = 1.0
     public static let loopSizes: [Double] = [0.5, 1, 2, 4, 8, 16, 32, 64]
@@ -110,16 +114,10 @@ public final class NativeDeck: ObservableObject {
     private var scopedURL: URL?
     private var loadGeneration = UUID()
     private var loadTask: Task<Void, Never>?
-    private var transportAt = 0.0
     @Published public private(set) var cuePoint = 0.0 { didSet { updateHotspots() } }
     private var cueHeld = false
     private var defaultCue = true
     private var loopAudio: LoopAudio? { loops.current?.audio }
-    private struct LoopClockSegment {
-        let time: Double
-        let bounds: ClosedRange<Double>?
-    }
-    private var loopClock = [LoopClockSegment(time: 0, bounds: nil)]
     var crossfadeGain: Float = 0.707 { didSet { updateGain() } }
 
     init(label: String, core: EngineCore, index: Int32) {
@@ -144,8 +142,7 @@ public final class NativeDeck: ObservableObject {
         jog.finished = { [weak self] target in
             guard let self else { return }
             position = target
-            clock.reset(at: audioNow(), position: target)
-            scheduleLoopClock(at: audioNow(), bounds: loopBounds)
+            timeline.reset(at: audioNow(), position: target, loop: .some(loopBounds))
             if playing { schedule(from: target) } else { link.rest(at: target) }
         }
         jog.failed = { [weak self] problem in self?.error = problem }
@@ -201,7 +198,7 @@ public final class NativeDeck: ObservableObject {
     /// Reads failing again after this long without a failure are a new spell of trouble.
     static let readTroubleGap = 2.0
     private func syncEngine() {
-        link.sync(clock: &clock, following: playing && hasStreamingVoice && !jog.active)
+        link.sync(following: playing && hasStreamingVoice && !jog.active)
         if let tempo = link.playedTempo { playRate = tempo }
         // The count starts again with each track, so this follows it down as well as up.
         let failures = link.readFailures
@@ -273,7 +270,7 @@ public final class NativeDeck: ObservableObject {
         cuePoint = snappedCue(defaultCue ? 0 : cuePoint)
         if !playing && wasAtCue {
             position = cuePoint
-            clock.reset(at: audioNow(), position: cuePoint)
+            timeline.reset(at: audioNow(), position: cuePoint)
             link.rest(at: cuePoint)
         }
         hotCues = snappedHotCues(hotCues)
@@ -352,9 +349,9 @@ public final class NativeDeck: ObservableObject {
                 self.duration = overview.duration
                 self.peaks = overview.peaks
                 self.waveform = overview.waveform
-                self.clock.reset(at: self.audioNow())
+                self.link.timeline = DeckTimeline()
+                self.link.timeline.reset(at: self.audioNow())
                 self.position = 0
-                self.transportAt = 0
                 self.cuePoint = 0
                 self.defaultCue = true
                 self.cueHeld = false
@@ -395,9 +392,9 @@ public final class NativeDeck: ObservableObject {
         jog.cancel()
         refreshPosition()
         previewing = false
-        hasStreamingVoice = false; link.forgetLanding()
+        hasStreamingVoice = false
         position = min(duration, max(0, target))
-        clock.reset(at: audioNow(), position: position)
+        timeline.reset(at: audioNow(), position: position)
         jog.begin(position: position, duration: duration)
     }
     /// A new transport intent owns the final position; a stale coast cannot
@@ -408,8 +405,7 @@ public final class NativeDeck: ObservableObject {
         let target = jog.currentPosition ?? position
         jog.cancel()
         position = target
-        clock.reset(at: audioNow(), position: target)
-        scheduleLoopClock(at: audioNow(), bounds: loopBounds)
+        timeline.reset(at: audioNow(), position: target, loop: .some(loopBounds))
         if resume && playing { schedule(from: target) } else { link.rest(at: target) }
     }
 
@@ -426,7 +422,7 @@ public final class NativeDeck: ObservableObject {
             refreshPosition()
             stopVoices()
             playing = false
-            clock.reset(at: audioNow(), position: position)
+            timeline.reset(at: audioNow(), position: position)
         } else {
             // The deck already playing leads: a start must never move what's being heard.
             if isMaster, let partner, partner.playing, !partner.previewing { partner.becomeMaster() }
@@ -443,7 +439,7 @@ public final class NativeDeck: ObservableObject {
         if let bounds = loopBounds, !bounds.contains(target) || target == bounds.upperBound { clearLoop() }
         if previewing { previewing = false }
         if playing { schedule(from: target, quantizedCue: quantizedCue) }
-        else { position = target; clock.reset(at: audioNow(), position: target); link.rest(at: target) }
+        else { position = target; timeline.reset(at: audioNow(), position: target); link.rest(at: target) }
     }
 
     public func cueDown() {
@@ -547,7 +543,7 @@ public final class NativeDeck: ObservableObject {
         cancelJog()
         refreshPosition()
         let when = audioNow() + (playing ? replacementLookahead : 0)
-        var origin = playing ? positionAt(when) : position
+        let origin = playing ? positionAt(when) : position
         let region = loops.current?.region
         let bounds = region?.bounds(grid: grid)
         guard let plan = BarJump.plan(grid: grid, position: origin, duration: duration,
@@ -615,7 +611,7 @@ public final class NativeDeck: ObservableObject {
         updateHotspots()
         if playing { schedule(from: position, continuing: true, loopShift: shift) }
         else {
-            if let previous = boundsAt(audioNow()) {
+            if let previous = timeline.loop(at: audioNow()) {
                 if shift != 0 {
                     let origin = grid.flatMap { BarJump.plan(grid: $0, position: position, duration: duration, playing: false, bars: 0)?.position } ?? position
                     position = origin + shift
@@ -626,8 +622,7 @@ public final class NativeDeck: ObservableObject {
             if position >= audio.end {
                 position = audio.start + (position - audio.start).truncatingRemainder(dividingBy: audio.end - audio.start)
             }
-            clock.reset(at: audioNow(), position: position)
-            scheduleLoopClock(at: audioNow(), bounds: loopBounds)
+            timeline.reset(at: audioNow(), position: position, loop: .some(loopBounds))
             link.rest(at: position)
         }
     }
@@ -635,16 +630,7 @@ public final class NativeDeck: ObservableObject {
         loops.clear()
         link.setLoop(nil)
         updateHotspots()
-        if !playing { scheduleLoopClock(at: audioNow(), bounds: nil) }
-    }
-
-    private func boundsAt(_ time: Double) -> ClosedRange<Double>? {
-        (loopClock.last(where: { $0.time <= time }) ?? loopClock[0]).bounds
-    }
-    private func scheduleLoopClock(at time: Double, bounds: ClosedRange<Double>?) {
-        loopClock.removeAll { $0.time >= time }
-        loopClock.append(LoopClockSegment(time: time, bounds: bounds))
-        while loopClock.count > 2 && loopClock[1].time < time - 1 { loopClock.removeFirst() }
+        if !playing { timeline.changeLoop(nil, at: audioNow()) }
     }
 
     public func toggleSync() {
@@ -673,7 +659,7 @@ public final class NativeDeck: ObservableObject {
         let rate = min(1.16, max(0.84, tempo))
         guard rate != playRate else { return }
         playRate = rate
-        if playing { clock.schedule(at: max(audioNow(), transportAt), rate: rate) }
+        if playing { timeline.changeRate(rate, from: audioNow()) }
     }
     func followMasterTempo() {
         guard syncLocked, !isMaster, let source = partner, source.isMaster,
@@ -682,12 +668,7 @@ public final class NativeDeck: ObservableObject {
     }
     private func positionAt(_ time: Double) -> Double {
         if let position = jog.position { return position }
-        var value = clock.position(at: time)
-        if let bounds = boundsAt(time), value >= bounds.upperBound {
-            value = bounds.lowerBound + (value - bounds.lowerBound)
-                .truncatingRemainder(dividingBy: bounds.upperBound - bounds.lowerBound)
-        }
-        return value
+        return timeline.position(at: time)
     }
     /// What the engine has confirmed for this time, for anything shown or captured.
     /// `positionAt` is the planned timeline, for working out what happens next.
@@ -702,7 +683,7 @@ public final class NativeDeck: ObservableObject {
         link.pause()
     }
 
-    /// Brings the clock up to date with the engine, and notices the end of the track.
+    /// Brings the timeline up to date with the engine, and notices the end of the track.
     func serviceTransitions() {
         jog.service()
         do {
@@ -712,9 +693,9 @@ public final class NativeDeck: ObservableObject {
                 // The last frame has been played; it's heard a device's delay later, and the
                 // waveform reaches the end then, not before.
                 hasStreamingVoice = false
-                let now = audioNow(), reached = clock.position(at: now)
+                let now = audioNow(), reached = timeline.unfoldedPosition(at: now)
                 let end = reached > duration && playRate > 0 ? now - (reached - duration) / playRate : now
-                clock.schedule(at: end, rate: 0, position: duration)
+                timeline.schedule(at: end, rate: 0, position: duration)
                 endHeardAt = end + outputDelay
             }
             if playing, let heard = endHeardAt, audioNow() >= heard {
@@ -742,7 +723,7 @@ public final class NativeDeck: ObservableObject {
         let replace = playing && hasStreamingVoice && !starting
         // The playhead just carries on, and the loop was set when it was committed or cleared.
         if replace, continuing, barShift == nil, (loopShift ?? 0) == 0 {
-            scheduleLoopClock(at: now, bounds: loopBounds)
+            timeline.changeLoop(loopBounds, at: now)
             return
         }
         // A press from stopped comes in whole too, with the fade over the audio before it.
@@ -776,13 +757,13 @@ public final class NativeDeck: ObservableObject {
         }
         var requested = continuing ? positionAt(outputTime) : seconds + cueSourceOffset
         if let barShift, let grid {
-            let origin = clock.position(at: outputTime)
+            let origin = timeline.unfoldedPosition(at: outputTime)
             let wanted = (barShift / (grid.beatSeconds * 4)).rounded()
             if wanted.isFinite, abs(wanted) < Double(Int.max),
                let plan = BarJump.plan(grid: grid, position: origin, duration: duration, playing: true, bars: Int(wanted)) {
                 requested = plan.position
             } else { requested = origin }
-        } else if let loopShift, let loop = loopAudio, let previous = boundsAt(outputTime) {
+        } else if let loopShift, let loop = loopAudio, let previous = timeline.loop(at: outputTime) {
             requested = previous.contains(requested) && loopShift == 0 ? loop.folding(requested) : requested + loopShift
         }
         var target = requested
@@ -805,11 +786,8 @@ public final class NativeDeck: ObservableObject {
             jump.loopIn = (loopBounds?.lowerBound ?? 0) * link.fileRate
             jump.loopOut = (loopBounds?.upperBound ?? 0) * link.fileRate
         }
-        transportAt = outputTime
         position = replace ? min(duration, max(0, heardAt(now - outputDelay))) : target
-        clock.schedule(at: outputTime, rate: playRate, position: target)
-        scheduleLoopClock(at: outputTime, bounds: loopBounds)
-        link.expectLanding(at: outputTime)
+        timeline.land(at: outputTime, position: target, rate: playRate, loop: loopBounds)
         endHeardAt = nil
         startDueAt = replace ? nil : outputTime
         hasStreamingVoice = true
@@ -845,14 +823,10 @@ public final class NativeDeck: ObservableObject {
         stopVoices()
         link.hardStop(at: position)
         playing = false; previewing = false; cueHeld = false; audioAvailable = false
-        clock.reset(at: audioNow(), position: position)
-        scheduleLoopClock(at: audioNow(), bounds: loopBounds)
+        timeline.reset(at: audioNow(), position: position, loop: .some(loopBounds))
         return resume
     }
-    func reanchor() {
-        clock.reset(at: audioNow(), position: position)
-        scheduleLoopClock(at: audioNow(), bounds: loopBounds)
-    }
+    func reanchor() { timeline.reset(at: audioNow(), position: position, loop: .some(loopBounds)) }
     /// Everything the engine holds outlives a new graph; only a gesture in progress ends.
     func rebuildNodes() { jog.cancel() }
     func shutdown() {
@@ -880,7 +854,7 @@ public final class NativeDeck: ObservableObject {
         playRate = wanted
         link.setTempo(wanted)
         link.setKeyLock(keyLock)
-        if playing { clock.schedule(at: max(audioNow(), transportAt), rate: playRate) }
+        if playing { timeline.changeRate(playRate, from: audioNow()) }
         if isMaster { partner?.followMasterTempo() }
     }
     private func updateGain() { dex_engine_set_fader(link.engine, link.index, level, crossfadeGain) }

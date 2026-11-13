@@ -252,7 +252,11 @@ diff:native` (no console view changed), the muted live checks, the soak.
    are in the audit's finding 1. **Stage 1, master election in the engine, is built (13
    November) and waits for the user's ears** before stage 2 starts: with SYNC on, stop the
    master and check the deck left playing takes over with no jump; MASTER on a stopped deck
-   holds; starting beside a playing deck leaves it leading.
+   holds; starting beside a playing deck leaves it leading. **Stage 3, loops from the engine,
+   is built on top** (13 Nov), with part of stage 4: one `DeckTimeline` per deck in place of
+   the clock, the loop clock, `plan` and `transportAt`. It should look and sound exactly as
+   before: loops in and out, halving and moving a loop while it plays, bar jumps and hot cues
+   inside a loop, and the waveform landing on them.
 3. **The audio lifecycle as an explicit state machine,** once the start-up fix has been
    tried on devices. A start that fails outright with an output change pending still ends
    as "no audio" until the app comes forward.

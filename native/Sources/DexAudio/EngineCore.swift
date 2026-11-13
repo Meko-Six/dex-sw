@@ -137,8 +137,8 @@ private final class TrackReader {
     }
 }
 
-/// One deck's line to the engine: thin commands, and what the published state means for the
-/// deck's clock. Musical decisions stay in `NativeDeck`.
+/// One deck's line to the engine: thin commands, and the deck's timeline, which follows what the
+/// engine publishes plus what has been asked for and not yet played. Musical decisions stay in `NativeDeck`.
 @MainActor
 final class EngineDeck {
     let core: EngineCore
@@ -147,8 +147,8 @@ final class EngineDeck {
     private(set) var lastCommand: UInt64 = 0
     private var seenFrame: UInt64 = .max
     private var seenLandings: UInt64 = 0
-    /// When the last landing asked for is due, until the sound has really reached it.
-    private var plan: Double?
+    /// Where the deck is over output time: the engine's blocks, and the landings still to come.
+    var timeline = DeckTimeline()
     /// The end of the newest block, so a display stops soon after the audio does.
     private(set) var renderedUntil = 0.0
     var engine: OpaquePointer { core.raw }
@@ -175,12 +175,12 @@ final class EngineDeck {
             throw NativeDeck.PlaybackError.engineBusy
         }
         sent(sequence)
-        plan = nil
+        timeline.forgetLanding()
     }
-    func unload() { sent(dex_engine_unload(engine, index)); plan = nil }
+    func unload() { sent(dex_engine_unload(engine, index)); timeline.forgetLanding() }
     func play(_ jump: DexJump) { var jump = jump; sent(dex_engine_play(engine, index, &jump)) }
     func land(_ jump: DexJump) { var jump = jump; sent(dex_engine_jump(engine, index, &jump)) }
-    func pause() { sent(dex_engine_pause(engine, index, -1)); plan = nil }
+    func pause() { sent(dex_engine_pause(engine, index, -1)); timeline.forgetLanding() }
     /// The deck is stopped; this is where the audio would start, so the loader can get it ready.
     func rest(at seconds: Double) {
         var jump = DexJump()
@@ -197,7 +197,7 @@ final class EngineDeck {
         jump.late = DEX_LATE_HOLD
         let moved = dex_engine_jump(engine, index, &jump)
         sent(moved)
-        plan = nil
+        timeline.forgetLanding()
         return entered != 0 && moved != 0
     }
     func scrubSpeed(_ sourceSecondsPerSecond: Double, damping: Double) -> Bool {
@@ -206,7 +206,7 @@ final class EngineDeck {
         return sequence != 0
     }
     func leaveScrub() { sent(dex_engine_scrub(engine, index, false)) }
-    func hardStop(at seconds: Double) { sent(dex_engine_park(engine, index, seconds * fileRate)); plan = nil }
+    func hardStop(at seconds: Double) { sent(dex_engine_park(engine, index, seconds * fileRate)); timeline.forgetLanding() }
     func setTempo(_ tempo: Double) { sent(dex_engine_set_tempo(engine, index, tempo)) }
     func setKeyLock(_ on: Bool) { sent(dex_engine_set_key_lock(engine, index, on)) }
     func setSync(_ on: Bool) { sent(dex_engine_set_sync(engine, index, on)) }
@@ -226,9 +226,6 @@ final class EngineDeck {
         let frames = seconds.map { $0 * fileRate }
         frames.withUnsafeBufferPointer { dex_engine_set_reach(engine, index, $0.baseAddress, UInt32($0.count)) }
     }
-    /// The next jump is due then, on this clock: nothing re-anchors over it until the sound gets there.
-    func expectLanding(at time: Double) { plan = time }
-    func forgetLanding() { plan = nil }
 
     // MARK: Reading back
 
@@ -249,9 +246,8 @@ final class EngineDeck {
         return deck.playing && !deck.scrubbing ? deck.tempo * (1 + deck.steer) : nil
     }
 
-    /// Brings the deck's clock up to date with the newest block: what was played, never a
-    /// prediction, with any landing the engine has started marked on the output frame it's due.
-    func sync(clock: inout TransportClock, following: Bool) {
+    /// Brings the timeline up to date with the newest block, once it confirms everything sent.
+    func sync(following: Bool) {
         core.refresh()
         guard core.hasState, core.state.outputFrame != seenFrame else { return }
         let state = core.state, deck = core.deckState(Int(index))
@@ -261,23 +257,14 @@ final class EngineDeck {
         guard state.confirmedCommand >= lastCommand else { return }
         let landed = deck.landings != seenLandings
         seenLandings = deck.landings
-        guard following else { plan = nil; return }
-        let rate = deck.speed * state.sampleRate / fileRate
-        if landed, deck.lastLandingFrame >= 0 {
-            let due = blockStart + Double(deck.lastLandingFrame - Int64(state.outputFrame)) / state.sampleRate
-            clock.schedule(at: due, rate: rate, position: deck.lastLandingPosition / fileRate)
-            plan = due
-            return
-        }
-        if let due = plan {
-            if blockStart < due { return }
-            // It's overdue because its audio isn't ready, and the outgoing audio is still playing.
-            if deck.landingPending {
-                clock.schedule(at: blockStart, rate: rate, position: deck.position / fileRate)
-                return
-            }
-            plan = nil
-        }
-        clock.schedule(at: blockStart, rate: rate, position: deck.position / fileRate)
+        guard following else { timeline.forgetLanding(); return }
+        let landing = landed && deck.lastLandingFrame >= 0
+            ? (due: blockStart + Double(deck.lastLandingFrame - Int64(state.outputFrame)) / state.sampleRate,
+               position: deck.lastLandingPosition / fileRate)
+            : nil
+        timeline.follow(blockStart: blockStart, position: deck.position / fileRate,
+                        rate: deck.speed * state.sampleRate / fileRate,
+                        loop: deck.loopActive && deck.loopOut > deck.loopIn ? deck.loopIn / fileRate...deck.loopOut / fileRate : nil,
+                        landing: landing, landingWaiting: deck.landingPending)
     }
 }

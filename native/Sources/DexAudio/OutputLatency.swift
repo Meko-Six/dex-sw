@@ -8,7 +8,7 @@ import CoreAudio
 /// Bluetooth is the large one: a speaker can take a few hundred ms, and one that under-reports
 /// cannot be seen from here. `presentationLatency` leaves out the stream's share, so ask the device.
 enum OutputLatency {
-    /// `TransportClock` keeps about a second of history to look back through.
+    /// `DeckTimeline` keeps about a second of history to look back through.
     private static let longest = 0.75
 
     static func seconds(for engine: AVAudioEngine) -> Double {

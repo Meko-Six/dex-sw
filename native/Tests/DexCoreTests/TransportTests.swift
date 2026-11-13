@@ -3,14 +3,14 @@ import XCTest
 
 final class TransportTests: XCTestCase {
     func testTempoChangeOnlyAffectsScheduledFuture() {
-        var clock = TransportClock()
+        var clock = DeckTimeline()
         clock.schedule(at: 1, rate: 1, position: 10)
         clock.schedule(at: 11.03, rate: 1.08)
         XCTAssertEqual(clock.position(at: 11), 20, accuracy: 1e-9)
         XCTAssertEqual(clock.position(at: 12.03), 21.11, accuracy: 1e-9)
     }
     func testPauseResumeAndPendingSeek() {
-        var clock = TransportClock()
+        var clock = DeckTimeline()
         clock.schedule(at: 0, rate: 1)
         clock.schedule(at: 5.03, rate: 1, position: 30)
         clock.schedule(at: 5.04, rate: 0.95)
@@ -20,6 +20,51 @@ final class TransportTests: XCTestCase {
         let paused = clock.position(at: 7)
         clock.schedule(at: 20, rate: 1)
         XCTAssertEqual(clock.position(at: 21), paused + 1, accuracy: 1e-9)
+    }
+    func testLoopTravelsWithItsSegment() {
+        var timeline = DeckTimeline()
+        timeline.schedule(at: 0, rate: 1, position: 10)
+        timeline.changeLoop(12...14, at: 1)
+        XCTAssertEqual(timeline.position(at: 0.5), 10.5, accuracy: 1e-9)
+        XCTAssertEqual(timeline.position(at: 3.5), 13.5, accuracy: 1e-9)
+        XCTAssertEqual(timeline.position(at: 4.5), 12.5, accuracy: 1e-9)
+        XCTAssertEqual(timeline.unfoldedPosition(at: 4.5), 14.5, accuracy: 1e-9)
+        XCTAssertEqual(timeline.loop(at: 0.5), nil)
+        // A pause keeps the loop in force; a landing brings its own.
+        timeline.reset(at: 4, position: 13)
+        XCTAssertEqual(timeline.loop(at: 4), 12...14)
+        timeline.land(at: 5, position: 20, rate: 1, loop: nil)
+        XCTAssertEqual(timeline.position(at: 6), 21, accuracy: 1e-9)
+        XCTAssertEqual(timeline.loop(at: 4.5), 12...14)
+    }
+    func testRateChangeWaitsForTheLandingStillToCome() {
+        var timeline = DeckTimeline()
+        timeline.schedule(at: 0, rate: 1, position: 0)
+        timeline.land(at: 2, position: 30, rate: 1, loop: nil)
+        timeline.changeRate(1.1, from: 1)
+        XCTAssertEqual(timeline.position(at: 1.5), 1.5, accuracy: 1e-9)
+        XCTAssertEqual(timeline.position(at: 3), 31.1, accuracy: 1e-9)
+    }
+    func testBlocksBeforeAPendingLandingDoNotReanchorOverIt() {
+        var timeline = DeckTimeline()
+        timeline.schedule(at: 0, rate: 1, position: 0)
+        timeline.land(at: 1, position: 50, rate: 1, loop: nil)
+        // The outgoing audio is still playing: the landing stays planned.
+        timeline.follow(blockStart: 0.5, position: 0.6, rate: 1, loop: nil, landing: nil, landingWaiting: false)
+        XCTAssertEqual(timeline.pendingLanding, 1)
+        XCTAssertEqual(timeline.position(at: 1.2), 50.2, accuracy: 1e-9)
+        // The engine says when the landing really comes out.
+        timeline.follow(blockStart: 0.9, position: 0.95, rate: 1, loop: nil, landing: (due: 1.01, position: 50), landingWaiting: false)
+        XCTAssertEqual(timeline.position(at: 1.21), 50.2, accuracy: 1e-9)
+        XCTAssertEqual(timeline.position(at: 0.95), 0.95, accuracy: 1e-9)
+        // Overdue and waiting for its audio: what is really playing is followed, and it stays pending.
+        timeline.follow(blockStart: 1.05, position: 1.1, rate: 1, loop: nil, landing: nil, landingWaiting: true)
+        XCTAssertEqual(timeline.pendingLanding, 1.01)
+        XCTAssertEqual(timeline.position(at: 1.05), 1.1, accuracy: 1e-9)
+        // Once it is played, every block is the truth, loop and all.
+        timeline.follow(blockStart: 1.1, position: 50.09, rate: 1, loop: 50...52, landing: nil, landingWaiting: false)
+        XCTAssertNil(timeline.pendingLanding)
+        XCTAssertEqual(timeline.position(at: 3.1), 50.09, accuracy: 1e-9)
     }
     func testCueWaitsForNextOutputBeatAcrossPhasesAndRates() throws {
         let grid = try BeatGrid(bpm: 128, offsetMs: 137, confidence: 1)

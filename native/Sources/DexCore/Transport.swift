@@ -46,23 +46,89 @@ public struct BeatGrid: Codable, Equatable, Sendable {
     }
 }
 
-/// Scheduled output-time integration; changing rate never rewrites elapsed audio.
-public struct TransportClock: Sendable {
-    private struct Segment: Sendable { var time: Double; var position: Double; var rate: Double }
-    private var segments = [Segment(time: 0, position: 0, rate: 0)]
+/// A deck's position over output time: what the engine has played, plus what the deck has
+/// asked for that the engine hasn't played yet. Each segment carries the loop in force from
+/// it on, so a position and its loop never disagree. Changing rate never rewrites elapsed audio,
+/// and about a second of history is kept, for a listener that hears it a device's delay later.
+public struct DeckTimeline: Sendable {
+    private struct Segment: Sendable {
+        var time: Double
+        var position: Double
+        var rate: Double
+        var loop: ClosedRange<Double>?
+    }
+    private var segments = [Segment(time: 0, position: 0, rate: 0, loop: nil)]
+    /// When the newest landing asked for is due, until the engine has played up to it. Blocks
+    /// from before then describe the audio being replaced, so they don't re-anchor over it.
+    public private(set) var pendingLanding: Double?
+    /// When the newest landing asked for is due, kept after it is heard: a change of rate made
+    /// before then takes effect with it, never ahead of it.
+    private var lastLanding = -Double.infinity
     public init() {}
-    public func position(at time: Double) -> Double {
-        let segment = segments.last(where: { $0.time <= time }) ?? segments[0]
+
+    private func segment(at time: Double) -> Segment { segments.last(where: { $0.time <= time }) ?? segments[0] }
+    /// Where the source is at a time, without folding into a loop.
+    public func unfoldedPosition(at time: Double) -> Double {
+        let segment = segment(at: time)
         return segment.position + (time - segment.time) * segment.rate
     }
-    public mutating func schedule(at time: Double, rate: Double, position: Double? = nil) {
-        let next = Segment(time: time, position: position ?? self.position(at: time), rate: rate)
+    /// Where the source is at a time, folded into the loop in force then.
+    public func position(at time: Double) -> Double {
+        let value = unfoldedPosition(at: time)
+        guard let loop = loop(at: time), value >= loop.upperBound, loop.upperBound > loop.lowerBound else { return value }
+        return loop.lowerBound + (value - loop.lowerBound).truncatingRemainder(dividingBy: loop.upperBound - loop.lowerBound)
+    }
+    public func loop(at time: Double) -> ClosedRange<Double>? { segment(at: time).loop }
+
+    /// From `time` on, play at `rate` from `position` (or carry on from where it is), inside
+    /// `loop` (or the loop in force then). Anything planned from then on is replaced.
+    public mutating func schedule(at time: Double, rate: Double, position: Double? = nil,
+                                  loop: ClosedRange<Double>?? = .none) {
+        let next = Segment(time: time, position: position ?? unfoldedPosition(at: time), rate: rate,
+                           loop: loop ?? self.loop(at: time))
         segments.removeAll { $0.time >= time }
         segments.append(next)
         while segments.count > 2 && segments[1].time < time - 1 { segments.removeFirst() }
     }
-    public mutating func reset(at time: Double, position: Double = 0) {
-        segments = [Segment(time: time, position: position, rate: 0)]
+    /// Stopped at `position` from `time`, inside `loop` (or the loop in force then). Forgets history.
+    public mutating func reset(at time: Double, position: Double = 0, loop: ClosedRange<Double>?? = .none) {
+        segments = [Segment(time: time, position: position, rate: 0, loop: loop ?? self.loop(at: time))]
+        pendingLanding = nil
+    }
+    /// The loop changes at `time`; the playhead carries on as it was.
+    public mutating func changeLoop(_ loop: ClosedRange<Double>?, at time: Double) {
+        schedule(at: time, rate: segment(at: time).rate, loop: .some(loop))
+    }
+    /// The speed changes now, or with the landing still to come if there is one.
+    public mutating func changeRate(_ rate: Double, from now: Double) {
+        let time = max(now, lastLanding)
+        schedule(at: time, rate: rate)
+    }
+    /// The deck has asked the engine to land here, on this output time.
+    public mutating func land(at time: Double, position: Double, rate: Double, loop: ClosedRange<Double>?) {
+        schedule(at: time, rate: rate, position: position, loop: .some(loop))
+        pendingLanding = time
+        lastLanding = time
+    }
+    /// Nothing asked for is still to come: the next block is the truth, whatever it says.
+    public mutating func forgetLanding() { pendingLanding = nil }
+
+    /// One block the engine has played, that confirms everything the deck has sent: the
+    /// timeline follows it, never a prediction. A landing the engine has started is marked on
+    /// the output time it's due; until a pending one is reached, the audio it replaces doesn't
+    /// re-anchor over it, unless it is overdue and still waiting for its audio.
+    public mutating func follow(blockStart: Double, position: Double, rate: Double, loop: ClosedRange<Double>?,
+                                landing: (due: Double, position: Double)?, landingWaiting: Bool) {
+        if let landing {
+            schedule(at: landing.due, rate: rate, position: landing.position)
+            pendingLanding = landing.due
+            return
+        }
+        if let due = pendingLanding {
+            if blockStart < due { return }
+            if !landingWaiting { pendingLanding = nil }
+        }
+        schedule(at: blockStart, rate: rate, position: position, loop: .some(loop))
     }
 }
 
