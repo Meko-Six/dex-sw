@@ -243,7 +243,7 @@ actor LibraryStorage {
     nonisolated func coverURL(_ id: UUID) -> URL {
         directory.appendingPathComponent("Analysis", isDirectory: true).appendingPathComponent(id.uuidString + ".cover.jpg")
     }
-    private func saveCache(_ overview: WaveformOverview, id: UUID) async -> String? {
+    private func saveCache(_ overview: WaveformOverview, id: UUID) async -> LibraryNotice? {
         await worker.saveCache(overview, to: cacheURL(id))
     }
     func prepare(_ id: UUID, progress: (@Sendable (NativeLibrary.ImportProgress) -> Void)? = nil) async throws -> PreparedLibraryTrack {
@@ -521,7 +521,7 @@ private actor LibraryAudioWorker {
                                     bufferCapacity: 0, detection: track.detection, waveform: waveform)
         }
     }
-    func saveCache(_ overview: WaveformOverview, to url: URL) -> String? {
+    func saveCache(_ overview: WaveformOverview, to url: URL) -> LibraryNotice? {
         do {
             try autoreleasepool {
                 guard let data = overview.waveform?.data else { return }
@@ -538,7 +538,7 @@ private actor LibraryAudioWorker {
                 try? files.removeItem(at: url.deletingPathExtension().appendingPathExtension("json"))
             }
             return nil
-        } catch { return "Audio is available. Its waveform cache could not be saved and will be rebuilt next time." }
+        } catch { return .cacheNotSaved }
     }
     func inspect(_ source: URL) throws -> SourceIdentity {
         try Task.checkCancellation()

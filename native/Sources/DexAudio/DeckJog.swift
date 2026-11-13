@@ -25,7 +25,7 @@ public final class DeckJog: ObservableObject {
     var now: () -> Double = { ProcessInfo.processInfo.systemUptime }
     var located: ((Double) -> Void)?
     var finished: ((Double) -> Void)?
-    var failed: ((String) -> Void)?
+    var failed: ((DeckProblem) -> Void)?
     private var session: UInt64 = 0
     private var trackDuration = 0.0
     private var origin = 0.0
@@ -47,7 +47,7 @@ public final class DeckJog: ObservableObject {
         velocity.add(position: position, at: lastInput)
         sentSpeed = 0
         if let engine, !engine.enter(position) {
-            failed?("Scrub control is busy. Try the gesture again.")
+            failed?(.scrubBusy)
             finishNow(position)
             return
         }
@@ -126,7 +126,7 @@ public final class DeckJog: ObservableObject {
         if coast == nil, abs(speed - sentSpeed) < 1e-3 { return }
         sentSpeed = speed
         if !engine.speed(speed, damping) {
-            failed?("Scrub control is busy. Try the gesture again.")
+            failed?(.scrubBusy)
             complete(position)
         }
     }

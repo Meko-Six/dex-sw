@@ -21,11 +21,11 @@ The biggest structural risk is finding 1 below, and it is still open.
 
 | # | Finding | Status |
 | --- | --- | --- |
-| 1 | Two copies of the transport state | **Open.** The big one |
+| 1 | Two copies of the transport state | **Open.** The big one. Stage 1 of 5 (master election) built |
 | 2 | Unreadable audio cached as silence | Fixed, `17b76b0` |
 | 3 | Playlists without the catalog's protection | Fixed, `17b76b0`, then moved into storage |
 | 4 | The audio layer carries screen state, copy and persistence | Open |
-| 5 | Errors are sentences | Partly: alerts fixed, typed errors open |
+| 5 | Errors are sentences | Fixed: alerts, then typed errors |
 | 6 | Whole screen state rebuilt on any change | Fixed for library rows |
 | 7 | Audio lifecycle is an implicit state machine | Partly: dropped changes fixed, the machine itself open |
 | 8 | A full command queue loses a track load | Fixed |
@@ -35,7 +35,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 | 12 | Landing cost on the audio thread has no budget | Open, unmeasured |
 | 13 | Smaller: engine creation not null-safe; `48_000` literals | Literals fixed; null safety dropped |
 
-### 1. Two copies of the transport state — open
+### 1. Two copies of the transport state — open, stage 1 of 5 built
 
 The engine's header says a deck's position is "what was played, never a prediction". But
 `NativeDeck.land()` schedules a predicted `TransportClock` and `loopClock`, and
@@ -45,8 +45,8 @@ So position, loop bounds, tempo and master each exist twice:
 - Loop folding is done in Swift (`positionAt`, `boundsAt`) and in the engine (`scheduleWrap`).
 - The SYNC tempo ratio is worked out in `followMasterTempo` (`MixMath.tempoRate`) and again
   in the engine's `updateLocks`.
-- Master election runs in `NativeMixer.holdSync`, a 50 ms poll, while the engine holds its
-  own `master`.
+- ~~Master election runs in `NativeMixer.holdSync`, a 50 ms poll, while the engine holds its
+  own `master`.~~ Moved into the engine (stage 1, below).
 - Seven flags exist only to reconcile the two: `playing`, `hasStreamingVoice`, `startDueAt`,
   `endHeardAt`, `plan`, `transportAt`, `dropped`.
 
@@ -59,6 +59,24 @@ confirmed. Move master election into the engine beside the lock it already owns.
 
 **How to do it:** in stages, each with the existing offline tests as the gate, and with the
 user listening after each, because it changes timing. Not a job for unattended agents.
+
+**Stages:**
+
+1. **Master election in the engine — built 13 November 2026, not yet heard.** The engine's
+   `electMaster` runs each block before the locks: when what's heard playing changes (a held
+   CUE doesn't count) and one deck is left playing, it leads. A MASTER holds until then.
+   `NativeDeck.isMaster` is now what the
+   engine publishes, or a MASTER sent that it hasn't confirmed (`EngineCore.masterCommand`);
+   MASTER, SYNC on the master and a start beside the leader stay intents sent from the deck
+   (`takeMaster`). `NativeMixer.holdSync` no longer elects; it only brings the clocks up to
+   date. The hand-off now happens on the block the deck stops, not up to 50 ms later.
+   Test: `EngineBehaviourTests.testTheDeckLeftPlayingAloneLeads`.
+2. SYNC's tempo: show the engine's locked tempo (`DexDeckState.tempo`) instead of working it
+   out again in `followMasterTempo`.
+3. Loops: the engine's published loop bounds replace `loopClock`, and Swift stops folding.
+4. Position: what's shown comes from the published block (`dex_engine_position_at`) plus any
+   landing not yet confirmed, retiring `TransportClock` and the reconciling flags.
+5. The 50 ms poll goes, once nothing needs it.
 
 ### 2. Unreadable audio cached as silence — fixed
 
@@ -106,7 +124,7 @@ file on disk, then sleeps until loading finishes. `Tags.read(url:)` does file re
 out), a thin engine port protocol, a separate `DexLibrary` module, and the observable
 wrapper in `DexApp`. Best done with or after finding 1, since both reshape `NativeDeck`.
 
-### 5. Errors are sentences — partly fixed
+### 5. Errors are sentences — fixed
 
 Every layer reports failure as `String?`, and the screen model used to dismiss alerts by
 comparing text, so a problem raised again with the same words stayed hidden.
@@ -116,9 +134,24 @@ Fixed: each source now counts its raisings (`errorRevision`, `noticeRevision` on
 source and count (`Problem`). A problem raised again shows again and gets a fresh seven
 seconds. A notice that stands is not raised again by each track prepared.
 
-Open: the errors themselves are still strings. Nothing can branch on cause, and the copy
-lives in the audio layer. **Direction:** one typed error enum per domain, turned into text
-only in the UI layer. This was to be the next piece of work; it touches most files.
+Fixed, 13 November: the errors are values. `Problems.swift` in `DexAudio` holds them, and
+none carries a sentence:
+
+- `Failure`, the cause of an operation: a `LibraryError`, a `PlaybackError`, memory busy,
+  unsupported audio, or the system's own words. `Failure(error)` is the one place a caught
+  `Error` is sorted.
+- `DeckProblem` (a deck's `error`), `MixerProblem` and `MixerNotice` (the mixer's `error` and
+  `notice`), `LibraryProblem` and `LibraryNotice` (the library's), each a closed enum.
+- `ProblemText` in `DexApp` turns each into words, with exhaustive switches, so a new case
+  without wording does not compile. `ConsoleModel` is the only caller.
+
+Changed on the way: a failed batch (imports, FIND KEYS, reanalyse) is `.batchFailed` with a
+name and cause per file; start-up recoveries are `.restored([…])`; `library.report` takes a
+`LibraryProblem`. The wording is the same, except a file that isn't audio now says so rather
+than showing a Cocoa error code.
+
+Not done: the text itself has no test (`DexApp` is an executable); the compiler checks that
+every case has words, not what they say.
 
 ### 6. Whole screen state rebuilt on any change — fixed for library rows
 
@@ -186,7 +219,6 @@ Checked with two stores in one process, not with two real processes.
 ## Suggested order from here
 
 1. Try what's unchecked on real devices (see HANDOFF).
-2. Typed errors (finding 5).
-3. One transport truth (finding 1), in stages, with the user listening.
-4. The lifecycle state machine (finding 7), once its fix has been tried.
-5. The rest of finding 4, then 10 and 11, if wanted at all.
+2. One transport truth (finding 1), in stages, with the user listening.
+3. The lifecycle state machine (finding 7), once its fix has been tried.
+4. The rest of finding 4, then 10 and 11, if wanted at all.

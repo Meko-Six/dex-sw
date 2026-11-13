@@ -138,10 +138,12 @@ final class ConsoleModel: ObservableObject {
     /// The first problem the engine or library reports.
     private var problem: Problem? {
         let sources: [(String, String?, UInt64)] = [
-            ("NO AUDIO", mixer.error, mixer.errorRevision),
-            ("DECK A", mixer.a.error, mixer.a.errorRevision), ("DECK B", mixer.b.error, mixer.b.errorRevision),
-            ("LIBRARY", library.error, library.errorRevision),
-            ("AUDIO", mixer.notice, mixer.noticeRevision), ("LIBRARY", library.notice, library.noticeRevision)]
+            ("NO AUDIO", mixer.error.map { ProblemText.words($0) }, mixer.errorRevision),
+            ("DECK A", mixer.a.error.map { ProblemText.words($0) }, mixer.a.errorRevision),
+            ("DECK B", mixer.b.error.map { ProblemText.words($0) }, mixer.b.errorRevision),
+            ("LIBRARY", library.error.map { ProblemText.words($0) }, library.errorRevision),
+            ("AUDIO", mixer.notice.map { ProblemText.words($0) }, mixer.noticeRevision),
+            ("LIBRARY", library.notice.map { ProblemText.words($0) }, library.noticeRevision)]
         for (index, source) in sources.enumerated() {
             if let message = source.1 { return Problem(title: source.0, message: message, source: index, revision: source.2) }
         }
@@ -465,7 +467,7 @@ final class ConsoleModel: ObservableObject {
     private func remove(_ id: String) {
         guard let uuid = UUID(uuidString: id) else { return }
         if let holder = decks.first(where: { $0.libraryTrackID == uuid }) {
-            library.report("Deck \(holder.label) holds this track. Load another track there, then remove it.")
+            library.report(.heldByDeck(holder.label))
             return
         }
         if selected == id { selected = nil }

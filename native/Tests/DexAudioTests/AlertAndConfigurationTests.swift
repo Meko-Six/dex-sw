@@ -3,15 +3,16 @@ import XCTest
 
 @MainActor
 final class AlertAndConfigurationTests: XCTestCase {
-    func testADeckProblemRaisedAgainWithTheSameWordsCountsAgain() throws {
+    func testADeckProblemRaisedAgainWithTheSameCauseCountsAgain() throws {
         let mixer = NativeMixer()
         defer { mixer.shutdown() }
         try mixer.enableOfflineRendering()
         mixer.a.toggleLoop()   // No track, so no grid: refused.
-        let words = try XCTUnwrap(mixer.a.error)
+        let cause = try XCTUnwrap(mixer.a.error)
+        XCTAssertEqual(cause, .noBPM(.beatLoop))
         let first = mixer.a.errorRevision
         mixer.a.toggleLoop()
-        XCTAssertEqual(mixer.a.error, words)
+        XCTAssertEqual(mixer.a.error, cause)
         XCTAssertEqual(mixer.a.errorRevision, first &+ 1)
         XCTAssertEqual(mixer.b.errorRevision, 0, "The other deck raised nothing")
     }

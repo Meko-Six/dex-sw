@@ -11,6 +11,7 @@
 		A0000000000000000000000D /* DexAudio in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000011 /* DexAudio */; };
 		A0000000000000000000000E /* DexCore in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000012 /* DexCore */; };
 		A00000000000000000000032 /* Sources/DexApp/ConsoleModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000033 /* Sources/DexApp/ConsoleModel.swift */; };
+		A00000000000000000000036 /* Sources/DexApp/ProblemText.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000037 /* Sources/DexApp/ProblemText.swift */; };
 		A00000000000000000000034 /* DexConsole in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000035 /* DexConsole */; };
 /* End PBXBuildFile section */
 
@@ -18,6 +19,7 @@
 		A00000000000000000000006 /* Sources/DexApp/DexApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/DexApp/DexApp.swift; sourceTree = "<group>"; };
 		A00000000000000000000007 /* DexNative.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DexNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000033 /* Sources/DexApp/ConsoleModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/DexApp/ConsoleModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000037 /* Sources/DexApp/ProblemText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/DexApp/ProblemText.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,6 +41,7 @@
 			children = (
 				A00000000000000000000006 /* Sources/DexApp/DexApp.swift */,
 				A00000000000000000000033 /* Sources/DexApp/ConsoleModel.swift */,
+				A00000000000000000000037 /* Sources/DexApp/ProblemText.swift */,
 				A00000000000000000000004 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -123,6 +126,7 @@
 			files = (
 				A0000000000000000000000C /* Sources/DexApp/DexApp.swift in Sources */,
 				A00000000000000000000032 /* Sources/DexApp/ConsoleModel.swift in Sources */,
+				A00000000000000000000036 /* Sources/DexApp/ProblemText.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

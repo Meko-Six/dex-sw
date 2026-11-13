@@ -50,7 +50,7 @@ struct PreparedLibraryTrack: Sendable {
     var track: LibraryTrack
     let url: URL
     let overview: WaveformOverview
-    var warning: String? = nil
+    var warning: LibraryNotice? = nil
 }
 
 /// Field-level changes let writers merge independent cue/grid edits even when
@@ -104,16 +104,6 @@ struct LibraryMutation: Sendable {
     }
 }
 
-public enum LibraryError: LocalizedError {
+public enum LibraryError: Error, Equatable, Sendable {
     case damagedCatalog, newerVersion, missingAudio, missingTrack, importFailed, sourceChanged
-    public var errorDescription: String? {
-        switch self {
-        case .damagedCatalog: "The library and its recovery copy could not be read. Your audio has been kept."
-        case .newerVersion: "This library was saved by a newer Dex version. Update Dex to open it."
-        case .missingAudio: "This library track's audio is missing. Import the original file again to restore it."
-        case .missingTrack: "This track is no longer in the library."
-        case .importFailed: "The audio file could not be imported."
-        case .sourceChanged: "The source changed while importing. Try importing it again."
-        }
-    }
 }

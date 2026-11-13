@@ -7,15 +7,15 @@ import DexCore
 @MainActor
 public final class NativeLibrary: ObservableObject {
     @Published public private(set) var tracks: [LibraryTrack] = []
-    @Published private var operationError: String? { didSet { if operationError != nil { errorRevision &+= 1 } } }
-    @Published private var saveError: String? { didSet { if saveError != nil { errorRevision &+= 1 } } }
-    @Published public private(set) var notice: String? { didSet { if notice != nil { noticeRevision &+= 1 } } }
-    /// Counts each time a problem or notice is raised, so one raised again with the same words
+    @Published private var operationError: LibraryProblem? { didSet { if operationError != nil { errorRevision &+= 1 } } }
+    @Published private var saveError: LibraryProblem? { didSet { if saveError != nil { errorRevision &+= 1 } } }
+    @Published public private(set) var notice: LibraryNotice? { didSet { if notice != nil { noticeRevision &+= 1 } } }
+    /// Counts each time a problem or notice is raised, so one raised again with the same cause
     /// is told from one still standing.
     public private(set) var errorRevision: UInt64 = 0
     public private(set) var noticeRevision: UInt64 = 0
-    private var recoveryNotice: String?
-    public var error: String? { saveError ?? operationError }
+    private var recoveryNotice: LibraryNotice?
+    public var error: LibraryProblem? { saveError ?? operationError }
     /// The last save failed; `retrySave()` tries again.
     public var saveFailed: Bool { saveError != nil }
     @Published public private(set) var saving = false
@@ -65,7 +65,7 @@ public final class NativeLibrary: ObservableObject {
     private let storage: LibraryStorage
     /// The file holds playlists this build must not replace: a newer version's, or ones that
     /// couldn't be read or set aside.
-    private var playlistsLocked: String?
+    private var playlistsLocked: PlaylistLock?
     private var opening: Task<(tracks: [LibraryTrack], playlists: SavedPlaylists), Error>?
     private var writer: Task<Void, Never>?
     /// One writer for playlists too: it saves the list as it stands when its turn comes.
@@ -100,7 +100,7 @@ public final class NativeLibrary: ObservableObject {
             if ready { tracks = try await storage.open().map(overlay) }
             else { try await ensureOpen() }
             operationError = nil
-        } catch { operationError = error.localizedDescription }
+        } catch { operationError = .openFailed(Failure(error)) }
     }
     private func ensureOpen() async throws {
         if ready { return }
@@ -112,11 +112,10 @@ public final class NativeLibrary: ObservableObject {
             if !ready {
                 tracks = loaded.tracks; ready = true
                 let playlistNotice = loadPlaylists(loaded.playlists)
-                let catalogNotice = await storage.recoveredCatalog
-                    ? "Library restored from its previous save. Check your most recent edits." : nil
-                let notices = [catalogNotice, playlistNotice].compactMap { $0 }
-                if !notices.isEmpty {
-                    recoveryNotice = notices.joined(separator: " ")
+                let catalogNotice: LibraryNotice.Restoration? = await storage.recoveredCatalog ? .catalog : nil
+                let restorations = [catalogNotice, playlistNotice].compactMap { $0 }
+                if !restorations.isEmpty {
+                    recoveryNotice = .restored(restorations)
                     notice = recoveryNotice
                 }
             }
@@ -205,13 +204,13 @@ public final class NativeLibrary: ObservableObject {
         let task = Task { [weak self, previous = lastImportTask] in
             await previous?.value
             guard let self, !Task.isCancelled else { return }
-            var failures: [String] = []
+            var failures: [LibraryProblem.Item] = []
             for url in urls {
                 do { try Task.checkCancellation(); _ = try await prepare(url: url) }
                 catch is CancellationError { break }
-                catch { failures.append(url.lastPathComponent + ": " + error.localizedDescription) }
+                catch { failures.append(.init(name: url.lastPathComponent, cause: Failure(error))) }
             }
-            operationError = failures.isEmpty ? nil : failures.joined(separator: "\n")
+            operationError = failures.isEmpty ? nil : .batchFailed(failures)
         }
         importTasks[batch] = task
         lastImportTask = task
@@ -232,16 +231,16 @@ public final class NativeLibrary: ObservableObject {
         guard !pending.isEmpty else { return }
         let task = Task { [weak self] in
             guard let self else { return }
-            var failures: [String] = []
+            var failures: [LibraryProblem.Item] = []
             for (index, id) in pending.enumerated() {
                 // Re-read it: an earlier save or import may have changed it.
                 guard !Task.isCancelled, let track = tracks.first(where: { $0.id == id }), track.key == nil else { continue }
                 findingKeys = KeyProgress(current: index + 1, total: pending.count, title: track.label)
                 do { setKey(id, try await storage.readKey(id)) }
                 catch is CancellationError { break }
-                catch { failures.append(track.label + ": " + error.localizedDescription) }
+                catch { failures.append(.init(name: track.label, cause: Failure(error))) }
             }
-            operationError = failures.isEmpty ? nil : failures.joined(separator: "\n")
+            operationError = failures.isEmpty ? nil : .batchFailed(failures)
         }
         keyTask = task
         await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
@@ -344,7 +343,7 @@ public final class NativeLibrary: ObservableObject {
         } catch is CancellationError {
             return nil
         } catch {
-            operationError = track.label + ": " + error.localizedDescription
+            operationError = .batchFailed([.init(name: track.label, cause: Failure(error))])
             return nil
         }
     }
@@ -358,10 +357,10 @@ public final class NativeLibrary: ObservableObject {
             tracks.removeAll { $0.id == id }
             setPlaylists(Playlists.forget(playlists, track: id.uuidString))
             operationError = nil
-        } catch { operationError = "The track could not be removed: " + error.localizedDescription }
+        } catch { operationError = .removeFailed(Failure(error)) }
     }
     /// Shows a reason an action was refused, like any library problem.
-    public func report(_ message: String) { operationError = message }
+    public func report(_ problem: LibraryProblem) { operationError = problem }
     /// A load fills the names the track lacks from the file's tags, as
     /// `loadToDeck` does; names it already has stay.
     func fillNames(_ id: UUID, artist: String?, title: String?) {
@@ -411,7 +410,7 @@ public final class NativeLibrary: ObservableObject {
             } catch {
                 for (id, older) in inFlight { dirty[id] = older.merging(dirty[id]) }
                 inFlight.removeAll(keepingCapacity: true)
-                saveError = "Library changes could not be saved: " + error.localizedDescription
+                saveError = .saveFailed(Failure(error))
                 break
             }
         }
@@ -422,7 +421,7 @@ public final class NativeLibrary: ObservableObject {
     // MARK: Playlists
 
     /// Returns what the DJ should be told, if the playlists didn't simply load.
-    private func loadPlaylists(_ saved: SavedPlaylists) -> String? {
+    private func loadPlaylists(_ saved: SavedPlaylists) -> LibraryNotice.Restoration? {
         let known = Set(tracks.map(\.id.uuidString))
         switch saved {
         case .loaded(let lists):
@@ -430,22 +429,22 @@ public final class NativeLibrary: ObservableObject {
             return nil
         case .restored(let lists):
             playlists = Playlists.normalize(lists, known: known)
-            return "Playlists restored from their previous save. Check your most recent changes."
+            return .playlists
         case .newer:
-            playlistsLocked = "These playlists were saved by a newer Dex version. Update Dex to change them."
-            return playlistsLocked
+            playlistsLocked = .newerVersion
+            return .playlistsLocked(.newerVersion)
         case .stuck:
-            playlistsLocked = "The playlists file could not be read or set aside, so playlists can't be changed."
-            return playlistsLocked
+            playlistsLocked = .stuck
+            return .playlistsLocked(.stuck)
         case .unreadable(let kept):
-            return "The playlists file could not be read. It was kept as \(kept), and playlists start empty."
+            return .playlistsUnreadable(keptAs: kept)
         }
     }
 
     private func setPlaylists(_ next: [Playlist]) {
         // Nothing is written before the saved playlists have been read.
         guard ready, next != playlists else { return }
-        if let playlistsLocked { operationError = playlistsLocked; return }
+        if let playlistsLocked { operationError = .playlistsLocked(playlistsLocked); return }
         playlists = next
         playlistsUnsaved = true
         startPlaylistWriter()
@@ -459,7 +458,7 @@ public final class NativeLibrary: ObservableObject {
         while playlistsUnsaved {
             playlistsUnsaved = false
             do { try await storage.savePlaylists(playlists) }
-            catch { operationError = "Playlists could not be saved: " + error.localizedDescription; break }
+            catch { operationError = .playlistSaveFailed(Failure(error)); break }
         }
         playlistWriter = nil
     }

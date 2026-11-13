@@ -102,7 +102,7 @@ func audioTrack(bpm: Double, seconds: Double) throws -> URL {
         try await Task.sleep(for: .milliseconds(10))
     }
     for url in urls { try? FileManager.default.removeItem(at: url) }
-    guard mixer.a.waveform != nil, mixer.b.waveform != nil else { print("tracks didn't load: \(mixer.a.error ?? "") \(mixer.b.error ?? "")"); exit(3) }
+    guard mixer.a.waveform != nil, mixer.b.waveform != nil else { print("tracks didn't load: A \(String(describing: mixer.a.error)), B \(String(describing: mixer.b.error))"); exit(3) }
     mixer.a.setGrid(bpm: 120); mixer.b.setGrid(bpm: 126)
     mixer.a.keyLock = true; mixer.b.keyLock = true
     mixer.a.level = 1; mixer.b.level = 1; mixer.crossfader = 0.5

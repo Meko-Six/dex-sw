@@ -276,10 +276,10 @@ final class MoreLibraryTests: XCTestCase {
     func testAProblemRaisedAgainCountsAgainAndAStandingNoticeDoesNot() async throws {
         let library = NativeLibrary(directory: directory())
         let track = try await library.prepare(url: try wav())
-        library.report("Deck A holds this track.")
+        library.report(.heldByDeck("A"))
         let first = library.errorRevision
-        library.report("Deck A holds this track.")
-        XCTAssertEqual(library.errorRevision, first &+ 1, "The same words raised again are a new problem")
+        library.report(.heldByDeck("A"))
+        XCTAssertEqual(library.errorRevision, first &+ 1, "The same cause raised again is a new problem")
         // A notice that stands is not raised again by each track prepared.
         try Data(#"{"version":2,"playlists":[]}"#.utf8).write(to: playlistsURL)
         let reopened = NativeLibrary(directory: directory())
@@ -359,7 +359,7 @@ final class MoreLibraryTests: XCTestCase {
         reopened.createPlaylist(named: "Set")
         XCTAssertEqual(reopened.playlists.map(\.name), ["Set"])
         await reopened.flush()
-        XCTAssertTrue(reopened.error?.hasPrefix("Playlists could not be saved: ") == true, reopened.error ?? "no error")
+        guard case .playlistSaveFailed = reopened.error else { return XCTFail("Expected a failed playlist save, got \(String(describing: reopened.error))") }
     }
 
     private func XCTUnwrapAsync<T>(_ value: @autoclosure () async -> T?) async throws -> T {

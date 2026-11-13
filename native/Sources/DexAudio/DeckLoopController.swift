@@ -11,7 +11,7 @@ final class DeckLoopController {
     var changed: (() -> Void)?
     /// The loop is in place; the shift is how far it moved the playhead (bar jumps), 0 for a resize.
     var committed: ((LoopAudio, Double) -> Void)?
-    var failed: ((String) -> Void)?
+    var failed: ((DeckProblem) -> Void)?
     /// The loaded file's rate, which loop bounds are rounded to.
     var sampleRate = 48_000.0
     func select(_ beats: Double) { self.beats = beats }
@@ -19,7 +19,7 @@ final class DeckLoopController {
         let bounds = region.bounds(grid: grid)
         guard bounds.lowerBound.isFinite, bounds.upperBound.isFinite,
               bounds.lowerBound >= 0, bounds.upperBound <= duration else {
-            failed?("The selected loop does not fit inside the track."); return false
+            failed?(.loopOutsideTrack); return false
         }
         let audio = LoopAudio(start: bounds.lowerBound, end: bounds.upperBound, sampleRate: sampleRate)
         current = Prepared(region: region, audio: audio)

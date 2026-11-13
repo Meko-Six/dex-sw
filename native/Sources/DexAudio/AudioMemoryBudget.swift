@@ -49,8 +49,5 @@ final class AudioMemoryBudget: @unchecked Sendable {
         pressureUntil = active ? ProcessInfo.processInfo.systemUptime + 30 : 0
         lock.unlock()
     }
-    enum BudgetError: LocalizedError {
-        case exhausted
-        var errorDescription: String? { "Audio preparation memory is busy. Wait for the current operation or choose a shorter loop." }
-    }
+    enum BudgetError: Error { case exhausted }
 }

@@ -119,7 +119,10 @@ uint64_t dex_engine_set_key_lock(DexEngine *engine, int deck, bool on);
 uint64_t dex_engine_set_loop(DexEngine *engine, int deck, bool active, double loopIn, double loopOut);
 uint64_t dex_engine_set_grid(DexEngine *engine, int deck, double firstBeatFrame, double framesPerBeat);
 uint64_t dex_engine_set_sync(DexEngine *engine, int deck, bool locked);
-uint64_t dex_engine_set_master(DexEngine *engine, int deck); // -1: no master
+/// -1: no master. The engine also elects one itself: when what's heard playing changes and one
+/// deck is left playing, that deck leads. A MASTER holds until then. DexDeckState.isMaster says
+/// which deck leads.
+uint64_t dex_engine_set_master(DexEngine *engine, int deck);
 uint64_t dex_engine_set_preview(DexEngine *engine, int deck, bool holding); // a held CUE: never a lock reference
 /// Enters or leaves the audible scrub. Leaving resumes the deck if it was playing.
 uint64_t dex_engine_scrub(DexEngine *engine, int deck, bool on);

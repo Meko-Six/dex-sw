@@ -47,7 +47,8 @@ public final class NativeDeck: ObservableObject {
     @Published public private(set) var gridUncertain = false
     @Published public private(set) var gridAlternatives: [DetectedGrid.Alternative] = []
     @Published public private(set) var syncLocked = false { didSet { if syncLocked != oldValue { link.setSync(syncLocked) } } }
-    @Published public internal(set) var isMaster = false { didSet { if isMaster != oldValue { sendMaster() } } }
+    /// Which deck leads: what the engine says, or a MASTER sent that it hasn't confirmed yet.
+    @Published public private(set) var isMaster = false
     weak var partner: NativeDeck?
     var audioNow: () -> Double = { AVAudioTime.seconds(forHostTime: mach_absolute_time()) }
     /// The engine's and the output device's delay. `clock` runs on the engine's time, which
@@ -67,8 +68,8 @@ public final class NativeDeck: ObservableObject {
     @Published public private(set) var hotCues: [Double?] = Array(repeating: nil, count: 8) { didSet { updateHotspots() } }
     @Published public private(set) var peaks: [Float] = []
     @Published public private(set) var waveform: TrackWaveform?
-    @Published public private(set) var error: String? { didSet { if error != nil { errorRevision &+= 1 } } }
-    /// Counts each time a problem is raised, so one raised again with the same words is told
+    @Published public private(set) var error: DeckProblem? { didSet { if error != nil { errorRevision &+= 1 } } }
+    /// Counts each time a problem is raised, so one raised again with the same cause is told
     /// from one still standing.
     public private(set) var errorRevision: UInt64 = 0
     @Published public var tempo = 1.0 { didSet { updateTempo() } }
@@ -147,7 +148,7 @@ public final class NativeDeck: ObservableObject {
             scheduleLoopClock(at: audioNow(), bounds: loopBounds)
             if playing { schedule(from: target) } else { link.rest(at: target) }
         }
-        jog.failed = { [weak self] message in self?.error = message }
+        jog.failed = { [weak self] problem in self?.error = problem }
     }
     /// What the tone section is set to: the LOW / MID / HIGH gains and the trim, as linear gains.
     var tone: (low: Float, mid: Float, high: Float, trim: Float) {
@@ -161,9 +162,27 @@ public final class NativeDeck: ObservableObject {
         dex_engine_set_tone(link.engine, link.index, tone.low, tone.mid, tone.high, tone.trim)
     }
     private func updateFilter() { dex_engine_set_sweep(link.engine, link.index, sweep) }
+    /// Tells the engine which deck leads, as this side has it.
     func sendMaster() {
-        if isMaster { link.sent(dex_engine_set_master(link.engine, link.index)) }
-        else if partner?.isMaster != true { link.sent(dex_engine_set_master(link.engine, -1)) }
+        let deck: Int32 = isMaster ? link.index : partner.map { $0.isMaster ? $0.link.index : -1 } ?? -1
+        let sequence = dex_engine_set_master(link.engine, deck)
+        link.sent(sequence)
+        if sequence != 0 { link.core.masterCommand = sequence }
+    }
+    /// MASTER asked for on this deck: it leads from the engine's next block.
+    func takeMaster() {
+        isMaster = true; partner?.isMaster = false
+        sendMaster()
+    }
+    /// The engine elects the master itself when what's heard playing changes. Once it has had
+    /// every MASTER sent from here, the decks show what it chose and follow from there.
+    func followEngineMaster() {
+        let core = link.core
+        guard core.hasState, core.state.confirmedCommand >= core.masterCommand, !isMaster,
+              core.deckState(Int(link.index)).isMaster else { return }
+        isMaster = true; partner?.isMaster = false
+        releaseLock()
+        partner?.followMasterTempo()
     }
     /// What a DJ can reach at once, kept ready: the cues, the loop and every bar jump.
     private func updateHotspots() {
@@ -190,7 +209,7 @@ public final class NativeDeck: ObservableObject {
             // One report for each spell of trouble: reads that keep failing are retried several
             // times a second, and each of those isn't news.
             let now = audioNow()
-            if lastReadFailureAt.map({ now - $0 > Self.readTroubleGap }) ?? true { error = PlaybackError.unreadable.localizedDescription }
+            if lastReadFailureAt.map({ now - $0 > Self.readTroubleGap }) ?? true { error = .unreadableAudio }
             lastReadFailureAt = now
         }
         seenReadFailures = failures
@@ -270,8 +289,8 @@ public final class NativeDeck: ObservableObject {
     public func loadTrack(_ id: UUID) { beginLoad(url: nil, id: id) }
 
     private func beginLoad(url: URL?, id: UUID?) {
-        guard audioAvailable else { error = "Audio is recovering. Load the deck again when audio is ready."; return }
-        guard !playing else { error = "Pause this deck before loading a track."; return }
+        guard audioAvailable else { error = .audioRecovering; return }
+        guard !playing else { error = .playingBlocksLoad; return }
         cancelJog(resume: false)
         loadTask?.cancel()
         loadGeneration = UUID()
@@ -313,7 +332,7 @@ public final class NativeDeck: ObservableObject {
                 guard let self, self.loadGeneration == request else { return }
                 guard !self.playing else {
                     self.loading = false
-                    self.error = "Playback started; replacement was cancelled."
+                    self.error = .replacementCancelled
                     return
                 }
                 let next = try AVAudioFile(forReading: source)
@@ -361,7 +380,7 @@ public final class NativeDeck: ObservableObject {
             } catch {
                 if let self, self.loadGeneration == request {
                     self.loading = false
-                    self.error = error.localizedDescription
+                    self.error = .loadFailed(Failure(error))
                 }
             }
         }
@@ -438,7 +457,7 @@ public final class NativeDeck: ObservableObject {
         } else {
             if let grid, grid.cueTime(near: position, duration: duration) == nil {
                 cueHeld = false
-                error = "The beat grid has no beat inside this track. Correct its BPM and offset."
+                error = .noBeatInTrack
                 return
             }
             error = nil
@@ -491,16 +510,16 @@ public final class NativeDeck: ObservableObject {
             followMasterTempo()
             if isMaster { partner?.followMasterTempo() }
             if playing { schedule(from: position, continuing: true) }
-        } catch { self.error = "Enter a valid positive BPM and grid offset." }
+        } catch { self.error = .invalidGridEntry }
     }
     public func hotCue(_ slot: Int, clear: Bool = false) {
         guard hotCues.indices.contains(slot), file != nil else { return }
         cancelJog()
         if clear { hotCues[slot] = nil }
         else {
-            guard let grid else { error = "Set the track BPM before using hot cues."; return }
+            guard let grid else { error = .noBPM(.hotCues); return }
             guard let target = grid.cueTime(near: hotCues[slot] ?? position, duration: duration) else {
-                error = "The beat grid has no beat inside this track. Correct its BPM and offset."; return
+                error = .noBeatInTrack; return
             }
             if hotCues[slot] != nil {
                 if hotCues[slot] != target { hotCues[slot] = target; saveMetadata() }
@@ -522,7 +541,7 @@ public final class NativeDeck: ObservableObject {
     public func jump(direction: Int) {
         guard audioAvailable, !loading, let grid, file != nil,
               Self.jumpSizes.contains(jumpBars), direction == -1 || direction == 1 else {
-            if grid == nil { error = "Set the track BPM before using bar jumps." }
+            if grid == nil { error = .noBPM(.barJump) }
             return
         }
         cancelJog()
@@ -533,7 +552,7 @@ public final class NativeDeck: ObservableObject {
         let bounds = region?.bounds(grid: grid)
         guard let plan = BarJump.plan(grid: grid, position: origin, duration: duration,
                                       playing: playing, bars: direction * jumpBars, loop: bounds) else {
-            error = "The track has no playable bar for this jump."
+            error = .noBarToJump
             return
         }
         error = nil
@@ -576,7 +595,7 @@ public final class NativeDeck: ObservableObject {
             return
         }
         guard file != nil, let grid else {
-            error = "Set the track BPM before using a beat loop."
+            error = .noBPM(.beatLoop)
             return
         }
         refreshPosition()
@@ -634,7 +653,7 @@ public final class NativeDeck: ObservableObject {
         if syncLocked {
             // SYNC follows something: pressed on the master beside a deck to follow, the master moves there.
             if isMaster, let partner, partner.file != nil, partner.playing || !playing {
-                isMaster = false; partner.isMaster = true
+                partner.takeMaster()
                 partner.releaseLock()
             }
             // The engine's lock lands or steers this deck in the same block it hears about it.
@@ -643,7 +662,7 @@ public final class NativeDeck: ObservableObject {
     }
     /// The master is the truth: a synced deck takes its tempo and lands on its grid at once.
     func becomeMaster() {
-        isMaster = true; partner?.isMaster = false
+        takeMaster()
         releaseLock()
         partner?.followMasterTempo()
         partner?.holdLock()
@@ -688,6 +707,7 @@ public final class NativeDeck: ObservableObject {
         jog.service()
         do {
             syncEngine()
+            followEngineMaster()
             if playing, hasStreamingVoice, link.ended {
                 // The last frame has been played; it's heard a device's delay later, and the
                 // waveform reaches the end then, not before.
@@ -864,14 +884,5 @@ public final class NativeDeck: ObservableObject {
         if isMaster { partner?.followMasterTempo() }
     }
     private func updateGain() { dex_engine_set_fader(link.engine, link.index, level, crossfadeGain) }
-    enum PlaybackError: LocalizedError {
-        case unsupportedChannels, unreadable, engineBusy
-        var errorDescription: String? {
-            switch self {
-            case .unsupportedChannels: "Only mono and stereo files are supported in this checkpoint."
-            case .engineBusy: "The audio engine is busy. Load the track again."
-            case .unreadable: "Part of this track's audio could not be read. Check the file or drive, then load the track again."
-            }
-        }
-    }
+    public enum PlaybackError: Error, Equatable, Sendable { case unsupportedChannels, engineBusy }
 }

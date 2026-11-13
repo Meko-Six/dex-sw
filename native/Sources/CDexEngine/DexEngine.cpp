@@ -169,6 +169,8 @@ struct DexEngine {
 
     Deck decks[2];
     int master = -1;
+    /// Which decks were heard playing at the last election.
+    bool heardPlaying[2] = {false, false};
     uint64_t outputFrame = 0;
 
     // Commands: one producer, the loop consumes.
@@ -416,6 +418,22 @@ struct DexEngine {
         case CmdMaster:
         case CmdClearTails: break;
         }
+    }
+
+    /// The deck left playing on its own leads, as on a CDJ, but only when what's heard playing
+    /// changes: MASTER pressed on a stopped deck holds until then. A held CUE isn't heard
+    /// playing. Runs before the locks, so a follower left alone never chases a deck that stopped.
+    void electMaster() {
+        bool heard[2];
+        int count = 0, alone = -1;
+        for (const Deck &d : decks) {
+            heard[d.index] = d.track && d.playing && !d.preview;
+            if (heard[d.index]) { ++count; alone = d.index; }
+        }
+        const bool changed = heard[0] != heardPlaying[0] || heard[1] != heardPlaying[1];
+        if (changed && count == 1) master = alone;
+        heardPlaying[0] = heard[0];
+        heardPlaying[1] = heard[1];
     }
 
     /// A locked deck takes the master's tempo and is steered onto its grid, from positions both
@@ -827,6 +845,7 @@ struct DexEngine {
                      float *const *tapA, float *const *tapB) {
         renderSequence.fetch_add(1, std::memory_order_acq_rel);  // odd: chunks in use
         applyCommands();
+        electMaster();
         updateLocks(frames);
         for (Deck &d : decks) {
             d.blockPosition = clock(d);

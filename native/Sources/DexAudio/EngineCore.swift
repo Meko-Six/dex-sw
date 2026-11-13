@@ -25,6 +25,8 @@ final class EngineCore: @unchecked Sendable {
     private(set) var hasState = false
     private(set) var offline = false
     private(set) var closed = false
+    /// The newest MASTER sent. Until the engine confirms it, what it publishes as master is older.
+    var masterCommand: UInt64 = 0
     var raw: OpaquePointer { pointer.raw }
 
     /// `chunksPerDeck` is the cache: 64 chunks of 65536 frames, about 87 s a deck. Tests that

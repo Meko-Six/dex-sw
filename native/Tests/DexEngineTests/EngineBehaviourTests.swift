@@ -390,6 +390,40 @@ final class EngineBehaviourTests: XCTestCase {
         return (rig, a, b)
     }
 
+    /// The deck left playing on its own leads, only when what's playing changes, and a MASTER
+    /// holds until then.
+    func testTheDeckLeftPlayingAloneLeads() throws {
+        let rig = Rig()
+        rig.load(steady(seconds: 30), deck: 0)
+        rig.load(steady(seconds: 30), deck: 1)
+        func master() -> Int { rig.deckState(0).isMaster ? 0 : rig.deckState(1).isMaster ? 1 : -1 }
+        dex_engine_set_master(rig.engine, 0)
+        dex_engine_play(rig.engine, 1, nil)
+        rig.render(seconds: 0.1)
+        XCTAssertEqual(master(), 1, "B plays alone, so it leads")
+        dex_engine_set_master(rig.engine, 0)
+        rig.render(seconds: 0.1)
+        XCTAssertEqual(master(), 0, "MASTER on stopped A holds")
+        dex_engine_play(rig.engine, 0, nil)
+        rig.render(seconds: 0.1)
+        XCTAssertEqual(master(), 0, "two playing: no election")
+        dex_engine_pause(rig.engine, 0, -1)
+        rig.render(seconds: 0.1)
+        XCTAssertEqual(master(), 1, "A stopped, B left alone")
+        // A held CUE isn't heard playing.
+        dex_engine_set_preview(rig.engine, 0, true)
+        dex_engine_play(rig.engine, 0, nil)
+        rig.render(seconds: 0.1)
+        XCTAssertEqual(master(), 1)
+        // A deck unloaded while both play isn't playing any more.
+        dex_engine_set_preview(rig.engine, 0, false)
+        rig.render(seconds: 0.1)
+        XCTAssertEqual(master(), 1, "two playing again: no election")
+        dex_engine_unload(rig.engine, 0)
+        rig.render(seconds: 0.1)
+        XCTAssertEqual(master(), 1, "A unloaded, B left alone")
+    }
+
     func testTheMasterIsNeverMovedAndSteeringStaysInItsLimit() throws {
         let (rig, _, _) = lockedPair(tempoA: 1.04)
         rig.render(seconds: 30)
@@ -453,7 +487,11 @@ final class EngineBehaviourTests: XCTestCase {
     func testAMastersCueHoldAndScrubAreNotFollowed() throws {
         let (rig, a, _) = lockedPair()
         rig.render(seconds: 2)
+        // A held CUE isn't heard playing, which hands the lead to B; MASTER pressed after puts it back on A.
         dex_engine_set_preview(rig.engine, 0, true)
+        rig.render(frames: rig.blockFrames)
+        XCTAssertTrue(rig.deckState(1).isMaster)
+        dex_engine_set_master(rig.engine, 0)
         let s = rig.deckState(0)
         dex_engine_jump(rig.engine, 0, [jump(to: s.positionEnd + 0.3 * a.spacing)])
         rig.render(seconds: 1)

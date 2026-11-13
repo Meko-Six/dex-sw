@@ -148,7 +148,7 @@ final class LibraryTests: XCTestCase {
         do {
             _ = try await storage.prepare(edited.id)
             XCTFail("Missing audio must be reported without discarding metadata")
-        } catch { XCTAssertEqual(error.localizedDescription, LibraryError.missingAudio.localizedDescription) }
+        } catch { XCTAssertEqual(error as? LibraryError, .missingAudio) }
         let repaired = try await storage.importFile(renamed)
         XCTAssertEqual(repaired.track, edited)
         XCTAssertTrue(FileManager.default.fileExists(atPath: repaired.url.path))
@@ -238,7 +238,8 @@ final class LibraryTests: XCTestCase {
         XCTAssertTrue(progress.contains { $0 > 0.20 && $0 < 0.90 })
         XCTAssertEqual(library.tracks.map(\.id), queued.prefix(1).map(\.id))
         XCTAssertTrue(library.pendingImports.isEmpty)
-        XCTAssertTrue(library.error?.contains("Bad.wav") == true)
+        guard case .batchFailed(let failed) = library.error else { return XCTFail("Expected a failed batch, got \(String(describing: library.error))") }
+        XCTAssertEqual(failed.map(\.name), ["Bad.wav"])
     }
 
     @MainActor
@@ -299,7 +300,7 @@ final class LibraryTests: XCTestCase {
         }
         XCTAssertGreaterThan(peak, 0.01, "A restored library track must still produce audio without its original file")
         next.a.loadTrack(id)
-        XCTAssertTrue(next.a.error?.contains("Pause") == true)
+        XCTAssertEqual(next.a.error, .playingBlocksLoad)
     }
     func testConcurrentImportsCommitOnlyOneIdentity() async throws {
         let root = try folder()
@@ -423,6 +424,6 @@ final class LibraryTests: XCTestCase {
         for _ in 0..<500 where deck.loading { try await Task.sleep(for: .milliseconds(10)) }
         XCTAssertFalse(deck.loading)
         XCTAssertNil(deck.error)
-        if let error = deck.error { throw NSError(domain: error, code: 1) }
+        if let error = deck.error { throw error }
     }
 }

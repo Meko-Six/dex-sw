@@ -222,7 +222,7 @@ extension LiveOutputTests {
             }
             print(String(format: "LIVE %@ tempo %.2f: %d clicks, worst %.3f ms, output gaps %llu", name, tempo, errors.count,
                          errors.map(abs).max() ?? -1, state.outputGaps)
-                  + "; playing \(mixer.a.playing), audio \(mixer.audioState), error \(mixer.a.error ?? "none"), clicks heard \(onsets.all.0.count)")
+                  + "; playing \(mixer.a.playing), audio \(mixer.audioState), error \(mixer.a.error.map(String.init(describing:)) ?? "none"), clicks heard \(onsets.all.0.count)")
             XCTAssertGreaterThanOrEqual(errors.count, 4, "\(name) \(tempo)")
             for error in errors { XCTAssertEqual(error, 0, accuracy: 2, "\(name) \(tempo): clock against the click, ms") }
             XCTAssertEqual(state.outputGaps, 0)
