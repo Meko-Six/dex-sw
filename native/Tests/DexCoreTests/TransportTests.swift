@@ -66,6 +66,25 @@ final class TransportTests: XCTestCase {
         XCTAssertNil(timeline.pendingLanding)
         XCTAssertEqual(timeline.position(at: 3.1), 50.09, accuracy: 1e-9)
     }
+    func testAStartIsPendingUntilTheEngineHasPlayedIt() {
+        var timeline = DeckTimeline()
+        timeline.land(at: 1, position: 10, rate: 1, loop: nil, start: true)
+        XCTAssertTrue(timeline.starting(at: 0.9))
+        XCTAssertFalse(timeline.starting(at: 1))
+        // Held up waiting for its audio: the engine says when it really comes out.
+        timeline.follow(blockStart: 0.9, position: 10, rate: 1, loop: nil, landing: (due: 1.2, position: 10), landingWaiting: false)
+        XCTAssertTrue(timeline.starting(at: 1.1))
+        XCTAssertFalse(timeline.starting(at: 1.2))
+        // Played: nothing is pending any more.
+        timeline.follow(blockStart: 1.25, position: 10.05, rate: 1, loop: nil, landing: nil, landingWaiting: false)
+        XCTAssertNil(timeline.pendingStart)
+        // A change to music already playing is not a start, and a pause forgets one.
+        timeline.land(at: 2, position: 20, rate: 1, loop: nil)
+        XCTAssertFalse(timeline.starting(at: 1.9))
+        timeline.land(at: 3, position: 30, rate: 1, loop: nil, start: true)
+        timeline.forgetLanding()
+        XCTAssertFalse(timeline.starting(at: 2.9))
+    }
     func testCueWaitsForNextOutputBeatAcrossPhasesAndRates() throws {
         let grid = try BeatGrid(bpm: 128, offsetMs: 137, confidence: 1)
         for rate in [0.84, 1, 1.16] {

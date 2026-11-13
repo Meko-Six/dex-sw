@@ -21,7 +21,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 
 | # | Finding | Status |
 | --- | --- | --- |
-| 1 | Two copies of the transport state | **Open.** The big one. Stages 1–3 heard and passed; 4 in part |
+| 1 | Two copies of the transport state | **Open.** The big one. Stages 1–3 and 4a heard and passed; 4b and 5 left |
 | 2 | Unreadable audio cached as silence | Fixed, `17b76b0` |
 | 3 | Playlists without the catalog's protection | Fixed, `17b76b0`, then moved into storage |
 | 4 | The audio layer carries screen state, copy and persistence | Open |
@@ -88,8 +88,17 @@ user listening after each, because it changes timing. Not a job for unattended a
 4. Position: what's shown comes from the published block plus any landing not yet
    confirmed. **Done in part with stage 3:** the timeline lives on `EngineDeck`, the rule for a
    landing not yet heard is `DeckTimeline.follow`, and `plan` and `transportAt` are gone.
-   Left: `hasStreamingVoice`, `startDueAt` and `endHeardAt` give way to the published
-   `playing`, `landingPending` and `ended`.
+   **4a — built 13 November 2026, heard and passed:** `startDueAt` and `endHeardAt` are gone. A
+   start not yet heard is `DeckTimeline.pendingStart`, which takes the engine's own time for
+   the landing, so a start held up waiting for audio still counts as a start. The end is heard
+   when the engine says `ended` and the timeline, stopped at the end, reaches it a device's
+   delay later. Tests: `TransportTests.testAStartIsPendingUntilTheEngineHasPlayedIt`,
+   `EndOfTrackTests` (the stop lands on the same frame as before).
+   **4b, left:** `hasStreamingVoice`, "a voice was asked for", is the deck's own intent and
+   can't be read from the engine before it confirms. After a jog the engine is playing again
+   while the deck means its next press as a fresh start, so swapping it for the published
+   `playing` would change how that press sounds. Keep it as the one intent flag, or change it
+   on its own with the user listening.
 5. The 50 ms poll goes, once nothing needs it.
 
 ### 2. Unreadable audio cached as silence — fixed

@@ -64,6 +64,9 @@ public struct DeckTimeline: Sendable {
     /// When the newest landing asked for is due, kept after it is heard: a change of rate made
     /// before then takes effect with it, never ahead of it.
     private var lastLanding = -Double.infinity
+    /// When a start from stopped comes out, while it hasn't yet: nothing is heard before then.
+    /// The engine's time once it has started the landing, which a wait for audio can delay.
+    public private(set) var pendingStart: Double?
     public init() {}
 
     private func segment(at time: Double) -> Segment { segments.last(where: { $0.time <= time }) ?? segments[0] }
@@ -94,6 +97,7 @@ public struct DeckTimeline: Sendable {
     public mutating func reset(at time: Double, position: Double = 0, loop: ClosedRange<Double>?? = .none) {
         segments = [Segment(time: time, position: position, rate: 0, loop: loop ?? self.loop(at: time))]
         pendingLanding = nil
+        pendingStart = nil
     }
     /// The loop changes at `time`; the playhead carries on as it was.
     public mutating func changeLoop(_ loop: ClosedRange<Double>?, at time: Double) {
@@ -104,14 +108,18 @@ public struct DeckTimeline: Sendable {
         let time = max(now, lastLanding)
         schedule(at: time, rate: rate)
     }
-    /// The deck has asked the engine to land here, on this output time.
-    public mutating func land(at time: Double, position: Double, rate: Double, loop: ClosedRange<Double>?) {
+    /// The deck has asked the engine to land here, on this output time: a start from stopped,
+    /// or a change to music already playing.
+    public mutating func land(at time: Double, position: Double, rate: Double, loop: ClosedRange<Double>?, start: Bool = false) {
         schedule(at: time, rate: rate, position: position, loop: .some(loop))
         pendingLanding = time
         lastLanding = time
+        pendingStart = start ? time : nil
     }
     /// Nothing asked for is still to come: the next block is the truth, whatever it says.
-    public mutating func forgetLanding() { pendingLanding = nil }
+    public mutating func forgetLanding() { pendingLanding = nil; pendingStart = nil }
+    /// Whether a start asked for is still to come out at this time.
+    public func starting(at time: Double) -> Bool { pendingStart.map { time < $0 } ?? false }
 
     /// One block the engine has played, that confirms everything the deck has sent: the
     /// timeline follows it, never a prediction. A landing the engine has started is marked on
@@ -122,11 +130,12 @@ public struct DeckTimeline: Sendable {
         if let landing {
             schedule(at: landing.due, rate: rate, position: landing.position)
             pendingLanding = landing.due
+            if pendingStart != nil { pendingStart = landing.due }
             return
         }
         if let due = pendingLanding {
             if blockStart < due { return }
-            if !landingWaiting { pendingLanding = nil }
+            if !landingWaiting { pendingLanding = nil; pendingStart = nil }
         }
         schedule(at: blockStart, rate: rate, position: position, loop: .some(loop))
     }

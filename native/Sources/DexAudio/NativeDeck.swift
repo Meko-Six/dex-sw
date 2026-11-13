@@ -28,10 +28,6 @@ public final class NativeDeck: ObservableObject {
     @Published public private(set) var previewing = false { didSet { if previewing != oldValue { link.setPreview(previewing) } } }
     /// This deck's line to the engine.
     let link: EngineDeck
-    /// When the end of the track will be heard, once the engine has played its last frame.
-    private var endHeardAt: Double?
-    /// When a start from stopped comes out, until it has.
-    private var startDueAt: Double?
     /// The delay from the engine to what's heard: the device's, and the engine's limiter.
     public var outputLatency: Double { outputDelay }
     /// The engine's newest block for this deck, for tests.
@@ -672,7 +668,7 @@ public final class NativeDeck: ObservableObject {
         return positionAt(confirmed)
     }
     private func stopVoices() {
-        hasStreamingVoice = false; endHeardAt = nil
+        hasStreamingVoice = false
         link.pause()
     }
 
@@ -689,10 +685,12 @@ public final class NativeDeck: ObservableObject {
                 let now = audioNow(), reached = timeline.unfoldedPosition(at: now)
                 let end = reached > duration && playRate > 0 ? now - (reached - duration) / playRate : now
                 timeline.schedule(at: end, rate: 0, position: duration)
-                endHeardAt = end + outputDelay
             }
-            if playing, let heard = endHeardAt, audioNow() >= heard {
-                endHeardAt = nil; playing = false; position = duration
+            // The engine has played the last frame and the listener has now heard it: the
+            // timeline, stopped at the end from then, has reached it a device's delay later.
+            if playing, !hasStreamingVoice, !jog.active, link.ended,
+               timeline.unfoldedPosition(at: audioNow() - outputDelay) >= duration {
+                playing = false; position = duration
             }
         }
     }
@@ -712,7 +710,7 @@ public final class NativeDeck: ObservableObject {
         partner?.syncEngine()
         let now = audioNow()
         // A start that hasn't come out yet isn't music playing: a press on top of it starts afresh.
-        let starting = startDueAt.map { now < $0 } ?? false
+        let starting = timeline.starting(at: now)
         let replace = playing && hasStreamingVoice && !starting
         // The playhead just carries on, and the loop was set when it was committed or cleared.
         if replace, continuing, barShift == nil, (loopShift ?? 0) == 0 {
@@ -780,9 +778,7 @@ public final class NativeDeck: ObservableObject {
             jump.loopOut = (loopBounds?.upperBound ?? 0) * link.fileRate
         }
         position = replace ? min(duration, max(0, heardAt(now - outputDelay))) : target
-        timeline.land(at: outputTime, position: target, rate: playRate, loop: loopBounds)
-        endHeardAt = nil
-        startDueAt = replace ? nil : outputTime
+        timeline.land(at: outputTime, position: target, rate: playRate, loop: loopBounds, start: !replace)
         hasStreamingVoice = true
         playing = true
         link.play(jump)
