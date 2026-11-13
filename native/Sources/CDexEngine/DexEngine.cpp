@@ -26,6 +26,7 @@ extern "C" {
 #include <cstring>
 #include <memory>
 #include <mach/mach_time.h>
+#include <mach/semaphore.h>
 #include <vector>
 
 using namespace dex;
@@ -199,6 +200,23 @@ struct DexEngine {
     std::atomic<float> volumeTarget{1};
     // The meters, for dex_engine_read_meters: each deck's highest sample before its LEVEL fader,
     // and the master's per side before the limiter, since the meters were last read.
+    /// Signalled when something the app reacts to changes (dex_engine_set_notify); 0 for none.
+    std::atomic<uint32_t> notifySemaphore{0};
+    /// What the app reacts to, as last signalled.
+    struct Noticed {
+        bool playing = false, ended = false, isMaster = false, syncLocked = false, loopActive = false,
+             landingPending = false, scrubbing = false;
+        uint64_t landings = 0, readFailures = 0;
+        double tempo = 1, loopIn = 0, loopOut = 0;
+        bool operator!=(const Noticed &o) const {
+            return playing != o.playing || ended != o.ended || isMaster != o.isMaster || syncLocked != o.syncLocked ||
+                   loopActive != o.loopActive || landingPending != o.landingPending || scrubbing != o.scrubbing ||
+                   landings != o.landings || readFailures != o.readFailures || tempo != o.tempo ||
+                   loopIn != o.loopIn || loopOut != o.loopOut;
+        }
+    };
+    Noticed noticed[2];
+    uint64_t noticedCommand = 0;
     std::atomic<float> meterDeck[2] = {0.0f, 0.0f};
     std::atomic<float> meterPeak[2] = {0.0f, 0.0f};
 
@@ -844,6 +862,25 @@ struct DexEngine {
             out.readFailures = loaderReadFailures(loader, i);
         }
         published.publish();
+        notifyChanges(state);
+    }
+
+    /// Wakes the app when a block changed something it reacts to. One realtime-safe signal at
+    /// most per block, and none while nothing changes.
+    void notifyChanges(const DexEngineState &state) {
+        bool changed = state.confirmedCommand != noticedCommand;
+        noticedCommand = state.confirmedCommand;
+        for (int i = 0; i < 2; ++i) {
+            const DexDeckState &d = state.deck[i];
+            Noticed now;
+            now.playing = d.playing; now.ended = d.ended; now.isMaster = d.isMaster; now.syncLocked = d.syncLocked;
+            now.loopActive = d.loopActive; now.landingPending = d.landingPending; now.scrubbing = d.scrubbing;
+            now.landings = d.landings; now.readFailures = d.readFailures; now.tempo = d.tempo;
+            now.loopIn = d.loopIn; now.loopOut = d.loopOut;
+            if (now != noticed[i]) { changed = true; noticed[i] = now; }
+        }
+        const uint32_t semaphore = notifySemaphore.load(std::memory_order_acquire);
+        if (changed && semaphore != 0) semaphore_signal((semaphore_t)semaphore);
     }
 
     void renderBlock(int frames, uint64_t hostTime, float *const *outputs, uint32_t channels, int outputOffset,
@@ -1215,6 +1252,8 @@ void dex_engine_snap_levels(DexEngine *e) {
 }
 
 bool dex_engine_read_state(DexEngine *e, DexEngineState *state) { return e->published.read(*state); }
+
+void dex_engine_set_notify(DexEngine *e, uint32_t semaphore) { e->notifySemaphore.store(semaphore, std::memory_order_release); }
 
 void dex_engine_read_meters(DexEngine *e, DexMeterReading *out) {
     for (int i = 0; i < 2; ++i) {

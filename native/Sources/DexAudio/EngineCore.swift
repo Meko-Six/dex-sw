@@ -2,6 +2,7 @@ import AVFoundation
 import CDexEngine
 import DexCore
 import Darwin
+import os
 
 /// The engine the output callback renders, in a slot of plain memory, so the callback reads it
 /// with one load and no Swift runtime. Only `EngineCore.close` changes it, once the output has stopped.
@@ -27,6 +28,7 @@ final class EngineCore: @unchecked Sendable {
     private(set) var closed = false
     /// The newest MASTER sent. Until the engine confirms it, what it publishes as master is older.
     var masterCommand: UInt64 = 0
+    private var notifier: EngineNotifier?
     var raw: OpaquePointer { pointer.raw }
 
     /// `chunksPerDeck` is the cache: 64 chunks of 65536 frames, about 87 s a deck. Tests that
@@ -40,13 +42,28 @@ final class EngineCore: @unchecked Sendable {
         lease = AudioMemoryBudget.shared.reserveFixed(Int64(dex_engine_required_bytes(&config)))
         pointer = EnginePointer(raw: dex_engine_create(&config))
     }
-    deinit { dex_engine_destroy(pointer.raw); pointer.free() }
+    deinit {
+        dex_engine_set_notify(pointer.raw, 0)
+        notifier?.stop(); notifier?.destroy()
+        dex_engine_destroy(pointer.raw); pointer.free()
+    }
+
+    /// From now on `onChange` runs on the main actor after the engine plays a block that changed
+    /// something the app reacts to, once for any number of changes that came before it ran.
+    @MainActor func notifyChanges(_ onChange: @escaping @MainActor @Sendable () -> Void) {
+        guard notifier == nil, !closed, let notifier = EngineNotifier(onChange) else { return }
+        self.notifier = notifier
+        dex_engine_set_notify(raw, notifier.semaphore)
+    }
 
     /// Gives the audio memory back once the output has really stopped, for good. A stand-in
     /// with almost no memory takes its place, so a late command from a deck still lands somewhere.
     @MainActor func close() {
         guard !closed else { return }
         closed = true
+        // The output has stopped, so the loop can't signal any more: the semaphore can go.
+        dex_engine_set_notify(pointer.raw, 0)
+        notifier?.stop(); notifier?.destroy(); notifier = nil
         dex_engine_destroy(pointer.raw)
         var config = DexEngineConfig()
         config.sampleRate = Self.sampleRate
@@ -99,6 +116,48 @@ final class EngineCore: @unchecked Sendable {
         let frame = Double(state.outputFrame) + (time - seconds(hostTime: state.hostTime)) * state.sampleRate
         return Int64(max(0, frame.rounded()))
     }
+}
+
+/// Waits on the engine's change signal on a thread of its own, and wakes the main actor: at
+/// most one wake waiting at a time, so a burst of blocks is one call.
+private final class EngineNotifier: @unchecked Sendable {
+    private struct State { var queued = false; var stopped = false }
+    let semaphore: semaphore_t
+    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    init?(_ onChange: @escaping @MainActor @Sendable () -> Void) {
+        var semaphore = semaphore_t()
+        guard semaphore_create(mach_task_self_, &semaphore, SYNC_POLICY_FIFO, 0) == KERN_SUCCESS else { return nil }
+        self.semaphore = semaphore
+        let state = self.state
+        let thread = Thread {
+            while true {
+                guard semaphore_wait(semaphore) == KERN_SUCCESS else { return }
+                let (stop, wake) = state.withLock { s -> (Bool, Bool) in
+                    if s.stopped { return (true, false) }
+                    if s.queued { return (false, false) }
+                    s.queued = true
+                    return (false, true)
+                }
+                if stop { return }
+                if wake {
+                    DispatchQueue.main.async {
+                        state.withLock { $0.queued = false }
+                        MainActor.assumeIsolated { onChange() }
+                    }
+                }
+            }
+        }
+        thread.name = "Dex engine changes"
+        thread.qualityOfService = .userInteractive
+        thread.start()
+    }
+    /// The thread ends; the semaphore stays until `destroy`, once the loop can't signal it.
+    func stop() {
+        state.withLock { $0.stopped = true }
+        semaphore_signal(semaphore)
+    }
+    func destroy() { semaphore_destroy(mach_task_self_, semaphore) }
 }
 
 /// A file for the engine's loader: opened for it alone, and only ever read on its thread.

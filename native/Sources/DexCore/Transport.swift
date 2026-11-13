@@ -86,6 +86,8 @@ public struct DeckTimeline: Sendable {
         return loop.lowerBound + (value - loop.lowerBound).truncatingRemainder(dividingBy: loop.upperBound - loop.lowerBound)
     }
     public func loop(at time: Double) -> ClosedRange<Double>? { segment(at: time).loop }
+    /// When the newest segment stops the playhead, if it does: as at the end of the track.
+    public var stoppedSince: Double? { segments.last.flatMap { $0.rate == 0 ? $0.time : nil } }
 
     /// From `time` on, play at `rate` from `position` (or carry on from where it is), inside
     /// `loop` (or the loop in force then). Anything planned from then on is replaced.

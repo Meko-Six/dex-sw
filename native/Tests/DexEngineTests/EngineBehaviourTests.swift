@@ -390,6 +390,45 @@ final class EngineBehaviourTests: XCTestCase {
         return (rig, a, b)
     }
 
+    /// The loop signals the app when something it reacts to changes, and not while two decks
+    /// just play on: no work in the app while nothing happens.
+    func testTheLoopSignalsChangesAndOnlyChanges() throws {
+        let (rig, _, _) = lockedPair()
+        var semaphore = semaphore_t()
+        XCTAssertEqual(semaphore_create(mach_task_self_, &semaphore, SYNC_POLICY_FIFO, 0), KERN_SUCCESS)
+        defer { dex_engine_set_notify(rig.engine, 0); semaphore_destroy(mach_task_self_, semaphore) }
+        func signalled() -> Bool {
+            var any = false
+            while semaphore_timedwait(semaphore, mach_timespec_t(tv_sec: 0, tv_nsec: 0)) == KERN_SUCCESS { any = true }
+            return any
+        }
+        rig.render(seconds: 2)
+        dex_engine_set_notify(rig.engine, semaphore)
+        rig.render(seconds: 2)
+        XCTAssertFalse(signalled(), "Steady play changes nothing the app reacts to")
+        // The master's tempo moves the follower's: the app hears of it.
+        dex_engine_set_tempo(rig.engine, 0, 1.02)
+        rig.render(seconds: 0.1)
+        XCTAssertTrue(signalled())
+        XCTAssertEqual(rig.deckState(1).tempo, 140.0 * 1.02 / 134, accuracy: 1e-9)
+        rig.render(seconds: 1)
+        XCTAssertFalse(signalled())
+        // A pause, a loop and the end of the track all signal.
+        dex_engine_pause(rig.engine, 1, -1)
+        rig.render(seconds: 0.1)
+        XCTAssertTrue(signalled())
+        let s = rig.deckState(0)
+        dex_engine_set_loop(rig.engine, 0, true, s.positionEnd, s.positionEnd + 24_000)
+        rig.render(seconds: 0.1)
+        XCTAssertTrue(signalled())
+        rig.render(seconds: 2)
+        XCTAssertTrue(signalled(), "Each pass of the loop is a landing")
+        dex_engine_set_notify(rig.engine, 0)
+        dex_engine_set_tempo(rig.engine, 0, 1.04)
+        rig.render(seconds: 0.1)
+        XCTAssertFalse(signalled(), "Nothing once the app has stopped listening")
+    }
+
     /// The deck left playing on its own leads, only when what's playing changes, and a MASTER
     /// holds until then.
     func testTheDeckLeftPlayingAloneLeads() throws {

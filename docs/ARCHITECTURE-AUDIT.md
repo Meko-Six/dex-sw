@@ -30,7 +30,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 | 7 | Audio lifecycle is an implicit state machine | Fixed: one tested state machine |
 | 8 | A full command queue loses a track load | Fixed |
 | 9 | Catalog reloaded and rewritten on every edit | Reload fixed; the double write is deliberate |
-| 10 | Five unsynchronised polling loops on the main thread | Partly: the two transport loops are one |
+| 10 | Five unsynchronised polling loops on the main thread | Fixed for the transport: the engine signals changes; meters, jog and display stay |
 | 11 | The engine is one 1,200-line struct, two decks hard-wired | Open, low value |
 | 12 | Landing cost on the audio thread has no budget | Open, unmeasured |
 | 13 | Smaller: engine creation not null-safe; `48_000` literals | Literals fixed; null safety dropped |
@@ -108,8 +108,8 @@ user listening after each, because it changes timing. Not a job for unattended a
    queue), so the app in the background still needs it. Instead the mixer's 50 ms loop and the
    console's 33 ms readout loop, which did the same catching up, are one: `NativeMixer.runLock`
    moves both decks' positions at 30 Hz while anything plays, and `ConsoleModel` no longer
-   runs a loop of its own. Making the engine push its changes instead of being asked would
-   remove the last of it, and is a larger piece of work.
+   runs a loop of its own. Then, the same day, the heartbeat went too (finding 10, below):
+   the engine signals the app when something changes.
 
 ### 2. Unreadable audio cached as silence — fixed
 
@@ -248,8 +248,19 @@ Checked with two stores in one process, not with two real processes.
 
 - **Polling (10):** 50 ms sync, 33 ms readouts, 16 ms meters, 16 ms jog and the display
   link each poll on the main thread. End-of-track and master hand-over depend on it staying
-  healthy. Partly fixed by finding 1's stage 5: sync and readouts are one 33 ms heartbeat in
-  the mixer. Meters, jog and the display link are each their own job and stay.
+  healthy. Fixed for the transport, 13 November, heard and passed 14 November: no transport loop is left. After any block
+  that changes something the app reacts to (a deck's playing, ended, master, SYNC, loop,
+  landings, tempo, scrub, pending landing, failed reads, or a newly confirmed command) the loop
+  calls `semaphore_signal` on a Mach semaphore (`dex_engine_set_notify`); it's the only new
+  call in the loop, realtime-safe, and `EngineRealtimeTests` still passes. A thread in
+  `EngineCore` (`EngineNotifier`) waits on it and wakes the main actor at most once until that
+  has run; `NativeMixer.engineChanged` catches both decks up, and sets one timer for a track's
+  end to be heard a device's delay later. With nothing changing nothing runs, in the background
+  too. TIME and REMAIN move with the display clock (`ConsoleClock.tick`, every other frame)
+  while the screen shows a deck moving. Offline renders don't use it; they catch the decks up
+  every block as before. Tests: `EngineBehaviourTests.testTheLoopSignalsChangesAndOnlyChanges`,
+  `EngineChangesTests`. Meters, the jog and the display link keep their own loops: each is
+  its own job.
 - **Engine monolith (11):** one struct holds the voice state machine, sync, mixing and
   metering; two decks are hard-wired from `decks[2]` to `"A"`/`"B"` strings. Open, and pure
   restructuring.

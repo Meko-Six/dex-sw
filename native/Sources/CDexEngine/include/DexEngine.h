@@ -180,6 +180,11 @@ typedef struct {
 
 /// Copies the newest published block. False if nothing has been rendered yet.
 bool dex_engine_read_state(DexEngine *engine, DexEngineState *state);
+/// A Mach semaphore (semaphore_t) the loop signals after any block that changed something the
+/// app reacts to: a deck's playing, ended, master, SYNC, loop, landings, tempo, scrub, pending
+/// landing or failed reads, or a newly confirmed command. 0 stops it. The loop only signals,
+/// which is realtime-safe; the waiting is the caller's.
+void dex_engine_set_notify(DexEngine *engine, uint32_t semaphore);
 
 typedef struct {
     float deck[2];   // each deck's highest |sample| after TRIM, EQ and FILTER, before LEVEL and the crossfader, either side

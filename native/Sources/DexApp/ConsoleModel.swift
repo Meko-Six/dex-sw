@@ -73,6 +73,14 @@ final class ConsoleModel: ObservableObject {
                 return deck.heardPosition(ahead: ahead)
             }
         }
+        // The readouts move at the Electron app's 30 Hz, every other display frame, only while
+        // the screen shows a deck moving. The mixer keeps the decks current with the engine.
+        var frames = 0
+        clock.tick = { [weak self] in
+            frames += 1
+            guard frames % 2 == 0, let self else { return }
+            mixer.a.refreshPosition(); mixer.b.refreshPosition()
+        }
         actions = makeActions()
         rebuild()
     }
@@ -227,8 +235,7 @@ final class ConsoleModel: ObservableObject {
     private func updateTicker() {
         let running = active && decks.contains(where: \.playing)
         clock.running = running
-        // The readouts' 30 Hz comes from the mixer's transport heartbeat, which moves the decks'
-        // positions while anything plays; there is no second loop here.
+        // The readouts' 30 Hz comes from the display clock's `tick`, set up in `init`.
     }
 
     /// The four meters, read every display frame (about 60 Hz) while anything shows, and ten

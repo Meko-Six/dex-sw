@@ -36,7 +36,7 @@ public final class NativeMixer: ObservableObject {
     /// The lifecycle's phase, as the screen needs it; only `dispatch` sets it.
     @Published public private(set) var audioState = AudioState.ready
     private var engine = AVAudioEngine()
-    private let core: EngineCore
+    let core: EngineCore
     private var engineNode: AVAudioSourceNode
     /// For muted measurements on a real device: silence after the engine, so its whole
     /// output, limiter included, can be measured without a sound reaching the device.
@@ -84,7 +84,8 @@ public final class NativeMixer: ObservableObject {
     private var pressureTask: Task<Void, Never>?
     private var startTask: Task<Void, Never>?
     private var startTicket: AudioControlTicket?
-    private var lockTask: Task<Void, Never>?
+    /// The one wake still to come: when a track's end, already played, is heard.
+    private var endWake: Task<Void, Never>?
     private var decks: [NativeDeck] { [a, b] }
     /// The output's RMS over its latest block, dBFS (the Electron router's
     /// `readLevelDb`); −120 before any audio.
@@ -117,7 +118,6 @@ public final class NativeMixer: ObservableObject {
         for deck in decks {
             deck.$playing.dropFirst().sink { [weak self] playing in
                 guard playing, let self else { return }
-                runLock()
                 guard audioState == .ready else { return }
                 notice = nil
             }.store(in: &playbackObservers)
@@ -191,18 +191,19 @@ public final class NativeMixer: ObservableObject {
         audioState = lifecycle.audioState
     }
     public func setMaster(_ deck: NativeDeck) { deck.becomeMaster() }
-    /// The one transport heartbeat. While anything plays, each deck catches up with the engine at
-    /// the readouts' 30 Hz: its timeline and the position the screen shows, the master and SYNC
-    /// tempo the engine chose, the end of the track, a resend after a full queue. It doesn't
-    /// depend on the display, so all of that carries on with the app in the background.
-    private func runLock() {
-        guard lockTask == nil, !engine.isInManualRenderingMode else { return }
-        lockTask = Task { [weak self] in
-            while let self, !Task.isCancelled {
-                for deck in self.decks { deck.refreshPosition() }
-                guard self.decks.contains(where: { $0.playing }) else { self.lockTask = nil; return }
-                do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
-            }
+    /// The engine played a block that changed something the decks react to: the master or the
+    /// SYNC tempo it chose, a landing, the end of a track, a confirmed command after a full queue.
+    /// Each deck catches up. Nothing polls: with nothing changing, nothing runs, in the background
+    /// too. The screen's readouts move with the display instead (`ConsoleModel`).
+    private func engineChanged() {
+        guard !lifecycle.isShutDown else { return }
+        for deck in decks { deck.refreshPosition() }
+        // The end of a track is heard a device's delay after the engine played it: one wake then.
+        endWake?.cancel(); endWake = nil
+        guard let wait = decks.compactMap(\.endHeardIn).min() else { return }
+        endWake = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(max(0, wait) + 0.002)) } catch { return }
+            self?.engineChanged()
         }
     }
     /// The engine elects the master (the deck left playing on its own leads); each deck takes
@@ -240,6 +241,7 @@ public final class NativeMixer: ObservableObject {
     /// thread. Physical output uses an asynchronous control lane; no main-thread wait or semaphore.
     private func beginStart(after delay: Double) {
         if !observing { installObservers() }
+        if !engine.isInManualRenderingMode { core.notifyChanges { [weak self] in self?.engineChanged() } }
         if engine.isInManualRenderingMode {
             do {
                 if !engine.isRunning { try engine.start() }
@@ -424,7 +426,7 @@ public final class NativeMixer: ObservableObject {
     public func shutdown() {
         dispatch(.shutdown)
         cancelStart(); observing = false; observations.clear(); pressureTask?.cancel(); pressureTask = nil
-        lockTask?.cancel(); lockTask = nil
+        endWake?.cancel(); endWake = nil
         for deck in decks { deck.shutdown(); deck.audioAvailable = false }
         let core = core
         controlEngine({ $0.stop() }, then: { core.close() })

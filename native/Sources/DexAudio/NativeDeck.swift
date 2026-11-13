@@ -670,6 +670,12 @@ public final class NativeDeck: ObservableObject {
         link.pause()
     }
 
+    /// How long until the end of the track, which the engine has played, reaches the listener;
+    /// nil unless that is what the deck is waiting for.
+    var endHeardIn: Double? {
+        guard playing, !timeline.soundRequested, !jog.active, link.ended, let end = timeline.stoppedSince else { return nil }
+        return end + outputDelay - audioNow()
+    }
     /// Brings the timeline up to date with the engine, and notices the end of the track.
     func serviceTransitions() {
         jog.service()

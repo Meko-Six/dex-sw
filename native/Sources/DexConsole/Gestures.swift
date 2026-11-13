@@ -21,9 +21,12 @@ import UIKit
         }
     }
     var setLinkRunning: ((Bool) -> Void)?
+    /// Runs every display frame while running, after the lanes: the app moves the readouts here.
+    public var tick: (() -> Void)?
     /// A display frame is coming up in `ahead` seconds: move the lanes to it.
     public func frame(ahead: Double) {
         for lane in lanes.values { lane.frame(ahead: ahead) }
+        tick?()
     }
     /// What moves with `id` about 30 times a second: its readouts, overview and platter.
     public func deck(_ id: String) -> DeckClock {
