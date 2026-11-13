@@ -61,9 +61,9 @@ Bose has to be paired again.
   re-analysis, removal). Key analysis is ported and matches Electron on the bench.
 - **CI:** three jobs (Electron typecheck/test/build, Electron production integration,
   native tests plus Mac/iPad builds). GitHub's macOS runner ships an older Xcode than this
-  Mac, so native code must compile on both SDKs. CI passed on `17b76b0`; later commits'
-  results haven't been checked.
-- **Tests:** `swift test`, 13 November 2026: 324 tests (171 audio, 65 core, 46 engine,
+  Mac, so native code must compile on both SDKs. CI passed on `d60a6b6`; it was still
+  running on `21213e5` (the transport work, pushed 13 November) at closeout, so check it.
+- **Tests:** `swift test`, 13 November 2026: 332 tests (174 audio, 70 core, 46 engine,
   42 console), 0 failures, 6 optional skips.
 
 ### The engine (6 November 2026)
@@ -204,7 +204,7 @@ audio.
 Tools: BSD `sed` has no `\b`, so a substitution using it silently does nothing, and
 zsh's builtin `log` shadows the tool, so use `/usr/bin/log`.
 
-## Architecture audit and fixes — 12 November 2026
+## Architecture audit and fixes — 12–13 November 2026
 
 **Start here if you're picking this up.** The user asked for an architectural review of the
 native app, then for the findings to be worked through, most urgent first. The full findings,
@@ -216,17 +216,18 @@ lost by a bad file, and code that can be changed in one place. The user is a DJ,
 developer: explain in plain terms, and anything that changes timing or sound needs their ears
 before it counts as done.
 
-**Verdict.** The engine is production-grade. The app around it is a well-tested late
-prototype. The biggest risk, still open, is that a deck's position, loop, tempo and master
-exist twice: once in the engine (what was played) and once in `NativeDeck` (a prediction,
-patched back by polling).
+**Verdict, then and now.** The engine was production-grade; the app around it a well-tested
+late prototype whose biggest risk was a deck's position, loop, tempo and master existing
+twice. That is now fixed (finding 1, below), and so are typed errors.
 
 ### Done and pushed
 
-All on `main` in dex-sw. CI passed on `17b76b0`; check its result for the commit after it.
+All on `main` in dex-sw, last `21213e5`.
 
 | Fix | What changed |
 | --- | --- |
+| **One transport truth** (finding 1, 13 Nov) | Five stages, each heard by the user. (1) The engine elects the master. (2) A locked follower's TEMPO is the engine's lock; out of ±16% it sits at the limit and chases nothing. (3) `DeckTimeline` replaces the clock and loop clock, following the engine's blocks and loop. (4) A pending start and the heard end come from the engine and the timeline; the one intent left, `soundRequested`, lives in the timeline by the user's choice. (5) The mixer's 30 Hz heartbeat is the only transport loop; it can't go, since it keeps decks current in the background. The deck's own flags are now just `playing` and `dropped` |
+| Typed errors (finding 5, 13 Nov) | Errors are values (`Problems.swift`), turned into words only in `ProblemText` in the app. Not checked by the user as such: see Awaiting the user |
 | Unreadable audio | A failed read is never stored as silence. The loader retries it every 250 ms, the engine waits for it as for any audio not there yet, and the deck reports it once per spell of trouble |
 | Playlists | Versioned file, backup of the save before, an unreadable file copied aside first, a newer version's never written, nothing written before reading. Saved through `LibraryStorage`, under its lock, off the main thread |
 | Alerts | A problem raised again with the same words shows again after it was dismissed, with a fresh seven seconds. A standing notice isn't raised again by each track loaded |
@@ -236,60 +237,59 @@ All on `main` in dex-sw. CI passed on `17b76b0`; check its result for the commit
 | Track loads and a full queue | A load takes nothing when the engine's command queue is full, where before the loader and the audio loop could end up on different tracks |
 | Sample rate | The engine's 48 kHz is one constant, `EngineCore.sampleRate` |
 
+Found and fixed on the way, 13 November:
+
+- **The loop box drew off the beat on a short loop.** Its label sat inside the box, so a loop
+  narrower than the label grew to the label's width and was centred over the loop. The label
+  is an overlay now, as in the mockup; a half-beat loop reads 0.5. Heard and seen by the user.
+- **Hot cues in the zoom lanes** (the user asked): a full-height line in the slot's colour
+  with its number flagged at the top and a dark edge. Designed in the mockup (`.zw-hc`),
+  ported (`HotCueMarker`), matched at 8×. Both demos have hot cue 3 inside deck A's loop.
+- **The console's concurrency warnings** (Swift 6 would make them errors) are gone, and **Dex
+  is full screen only on the iPad** (landscape-only needs it; Split View and Slide Over are
+  given up, the user's choice).
+- `DexConsoleSnapshot --loop <beats>` draws deck A with a loop, for checking the box.
+
 ### Checked
 
-Test count above. Mac and iPad Simulator builds exit 0 (each prints "the following command
-failed with exit code 0 but produced no further output"; not chased). Not run: `npm run
-diff:native` (no console view changed), the muted live checks, the soak.
+Test count above; new this round: `LoopDisplayTests`, `EndOfTrackTests`, the timeline's cases
+in `TransportTests`, `GridLockTests.testTheFollowersTempoFollowsTheMasters`. Mac and iPad
+Xcode builds exit 0; the one Swift warning left is an older one in `OutputLatency.swift:86`
+(forming a raw pointer to a generic value), not chased. Not run: the muted live checks, the soak.
+
+**`npm run diff:native` doesn't work on this Mac.** Every mockup capture comes out 410×284,
+not the 1174×814 stage: the offscreen Electron window opens too small and the mockup scales
+itself to fit. Not caused by these changes; unresolved. A capture that pins `.ipad` at the
+window's top left with `transform:none; zoom:0.5; position:fixed; z-index` set gets the full
+stage, which is how the hot cue marker was compared.
 
 ### Still to do, in the suggested order
 
-1. **The user's checks** (list below).
-2. **One transport truth.** The big one. The engine's published state becomes the only
-   transport state; the deck sends intents and shows what the engine reports. Do it in
-   stages, each gated by the existing offline tests and then by the user listening. Not for
-   unattended agents. It would also remove most of the main-thread polling. The five stages
-   are in the audit's finding 1. **Stage 1, master election in the engine, is built and
-   the user heard it pass (13 November): with SYNC on, stop the
-   master and check the deck left playing takes over with no jump; MASTER on a stopped deck
-   holds; starting beside a playing deck leaves it leading. **Stage 3, loops from the engine,
-   is built on top** (13 Nov), with part of stage 4: one `DeckTimeline` per deck in place of
-   the clock, the loop clock, `plan` and `transportAt`. It should look and sound exactly as
-   before: loops in and out, halving and moving a loop while it plays, bar jumps and hot cues
-   inside a loop, and the waveform landing on them. The first listen found the loop box drawn
-   off the beat on a short loop: an old layout fault, not stage 3 (the label widened the box,
-   which was then centred over the loop). Fixed; `DexConsoleSnapshot --loop 1` draws it.
-   The user then heard stage 3 pass (13 Nov): loops in and out, halving and doubling, bar
-   jumps and hot cues inside a loop. **Stage 2, SYNC's tempo from the engine, is built and
-   the user heard it pass (13 Nov),** including a 147 BPM track against 123 sitting at −16%
-   (123.5) without chasing. **Stage 4a is built and the user heard it pass (13
-   Nov):** `startDueAt` and `endHeardAt` gone; a track played to its end, and hot cues, CUE,
-   jumps and loops straight after PLAY, all as before. **4b is done** (the user's choice):
-   `hasStreamingVoice` is kept as the deck's own request, moved into the timeline as
-   `soundRequested`; nothing heard changes. **Stage 5 is built and the user heard it pass (13
-   Nov), which finishes the transport work:** the poll can't go (it keeps decks current in the background), so the mixer's 50 ms loop and the
-   console's 33 ms readout loop are merged into one 30 Hz heartbeat in the mixer. Listen for:
-   readouts (TIME, REMAIN) running smoothly; a track's end, master hand-over and SYNC tempo as
-   before; on the iPad, a track ending while Dex is in the background shows stopped on return. The same listen asked for hot cues in
-   the zoom lanes; they are in the mockup and ported (`.zw-hc`, `HotCueMarker`).
-3. **The audio lifecycle as an explicit state machine,** once the start-up fix has been
-   tried on devices. A start that fails outright with an output change pending still ends
-   as "no audio" until the app comes forward.
-4. **Restructuring, if wanted at all:** `NativeDeck` split into rules, engine port and
-   observable; the library in its own module; the engine file split by concern. None of it
-   changes what is seen or heard.
+1. **The user's checks** (Awaiting the user, below).
+2. **The audio lifecycle as an explicit state machine** (finding 7), once the start-up fix
+   has been tried on devices. A start that fails outright with an output change pending still
+   ends as "no audio" until the app comes forward.
+3. **Restructuring, if wanted at all** (findings 4, 11): `NativeDeck` split into rules,
+   engine port and observable; the library in its own module; the engine file split by
+   concern. None of it changes what is seen or heard.
+4. **Optional, larger:** the engine telling the app when something changes, instead of the
+   30 Hz heartbeat asking (the rest of finding 10). Meters, jog and the display link keep
+   their own loops; each is its own job.
 
 Small things left by these fixes: the unreadable-audio alert shows only while the deck
 plays; a failed playlist save isn't retried until the next playlist edit; an unreadable
 playlists file is copied aside again at each launch until a playlist is edited; a change to
-one library track still walks the whole library once.
+one library track still walks the whole library once; the typed errors' wording has no test
+(`DexApp` is an executable).
 
 ### Working notes
 
-- The user had limited time on this model and asked for agents to use it well. Two at once
-  worked when each had its own files and its own build folder (`--build-path` under
-  `$TMPDIR`; `native/.gitignore` only covers `.build/`). Each starts cold, so they cost more
-  than working alone.
+- The transport stages were done one at a time, each with the full suite, both Xcode builds
+  and then the user listening, before the next. Work on `main` from now: the side branch it
+  started on (`needs-checking/typed-errors`) is merged and deleted.
+- Two agents at once worked when each had its own files and its own build folder
+  (`--build-path` under `$TMPDIR`; `native/.gitignore` only covers `.build/`). Each starts
+  cold, so they cost more than working alone.
 - On the original Mac every shell prints an fnm warning that the Node path isn't on PATH,
   yet `node -v` reports v24.22.1. Unresolved; the fnm line in `~/.zshenv` may want a look.
 
@@ -392,6 +392,11 @@ None of this has been tried or heard by the user, except where it says otherwise
   same code with no platform branches, it's in the Mac build, and its tests run on the Mac.
 - **Deck keys' touch area** reaches 2 pt past each drawn edge (44 pt of height); not yet
   tried by finger.
+- **Seen in the app?** Hot cues in the zoom lanes, and Dex full screen on the iPad, were
+  built and committed without the user saying they'd seen them in the app.
+- **Typed errors** were merged without a check of their own. Alerts should read as before:
+  try a refused key (a beat jump with no grid), a load of a file that isn't audio (it now
+  says so, rather than a Cocoa error code), and an import of a few files with one bad one.
 - **From the architecture fixes** (nothing in this group has been tried in the running
   app, on the Mac or the iPad):
   - *Output changes during start-up.* Only the decision rule is tested. Switch output
