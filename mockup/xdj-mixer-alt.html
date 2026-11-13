@@ -536,7 +536,7 @@
       /* Eight hot cues per deck, one colour per slot, as in the app
          (src/shared/hot-cue.ts). */
       const HOT_CUES = {
-        A: [{ at: '0:32.0' }, { at: '1:44.7' }, null, { at: '4:21.5' }, null, null, null, null],
+        A: [{ at: '0:32.0' }, { at: '1:44.7' }, { at: '5:12.670' }, { at: '4:21.5' }, null, null, null, null],
         B: [{ at: '0:31.0' }, null, { at: '2:15.0' }, null, null, null, null, null]
       };
       /* Loop stepper: size in beats (1 … 64) and whether a loop is running. */
@@ -824,6 +824,18 @@
         return `<div class="zw-grid" style="transform:translateX(${SCREEN_VIEW[d.letter].shift}px)">${ticks}</div>`;
       }
 
+      /* Each hot cue in view: a line in its slot's colour, full height, with
+         its number on a flag at the top, as the overview's flags. */
+      function laneHotCuesHtml(d, position) {
+        const span = laneSpanOf(d), shift = SCREEN_VIEW[d.letter].shift;
+        return HOT_CUES[d.letter].map((cue, i) => {
+          if (!cue) return '';
+          const left = 50 + 100 * (secs(cue.at) - position) / span;
+          if (left < -2 || left > 102) return '';
+          return `<span class="zw-hc" style="left:${left.toFixed(3)}%;--hc:${HOT_CUE_COLOURS[i]};transform:translateX(${shift}px)"><b>${i + 1}</b></span>`;
+        }).join('');
+      }
+
       /* the screen: both zoom lanes full width under one shared playhead,
          with the zoom keys stacked on the right */
       function renderScreen() {
@@ -842,6 +854,7 @@
               ${loopLaneHtml(d)}
               ${laneGridHtml(d)}
               <span class="zw-label" data-ctl="deck.state">DECK <b style="color:${accentOf(d.letter)}">${d.letter}</b> · ${d.bpm} BPM · ${d.state.toUpperCase()}${energyEnabled ? '<em class="energy-reading"> · ENERGY —</em>' : ''}</span>
+              ${laneHotCuesHtml(d, position)}
               ${cue >= -2 && cue <= 102 ? `<span class="zw-cue" style="left:${cue.toFixed(3)}%;transform:translateX(${state.shift}px)"></span>` : ''}
             </div>`;
         };

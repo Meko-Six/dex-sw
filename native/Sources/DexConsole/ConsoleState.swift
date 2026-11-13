@@ -450,7 +450,7 @@ extension ConsoleState {
             Deck(id: "A", trackID: "demo-0", playing: true, grid: Grid(bpm: 133, offsetMs: 489.9, confidence: 0.95),
                  durationSec: 384, position: 384 - 72.418, loop: Loop(startBeat: 688, lengthBeats: 8), wave: .demo(seed: 7),
                  title: "Everlight (Extended Mix)", artist: "Tiesto, Mathame", art: .split(0x2B4F7A, 0xD0703A),
-                 keyLock: true, camelot: "8A", hotCues: [32.0, 104.7, nil, 261.5, nil, nil, nil, nil])
+                 keyLock: true, camelot: "8A", hotCues: [32.0, 104.7, 312.67, 261.5, nil, nil, nil, nil])
                 .with { $0.headphoneCue = true; $0.trimDb = -1.4; $0.autoTrimDb = -1.4 },
             Deck(id: "B", trackID: "demo-1", syncLocked: true, grid: Grid(bpm: 130, offsetMs: 247.3, confidence: 0.88),
                  durationSec: 418, position: 0.91, cuePoint: 0.9, wave: .demo(seed: 21),

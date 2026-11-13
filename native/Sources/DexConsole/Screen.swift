@@ -157,6 +157,15 @@ private struct Lane: View {
                         .frame(width: size.width / 2, height: size.height)
                 }
                 if deck.loaded {
+                    // `.zw-hc`: each hot cue in view, under the CUE marker.
+                    ForEach(Array(deck.hotCues.enumerated()), id: \.offset) { slot, seconds in
+                        if let seconds {
+                            let left = (seconds - start) / spanSec * 100
+                            if left >= -2, left <= 102 {
+                                HotCueMarker(slot: slot).offset(x: lanePlace(left / 100 * size.width - 1, scale, moving))
+                            }
+                        }
+                    }
                     let cue = (deck.cuePoint - start) / spanSec * 100
                     if cue >= -2, cue <= 102 { CueMarker().offset(x: lanePlace(cue / 100 * size.width, scale, moving)) }
                 }
@@ -296,7 +305,12 @@ private struct LaneLoop: View {
                     Spacer(minLength: 0)
                     if edgeEnd { gold.frame(width: 2) }
                 }
-                Label("LOOP · \(Int(loop.lengthBeats)) \(loop.lengthBeats == 1 ? "BEAT" : "BEATS")", .cond(12, tracking: 0.72))
+            }
+            .frame(width: width, height: size.height)
+            // Over the box, not in it, as the mockup's absolute label: a loop narrower than
+            // its label keeps its own width, and the label runs on past it.
+            .overlay(alignment: .bottomLeading) {
+                Label("LOOP · \(loop.lengthBeats == loop.lengthBeats.rounded() ? String(Int(loop.lengthBeats)) : String(loop.lengthBeats)) \(loop.lengthBeats == 1 ? "BEAT" : "BEATS")", .cond(12, tracking: 0.72))
                     .foregroundStyle(Color(hex: 0xFFE37C))
                     .frame(height: 12)
                     .padding(.vertical, 2).padding(.horizontal, 4)
@@ -304,7 +318,6 @@ private struct LaneLoop: View {
                     .fixedSize()
                     .offset(x: (edgeStart ? 2 : 0) + 4, y: -3)
             }
-            .frame(width: width, height: size.height)
             .offset(x: x)
         }
     }
@@ -341,6 +354,40 @@ private struct LaneGrid: View {
 }
 
 /// `.zw-cue`: the red CUE line with its label.
+/// `.zw-hc`: a hot cue in the lane, in its slot's colour, full height, its number
+/// flagged at the top. A 1 pt dark edge keeps it clear of the loop and the peaks.
+private struct HotCueMarker: View {
+    let slot: Int
+
+    var body: some View {
+        let colour = Color(hex: hotCueColours[slot]), edge = Color.black.opacity(0.55)
+        colour.frame(width: 2)
+            .background(edge.padding(-1))
+            .overlay(alignment: .topLeading) {
+                Label(String(slot + 1), .cond(12)).foregroundStyle(Color(hex: 0x0B0913))
+                    .frame(width: 16, height: 16)
+                    .background(FlagShape().fill(colour))
+                    .background(FlagShape(radius: 3).fill(edge).padding(-1))
+                    .fixedSize()
+            }
+            .frame(maxHeight: .infinity)
+    }
+}
+
+/// A box squared on the left, against its line, and rounded on the right.
+private struct FlagShape: Shape {
+    var radius: CGFloat = 2
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.minY), tangent2End: CGPoint(x: rect.maxX, y: rect.maxY), radius: radius)
+        path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.maxY), tangent2End: CGPoint(x: rect.minX, y: rect.maxY), radius: radius)
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
 private struct CueMarker: View {
     var body: some View {
         Palette.red.frame(width: 2)

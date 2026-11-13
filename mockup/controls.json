@@ -180,7 +180,7 @@
       "label": "stacked zoom waveform",
       "kind": "gesture",
       "status": "live",
-      "does": "Both decks' waveforms, full width, one over the other, under one fixed white playhead at 50%. Drag either lane to scroll its waveform; the cue marker moves with it. In the native app a flick carries on after release, the same track distance at any zoom, and a touch catches it.",
+      "does": "Both decks' waveforms, full width, one over the other, under one fixed white playhead at 50%. Drag either lane to scroll its waveform; the cue marker and the hot cues move with it. Each hot cue in view is a line in its slot's colour with its number flagged at the top. In the native app a flick carries on after release, the same track distance at any zoom, and a touch catches it.",
       "note": "The mockup's single screen is the biggest departure from the current app layout; the app shares the line rule, not the surface.",
       "source": "src/renderer/ui/Waveform.tsx"
     },

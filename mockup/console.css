@@ -196,6 +196,12 @@ html, body {
 .zw-cue::after {
   content: "CUE"; position: absolute; top: 2px; left: 3px; font: 700 12px/1 ui-monospace, Menlo, monospace; color: var(--red);
 }
+/* a hot cue in the lane: its colour, full height, its number flagged at the top */
+.zw-hc { position: absolute; z-index: 2; pointer-events: none; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--hc); box-shadow: 0 0 0 1px rgba(0, 0, 0, .55); }
+.zw-hc b {
+  position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 16px; height: 16px;
+  font: 700 12px/1 var(--font-cond); color: #0b0913; background: var(--hc); border-radius: 0 2px 2px 0; box-shadow: 0 0 0 1px rgba(0, 0, 0, .55);
+}
 .zoom-stack { display: grid; grid-template-rows: 1fr 1fr 1fr; gap: 4px; }
 .zoom-stack span {
   display: grid; place-items: center; border-radius: 2px; cursor: pointer;

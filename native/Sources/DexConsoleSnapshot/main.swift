@@ -18,7 +18,7 @@ while let key = arguments.next() {
 }
 guard let out = options["--out"], var state = ConsoleState.demos[options["--screen"]!],
       let scale = Double(options["--scale"]!), let stretch = Double(options["--stretch"]!) else {
-    FileHandle.standardError.write(Data("usage: DexConsoleSnapshot --out file.png [--screen \(ConsoleState.demos.keys.sorted().joined(separator: "|"))] [--scale 2] [--stretch 0] [--waves 0] [--clip 1|master]\n".utf8))
+    FileHandle.standardError.write(Data("usage: DexConsoleSnapshot --out file.png [--screen \(ConsoleState.demos.keys.sorted().joined(separator: "|"))] [--scale 2] [--stretch 0] [--waves 0] [--clip 1|master] [--loop beats]\n".utf8))
     exit(2)
 }
 
@@ -27,6 +27,11 @@ if options["--waves"] == "0" { for index in state.decks.indices { state.decks[in
 // --clip 1 takes deck A's meter to 0 dBFS, the level that draws the red cap and border.
 if options["--clip"] == "1" { state.meters.level.a = MeterZones.clip; state.meters.hold.a = MeterZones.clip }
 if options["--clip"] == "master" { state.meters.level.l = MeterZones.clip; state.meters.hold.l = MeterZones.clip }
+// --loop 1 puts a loop of that many beats on deck A, starting on the beat under its playhead.
+if let beats = options["--loop"].flatMap(Double.init), let grid = state.decks[0].grid {
+    let beat = ((state.decks[0].position - grid.offsetMs / 1000) * grid.bpm / 60).rounded(.down)
+    state.decks[0].loop = ConsoleState.Loop(startBeat: beat, lengthBeats: beats)
+}
 if let path = options["--cover"] {
     guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
