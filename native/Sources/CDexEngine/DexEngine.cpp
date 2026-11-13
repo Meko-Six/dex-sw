@@ -446,7 +446,12 @@ struct DexEngine {
             if (!f.track || !m.track || f.framesPerBeat <= 0 || m.framesPerBeat <= 0) { f.steer = 0; continue; }
             const double masterStep = m.tempo * m.ratio;
             const double wanted = masterStep / m.framesPerBeat * f.framesPerBeat / f.ratio;
-            if (std::fabs(wanted - 1) > kLockTempoRange) { f.steer = 0; continue; }  // beyond this the grids can't lock
+            // Beyond the range the grids can't lock: the deck goes as near as it can, and nothing chases.
+            if (std::fabs(wanted - 1) > kLockTempoRange) {
+                f.effectiveTempo = wanted > 1 ? 1 + kLockTempoRange : 1 - kLockTempoRange;
+                f.steer = 0;
+                continue;
+            }
             f.effectiveTempo = wanted;
             if (!f.playing || !m.playing || f.scrubbing || m.scrubbing || m.preview) { f.steer = 0; continue; }
             const double step = wanted * f.ratio;

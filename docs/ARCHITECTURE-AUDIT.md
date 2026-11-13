@@ -21,7 +21,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 
 | # | Finding | Status |
 | --- | --- | --- |
-| 1 | Two copies of the transport state | **Open.** The big one. Stages 1 and 3 heard and passed; 4 in part |
+| 1 | Two copies of the transport state | **Open.** The big one. Stages 1–3 heard and passed; 4 in part |
 | 2 | Unreadable audio cached as silence | Fixed, `17b76b0` |
 | 3 | Playlists without the catalog's protection | Fixed, `17b76b0`, then moved into storage |
 | 4 | The audio layer carries screen state, copy and persistence | Open |
@@ -35,7 +35,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 | 12 | Landing cost on the audio thread has no budget | Open, unmeasured |
 | 13 | Smaller: engine creation not null-safe; `48_000` literals | Literals fixed; null safety dropped |
 
-### 1. Two copies of the transport state — open, stages 1 and 3 done
+### 1. Two copies of the transport state — open, stages 1–3 done
 
 The engine's header says a deck's position is "what was played, never a prediction". But
 `NativeDeck.land()` schedules a predicted `TransportClock` and `loopClock`, and
@@ -43,8 +43,8 @@ The engine's header says a deck's position is "what was played, never a predicti
 So position, loop bounds, tempo and master each exist twice:
 
 - Loop folding is done in Swift (`positionAt`, `boundsAt`) and in the engine (`scheduleWrap`).
-- The SYNC tempo ratio is worked out in `followMasterTempo` (`MixMath.tempoRate`) and again
-  in the engine's `updateLocks`.
+- ~~The SYNC tempo ratio is worked out in `followMasterTempo` (`MixMath.tempoRate`) and again
+  in the engine's `updateLocks`.~~ Only the engine's now (stage 2, below).
 - ~~Master election runs in `NativeMixer.holdSync`, a 50 ms poll, while the engine holds its
   own `master`.~~ Moved into the engine (stage 1, below).
 - Seven flags exist only to reconcile the two: `playing`, `hasStreamingVoice`, `startDueAt`,
@@ -71,8 +71,14 @@ user listening after each, because it changes timing. Not a job for unattended a
    (`takeMaster`). `NativeMixer.holdSync` no longer elects; it only brings the clocks up to
    date. The hand-off now happens on the block the deck stops, not up to 50 ms later.
    Test: `EngineBehaviourTests.testTheDeckLeftPlayingAloneLeads`.
-2. SYNC's tempo: show the engine's locked tempo (`DexDeckState.tempo`) instead of working it
-   out again in `followMasterTempo`.
+2. **SYNC's tempo from the engine — built 13 November 2026, heard and passed.** A locked
+   follower's TEMPO is the engine's published `DexDeckState.tempo`, taken in
+   `NativeDeck.followLockedTempo` once the engine has had everything the deck sent;
+   `followMasterTempo` and `MixMath.tempoRate` are gone. Out of the ±16% range the engine now
+   puts the follower at the limit (what Swift's clamp did) and still chases nothing. The
+   readout moves one block (about 10 ms) after a change, not at once. Tests:
+   `GridLockTests.testTheFollowersTempoFollowsTheMasters`,
+   `EngineBehaviourTests.testNoLockBeyondTheTempoRange`.
 3. **Loops from the engine — built 13 November 2026, heard and passed,** on top of stage 1.
    `DeckTimeline` (`DexCore/Transport.swift`) replaces `TransportClock` and the Swift
    `loopClock`: each segment carries the loop in force, and every block the engine plays takes

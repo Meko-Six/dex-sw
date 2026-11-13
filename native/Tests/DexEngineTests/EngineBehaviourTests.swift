@@ -474,12 +474,13 @@ final class EngineBehaviourTests: XCTestCase {
         XCTAssertLessThan(abs(rig.deckState(1).phaseErrorMs), 1)
     }
 
+    /// Out of range the follower goes as near as it can, +16% here, and nothing chases the grid.
     func testNoLockBeyondTheTempoRange() throws {
         let (rig, _, _) = lockedPair()
         dex_engine_set_grid(rig.engine, 1, 6000, rate * 60 / 100) // 100 BPM against 140 can't lock
         dex_engine_set_tempo(rig.engine, 1, 1.02)
         rig.render(seconds: 3)
-        XCTAssertEqual(rig.deckState(1).tempo, 1.02)
+        XCTAssertEqual(rig.deckState(1).tempo, 1.16, accuracy: 1e-12)
         XCTAssertEqual(rig.deckState(1).steer, 0)
         XCTAssertEqual(rig.deckState(1).relocks, 0)
     }

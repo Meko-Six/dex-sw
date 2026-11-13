@@ -179,7 +179,6 @@ public final class NativeDeck: ObservableObject {
               core.deckState(Int(link.index)).isMaster else { return }
         isMaster = true; partner?.isMaster = false
         releaseLock()
-        partner?.followMasterTempo()
     }
     /// What a DJ can reach at once, kept ready: the cues, the loop and every bar jump.
     private func updateHotspots() {
@@ -200,6 +199,7 @@ public final class NativeDeck: ObservableObject {
     private func syncEngine() {
         link.sync(following: playing && hasStreamingVoice && !jog.active)
         if let tempo = link.playedTempo { playRate = tempo }
+        followLockedTempo()
         // The count starts again with each track, so this follows it down as well as up.
         let failures = link.readFailures
         if failures > seenReadFailures {
@@ -251,8 +251,6 @@ public final class NativeDeck: ObservableObject {
             gridUncertain = track.gridUncertain
             gridAlternatives = track.alternatives
             updateCueGrid()
-            followMasterTempo()
-            if isMaster { partner?.followMasterTempo() }
             if playing { schedule(from: position, continuing: true) }
         }
         let cues = snappedHotCues(track.hotCues)
@@ -360,8 +358,6 @@ public final class NativeDeck: ObservableObject {
                 self.grid = detection.grid
                 self.gridUncertain = detection.uncertain
                 self.gridAlternatives = detection.alternatives
-                self.followMasterTempo()
-                if self.isMaster { self.partner?.followMasterTempo() }
                 self.hotCues = metadata?.hotCues ?? Array(repeating: nil, count: 8)
                 // AUTO trim: the DJ's own trim for this track if they set one, else the measured one.
                 let loudness = metadata?.loudness ?? overview.loudness
@@ -486,8 +482,6 @@ public final class NativeDeck: ObservableObject {
         gridAlternatives = track.alternatives
         updateCueGrid()
         saveMetadata()
-        followMasterTempo()
-        if isMaster { partner?.followMasterTempo() }
         if playing { schedule(from: position, continuing: true) }
     }
 
@@ -503,8 +497,6 @@ public final class NativeDeck: ObservableObject {
             updateCueGrid()
             error = nil
             saveMetadata()
-            followMasterTempo()
-            if isMaster { partner?.followMasterTempo() }
             if playing { schedule(from: position, continuing: true) }
         } catch { self.error = .invalidGridEntry }
     }
@@ -643,14 +635,12 @@ public final class NativeDeck: ObservableObject {
                 partner.releaseLock()
             }
             // The engine's lock lands or steers this deck in the same block it hears about it.
-            followMasterTempo()
         } else { releaseLock() }
     }
     /// The master is the truth: a synced deck takes its tempo and lands on its grid at once.
     func becomeMaster() {
         takeMaster()
         releaseLock()
-        partner?.followMasterTempo()
         partner?.holdLock()
     }
     /// The engine holds SYNC's lock in its own loop; here the deck only follows what it played.
@@ -661,10 +651,13 @@ public final class NativeDeck: ObservableObject {
         playRate = rate
         if playing { timeline.changeRate(rate, from: audioNow()) }
     }
-    func followMasterTempo() {
-        guard syncLocked, !isMaster, let source = partner, source.isMaster,
-              let grid, let masterGrid = source.grid else { return }
-        tempo = MixMath.tempoRate(master: masterGrid.bpm * source.tempo, follower: grid.bpm)
+    /// A locked follower's TEMPO is what the engine's lock chose: the master's speed in this
+    /// track's beats, or as near as ±16% allows. Taken once the engine has had all this deck sent,
+    /// so it stays where the lock left it when SYNC comes off.
+    private func followLockedTempo() {
+        guard syncLocked, !isMaster, link.confirmed, let state = engineDeckState,
+              state.syncLocked, !state.isMaster, abs(state.tempo - tempo) > 1e-12 else { return }
+        tempo = state.tempo
     }
     private func positionAt(_ time: Double) -> Double {
         if let position = jog.position { return position }
@@ -855,7 +848,6 @@ public final class NativeDeck: ObservableObject {
         link.setTempo(wanted)
         link.setKeyLock(keyLock)
         if playing { timeline.changeRate(playRate, from: audioNow()) }
-        if isMaster { partner?.followMasterTempo() }
     }
     private func updateGain() { dex_engine_set_fader(link.engine, link.index, level, crossfadeGain) }
     public enum PlaybackError: Error, Equatable, Sendable { case unsupportedChannels, engineBusy }

@@ -177,7 +177,5 @@ final class TransportTests: XCTestCase {
             if step <= 50 { XCTAssertEqual(gains.0, 1) } else { XCTAssertEqual(gains.1, 1) }
             previous = gains
         }
-        XCTAssertEqual(MixMath.tempoRate(master: 100, follower: 190), 0.84)
-        XCTAssertEqual(MixMath.tempoRate(master: 190, follower: 100), 1.16)
     }
 }

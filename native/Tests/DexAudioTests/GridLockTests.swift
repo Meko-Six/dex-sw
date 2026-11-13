@@ -138,10 +138,29 @@ final class GridLockTests: XCTestCase {
         try rig.render(1, keep: false)
         rig.a.toggleSync()
         XCTAssertTrue(rig.b.isMaster)
-        XCTAssertEqual(rig.a.tempo, 136.0 / 147, accuracy: 1e-9)
+        // The follower's TEMPO is the engine's lock, from its next block.
         try rig.render(1, keep: false)
+        XCTAssertEqual(rig.a.tempo, 136.0 / 147, accuracy: 1e-9)
         try rig.render(10)
         assertLocked(rig.gaps(period: 60.0 / 136), within: 4, "SYNC on the master")
+    }
+    /// The master's TEMPO carries the follower's with it: what the engine's lock chose, shown.
+    @MainActor func testTheFollowersTempoFollowsTheMasters() async throws {
+        let rig = try await Rig(seconds: 20); defer { rig.finish() }
+        rig.a.togglePlay(); rig.b.togglePlay()
+        rig.b.toggleSync()
+        try rig.render(1, keep: false)
+        XCTAssertTrue(rig.a.isMaster)
+        XCTAssertEqual(rig.b.tempo, 147.0 / 136, accuracy: 1e-9)
+        rig.a.tempo = 1.04
+        try rig.render(0.5, keep: false)
+        XCTAssertEqual(rig.b.tempo, 147.0 * 1.04 / 136, accuracy: 1e-9)
+        // SYNC off: the follower stays where the lock left it.
+        rig.b.toggleSync()
+        rig.a.tempo = 1
+        try rig.render(0.5, keep: false)
+        XCTAssertEqual(rig.b.tempo, 147.0 * 1.04 / 136, accuracy: 1e-9)
+        XCTAssertEqual(rig.b.playRate, rig.b.tempo, accuracy: 1e-9)
     }
     @MainActor func testPressingMasterHandsTheLockOver() async throws {
         let rig = try await Rig(seconds: 70); defer { rig.finish() }

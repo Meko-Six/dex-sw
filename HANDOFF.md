@@ -260,7 +260,10 @@ diff:native` (no console view changed), the muted live checks, the soak.
    off the beat on a short loop: an old layout fault, not stage 3 (the label widened the box,
    which was then centred over the loop). Fixed; `DexConsoleSnapshot --loop 1` draws it.
    The user then heard stage 3 pass (13 Nov): loops in and out, halving and doubling, bar
-   jumps and hot cues inside a loop. Stage 2 is next. The same listen asked for hot cues in
+   jumps and hot cues inside a loop. **Stage 2, SYNC's tempo from the engine, is built and
+   the user heard it pass (13 Nov),** including a 147 BPM track against 123 sitting at −16%
+   (123.5) without chasing. Stage 4's remainder is next: `hasStreamingVoice`, `startDueAt`
+   and `endHeardAt` from the published `playing`, `landingPending` and `ended`. The same listen asked for hot cues in
    the zoom lanes; they are in the mockup and ported (`.zw-hc`, `HotCueMarker`).
 3. **The audio lifecycle as an explicit state machine,** once the start-up fix has been
    tried on devices. A start that fails outright with an output change pending still ends
