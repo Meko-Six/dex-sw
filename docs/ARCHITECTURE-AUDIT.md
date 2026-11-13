@@ -27,7 +27,7 @@ The biggest structural risk is finding 1 below, and it is still open.
 | 4 | The audio layer carries screen state, copy and persistence | Open |
 | 5 | Errors are sentences | Fixed: alerts, then typed errors |
 | 6 | Whole screen state rebuilt on any change | Fixed for library rows |
-| 7 | Audio lifecycle is an implicit state machine | Partly: dropped changes fixed, the machine itself open |
+| 7 | Audio lifecycle is an implicit state machine | Fixed: one tested state machine |
 | 8 | A full command queue loses a track load | Fixed |
 | 9 | Catalog reloaded and rewritten on every edit | Reload fixed; the double write is deliberate |
 | 10 | Five unsynchronised polling loops on the main thread | Partly: the two transport loops are one |
@@ -199,7 +199,7 @@ FIND KEYS and the background tag and loudness fills pay that per track. Fixing i
 needs the library to say which track changed. `ConsoleModel` has no test target; the row
 cache was checked against the old mapping in a throwaway harness, not in the app.
 
-### 7. Audio lifecycle is an implicit state machine — partly fixed
+### 7. Audio lifecycle is an implicit state machine — fixed
 
 `NativeMixer` runs its lifecycle on loose flags (`enabled`, `observing`, `servicesMissing`,
 `startTask`, `startTicket`, `audioState`, `configurationQuietUntil`, `resumeIntent`). A
@@ -213,9 +213,17 @@ found. Just after a start, a change is let go only if the engine is still runnin
 same output. The rule is `ConfigurationChange.decide`, tested; the wiring only runs against
 a real output and is **unchecked**.
 
-Open: the flags are still loose flags. A start that fails outright with a change pending
-still ends as "no audio" until the app comes to the foreground; an automatic retry was left
-out because a failing start that retries on its own notifications could loop.
+Fixed, 13 November: the loose flags (`enabled`, `servicesMissing`, `resumeIntent`,
+`configurationQuietUntil`, `configurationPending`, `startedOutput`, and `audioState` set from
+eight places) are one value, `AudioLifecycle` in `AudioLifecycle.swift`: a `Phase` (idle,
+starting, running, interrupted, services lost, rebuilding, asleep, failed, shut down) and one
+`send(event) -> [Effect]`. It touches nothing; `NativeMixer.dispatch` carries out its effects
+(suspend, start, finish, notice, rebuild, fail) and feeds back what happened. `audioState` is
+read from the phase and nowhere else. `AudioLifecycleTests` walks every path, including the
+ones only a device can set off. Behaviour is as before, with one change: a start that fails
+while a change of output was under way tries **once** more, half a second later, then fails as
+before; a second failure never retries, so a broken output can't loop. Unchecked on a device,
+like the rest of the lifecycle.
 
 ### 8. A full command queue loses a track load — fixed
 

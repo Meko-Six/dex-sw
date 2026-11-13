@@ -33,6 +33,7 @@ public final class NativeMixer: ObservableObject {
     public private(set) var errorRevision: UInt64 = 0
     public private(set) var noticeRevision: UInt64 = 0
     public enum AudioState: Equatable { case ready, interrupted, recovering, unavailable }
+    /// The lifecycle's phase, as the screen needs it; only `dispatch` sets it.
     @Published public private(set) var audioState = AudioState.ready
     private var engine = AVAudioEngine()
     private let core: EngineCore
@@ -74,16 +75,12 @@ public final class NativeMixer: ObservableObject {
     private var offlineChannels: AVAudioChannelCount?
     private let observations = AudioLifecycleObservers()
     private weak var library: NativeLibrary?
-    private var enabled = true
     private var observing = false
-    private var servicesMissing = false
-    private var resumeIntent = [false, false]
     private var playbackObservers: Set<AnyCancellable> = []
-    private var configurationQuietUntil = 0.0
-    /// The engine reported a change while a start was under way; it's judged when that finishes.
-    private var configurationPending = false
-    /// The output the last start left the engine feeding.
-    private var startedOutput: OutputLatency.Signature?
+    /// The output's life: one phase, and the rules for every event. See `AudioLifecycle`.
+    private var lifecycle = AudioLifecycle()
+    /// Why the last start failed, for the alert.
+    private var startError: Error?
     private var pressureTask: Task<Void, Never>?
     private var startTask: Task<Void, Never>?
     private var startTicket: AudioControlTicket?
@@ -163,31 +160,35 @@ public final class NativeMixer: ObservableObject {
         let observed = ControlHandle(object: engine)
         observations.install(engine: engine) { [weak self] event in
             Task { @MainActor [weak self] in
-                guard let self, enabled, engine === observed.object, !engine.isInManualRenderingMode else { return }
+                guard let self, !lifecycle.isShutDown, engine === observed.object, !engine.isInManualRenderingMode else { return }
                 receive(event)
             }
         }
         observing = true
     }
-    /// A notification from the system. A change of configuration is held while a start is under
-    /// way and judged once it has finished, never dropped; the start's own echoes are let go.
+    /// A notification from the system. A change of configuration is judged by the lifecycle: held
+    /// while a start is under way, and let go if it is only the start's own echo.
     private func receive(_ event: AudioLifecycleEvent) {
         guard case .configurationChanged = event else { handle(event); return }
         let running = engine.isRunning
-        switch ConfigurationChange.decide(starting: startTask != nil,
-                                          settling: ProcessInfo.processInfo.systemUptime < configurationQuietUntil, running: running,
-                                          sameOutput: running && OutputLatency.signature(of: engine) == startedOutput) {
-        case .wait: configurationPending = true
-        case .ignore: break
-        case .act: handle(event)
-        }
+        dispatch(.configurationNotice(now: ProcessInfo.processInfo.systemUptime, running: running,
+                                      output: running ? OutputLatency.signature(of: engine) : nil))
     }
-    /// After a start: a change reported during it is acted on if the engine has stopped again
-    /// or is no longer feeding the output that start found.
-    private func settleConfiguration() {
-        guard configurationPending, startTask == nil else { return }
-        configurationPending = false
-        if !engine.isRunning || OutputLatency.signature(of: engine) != startedOutput { handle(.configurationChanged) }
+    /// Every change to the output's life goes through here: the lifecycle decides, this carries it out.
+    private func dispatch(_ event: AudioLifecycle.Event) {
+        let effects = lifecycle.send(event)
+        audioState = lifecycle.audioState
+        for effect in effects {
+            switch effect {
+            case .suspend: suspend()
+            case .start(let delay): beginStart(after: delay)
+            case .finish(let resume, let notice): finishStart(resume: resume, notice: notice)
+            case .notice(let notice): self.notice = notice
+            case .rebuild: rebuildEngine()
+            case .fail: fail(startError ?? CancellationError())
+            }
+        }
+        audioState = lifecycle.audioState
     }
     public func setMaster(_ deck: NativeDeck) { deck.becomeMaster() }
     /// The one transport heartbeat. While anything plays, each deck catches up with the engine at
@@ -230,36 +231,29 @@ public final class NativeMixer: ObservableObject {
         a.followEngineMaster(); b.followEngineMaster()
         return status
     }
-    public func start() {
-        enabled = true
-        guard audioState != .interrupted, !servicesMissing, startTask == nil else { return }
-        if engine.isRunning && audioState == .ready { return }
-        requestStart()
-    }
+    public func start() { dispatch(.start(engineRunning: engine.isRunning)) }
     private func cancelStart() {
         startTicket?.cancel(); startTicket = nil
         startTask?.cancel(); startTask = nil
     }
-    /// Offline tests own an engine on their rendering thread. Physical output
-    /// uses an asynchronous control lane; no main-thread wait or semaphore.
-    private func requestStart(resume: [Bool] = [false, false], notice: MixerNotice? = nil) {
-        guard enabled, !servicesMissing, audioState != .interrupted, startTask == nil else { return }
-        configurationQuietUntil = ProcessInfo.processInfo.systemUptime + 0.25
+    /// Opens the output, as the lifecycle asked. Offline tests own an engine on their rendering
+    /// thread. Physical output uses an asynchronous control lane; no main-thread wait or semaphore.
+    private func beginStart(after delay: Double) {
         if !observing { installObservers() }
         if engine.isInManualRenderingMode {
             do {
                 if !engine.isRunning { try engine.start() }
-                finishStart(resume: resume, notice: notice)
-            } catch { fail(error) }
+                dispatch(.started(output: nil, runningNow: true, outputNow: nil))
+            } catch { startError = error; dispatch(.startFailed) }
             return
         }
         let engineDelay = core.engineDelaySeconds
         let engine = ControlHandle(object: engine), source = ControlHandle(object: outputSource), ticket = AudioControlTicket()
         startTicket = ticket
-        audioState = .recovering
         for deck in decks { deck.audioAvailable = false }
         startTask = Task { [weak self] in
             do {
+                if delay > 0 { try await Task.sleep(for: .seconds(delay)) }
                 let output = try await AudioControlExecutor.shared.run {
                     try Self.activateAndStart(engine.object, source: source.object, ticket: ticket)
                 }
@@ -267,14 +261,14 @@ public final class NativeMixer: ObservableObject {
                 self.startTask = nil; self.startTicket = nil
                 self.outputChannels = output.channels; self.applyRouting()
                 for deck in self.decks { deck.outputDelay = output.delay + engineDelay }
-                self.startedOutput = output.signature
-                self.finishStart(resume: resume, notice: notice)
-                self.settleConfiguration()
+                let running = self.engine.isRunning
+                self.dispatch(.started(output: output.signature, runningNow: running,
+                                       outputNow: running ? OutputLatency.signature(of: self.engine) : nil))
             } catch {
                 guard let self, self.startTicket === ticket, !ticket.isCancelled else { return }
                 self.startTask = nil; self.startTicket = nil
-                self.configurationPending = false
-                self.fail(error)
+                self.startError = error
+                self.dispatch(.startFailed)
             }
         }
     }
@@ -309,10 +303,9 @@ public final class NativeMixer: ObservableObject {
         AudioDiagnostics.log.info("output: \(OutputLatency.describe(engine), privacy: .public)")
         return (channels, OutputLatency.seconds(for: engine), OutputLatency.signature(of: engine))
     }
+    /// The output is open: the decks come back, those that were playing play again.
     private func finishStart(resume: [Bool], notice: MixerNotice?) {
-        guard enabled, !servicesMissing, audioState != .interrupted else { return }
-        audioState = .ready; error = nil
-        configurationQuietUntil = ProcessInfo.processInfo.systemUptime + 0.25
+        error = nil
         // A paused engine froze its filters mid-tail; nothing from before may ring on.
         dex_engine_clear_tails(core.raw)
         for deck in decks {
@@ -352,7 +345,8 @@ public final class NativeMixer: ObservableObject {
         return result
     }
     private func fail(_ failure: Error) {
-        error = .engineFailed(Failure(failure)); audioState = .unavailable
+        startError = nil
+        error = .engineFailed(Failure(failure))
         for deck in decks { deck.audioAvailable = false }
     }
     /// Shared, testable policy for system notifications and scene transitions.
@@ -360,47 +354,18 @@ public final class NativeMixer: ObservableObject {
         autoreleasepool { handleEvent(event) }
     }
     private func handleEvent(_ event: AudioLifecycleEvent) {
-        guard enabled else { return }
+        guard !lifecycle.isShutDown else { return }
         switch event {
-        case .interruptionBegan:
-            guard audioState != .interrupted, !servicesMissing else { return }
-            resumeIntent = suspend(); audioState = .interrupted
-            notice = .interrupted
-        case .interruptionEnded(let shouldResume):
-            guard audioState == .interrupted else { return }
-            let resume = resumeIntent; resumeIntent = [false, false]
-            audioState = .recovering
-            requestStart(resume: shouldResume ? resume : [false, false],
-                         notice: shouldResume && resume.contains(true) ? nil : .readyPressPlay)
-        case .configurationChanged:
-            guard audioState != .interrupted, !servicesMissing else { return }
-            handle(.outputChanged)
-        case .outputChanged:
-            // Never start unexpectedly on speakers after headphones/USB vanish.
-            let interrupted = audioState == .interrupted
-            _ = suspend(); resumeIntent = [false, false]
-            if servicesMissing { return }
-            if interrupted { notice = .outputChangedStaysPaused; return }
-            audioState = .recovering
-            requestStart(notice: .outputChangedPressPlay)
-        case .servicesLost:
-            servicesMissing = true
-            _ = suspend(); resumeIntent = [false, false]; audioState = .unavailable
-            notice = .servicesRestarting
-        case .servicesReset:
-            servicesMissing = false
-            _ = suspend(); resumeIntent = [false, false]; audioState = .recovering
-            rebuildEngine()
-        case .willSleep:
-            _ = suspend(); resumeIntent = [false, false]; audioState = .unavailable
-            notice = .pausedForSleep
+        case .interruptionBegan: dispatch(.interruptionBegan(playing: decks.map { $0.playing && !$0.previewing }))
+        case .interruptionEnded(let shouldResume): dispatch(.interruptionEnded(shouldResume: shouldResume))
+        case .configurationChanged: dispatch(.configurationChanged)
+        case .outputChanged: dispatch(.outputChanged)
+        case .servicesLost: dispatch(.servicesLost)
+        case .servicesReset: dispatch(.servicesReset)
+        case .willSleep: dispatch(.willSleep)
         case .foreground:
             AudioMemoryBudget.shared.setPressure(false)
-            guard audioState != .interrupted, !servicesMissing, startTask == nil else { return }
-            if !engine.isRunning {
-                _ = suspend()
-                requestStart(notice: .readyPressPlay)
-            }
+            dispatch(.foreground(engineRunning: engine.isRunning))
         case .memoryWarning:
             AudioMemoryBudget.shared.setPressure(true)
             library?.handleMemoryPressure()
@@ -440,8 +405,8 @@ public final class NativeMixer: ObservableObject {
         configureGraph()
         do {
             if offline { try enableOfflineRendering(channels: channels ?? 2, split: split) }
-            requestStart(notice: .restoredPressPlay)
-        } catch { fail(error) }
+            dispatch(.rebuilt)
+        } catch { startError = error; dispatch(.startFailed) }
     }
     public func sceneBecameActive() { handle(.foreground) }
     /// How often the engine had to wait or fell short, in a line.
@@ -457,10 +422,10 @@ public final class NativeMixer: ObservableObject {
         AudioDiagnostics.log.info("\(self.engineReport, privacy: .public)")
     }
     public func shutdown() {
-        enabled = false; cancelStart(); observing = false; observations.clear(); pressureTask?.cancel(); pressureTask = nil
+        dispatch(.shutdown)
+        cancelStart(); observing = false; observations.clear(); pressureTask?.cancel(); pressureTask = nil
         lockTask?.cancel(); lockTask = nil
         for deck in decks { deck.shutdown(); deck.audioAvailable = false }
-        audioState = .unavailable
         let core = core
         controlEngine({ $0.stop() }, then: { core.close() })
     }

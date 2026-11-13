@@ -26,6 +26,193 @@ enum ConfigurationChange: Equatable {
     }
 }
 
+/// The audio output's life, as one value: which phase it is in and what each event does. It
+/// touches nothing; `NativeMixer` carries out the effects it returns, and feeds back what
+/// happened (a start that finished or failed, a rebuilt engine). Every path is tested here,
+/// including ones only a real device can set off.
+struct AudioLifecycle: Equatable {
+    enum Phase: Equatable {
+        /// Nothing asked for yet.
+        case idle
+        /// The output is being opened. `resume`: decks to play again once it is open.
+        case starting(resume: [Bool], notice: MixerNotice?, retried: Bool)
+        case running
+        /// Another app or a call has the audio; `resume` is what was playing.
+        case interrupted(resume: [Bool])
+        /// The system's media services are gone until they are reset.
+        case servicesLost
+        /// After a reset: the old engine is being stopped and a new graph built.
+        case rebuilding
+        case asleep
+        /// A start failed; the next foreground or start tries again.
+        case failed
+        case shutDown
+    }
+    enum Event: Equatable {
+        /// The app asks for audio. `engineRunning`: the output is already open.
+        case start(engineRunning: Bool)
+        /// The output opened, feeding `output`; `runningNow` and `outputNow` are as it stands now.
+        case started(output: OutputLatency.Signature?, runningNow: Bool, outputNow: OutputLatency.Signature?)
+        case startFailed
+        /// The engine said its configuration changed, at `now`, as it stands.
+        case configurationNotice(now: Double, running: Bool, output: OutputLatency.Signature?)
+        /// A change of configuration to act on, already judged.
+        case configurationChanged
+        case outputChanged
+        /// `playing`: the decks heard playing as it began.
+        case interruptionBegan(playing: [Bool])
+        case interruptionEnded(shouldResume: Bool)
+        case servicesLost, servicesReset
+        /// The new graph is built after a reset.
+        case rebuilt
+        case willSleep
+        case foreground(engineRunning: Bool)
+        case shutdown
+    }
+    enum Effect: Equatable {
+        /// Freeze the decks where they were heard, and pause the output; any start is cancelled.
+        case suspend
+        /// Open the output, after `delay` seconds.
+        case start(delay: Double)
+        /// The output is open: decks back, `resume` played again, `notice` shown.
+        case finish(resume: [Bool], notice: MixerNotice?)
+        case notice(MixerNotice)
+        /// Stop the old engine and build a new graph, then report `rebuilt`.
+        case rebuild
+        /// The start failed: no audio until the next foreground or start.
+        case fail
+    }
+
+    private(set) var phase = Phase.idle
+    /// Until then, a change of configuration may be the echo of the start just made.
+    private var settlingUntil = -Double.infinity
+    /// The engine reported a change while a start was under way; judged when it finishes.
+    private(set) var changePending = false
+    /// The output the last start left the engine feeding.
+    private(set) var startedOutput: OutputLatency.Signature?
+    /// How long a start just after a failed one waits, for an output still changing to settle.
+    static let retryDelay = 0.5
+    static let settleTime = 0.25
+
+    var audioState: NativeMixer.AudioState {
+        switch phase {
+        case .idle, .running: .ready
+        case .starting, .rebuilding: .recovering
+        case .interrupted: .interrupted
+        case .servicesLost, .asleep, .failed, .shutDown: .unavailable
+        }
+    }
+    var isShutDown: Bool { phase == .shutDown }
+    /// A start or a rebuild is under way.
+    var busy: Bool {
+        switch phase { case .starting, .rebuilding: true; default: false }
+    }
+
+    mutating func send(_ event: Event, now: Double = ProcessInfo.processInfo.systemUptime) -> [Effect] {
+        if isShutDown, event != .start(engineRunning: false), event != .start(engineRunning: true) { return [] }
+        switch event {
+        case .start(let running):
+            switch phase {
+            case .interrupted, .servicesLost, .starting, .rebuilding: return []
+            case .running where running: return []
+            default: return begin(resume: [false, false], notice: nil, now: now)
+            }
+        case .started(let output, let runningNow, let outputNow):
+            guard case .starting(let resume, let notice, _) = phase else { return [] }
+            phase = .running
+            startedOutput = output
+            settlingUntil = now + Self.settleTime
+            var effects: [Effect] = [.finish(resume: resume, notice: notice)]
+            if changePending {
+                changePending = false
+                if !runningNow || outputNow != output { effects += send(.configurationChanged, now: now) }
+            }
+            return effects
+        case .startFailed:
+            switch phase {
+            case .starting(_, _, let retried):
+                // A change of output was under way: the output may not have settled, so one more
+                // try, a moment later. Never a second, so a broken output can't loop.
+                if changePending, !retried {
+                    changePending = false
+                    return begin(resume: [false, false], notice: .outputChangedPressPlay, now: now, retried: true, delay: Self.retryDelay)
+                }
+                changePending = false
+                phase = .failed
+                return [.fail]
+            case .rebuilding:
+                phase = .failed
+                return [.fail]
+            default: return []
+            }
+        case .configurationNotice(let at, let running, let output):
+            switch ConfigurationChange.decide(starting: busy, settling: at < settlingUntil, running: running,
+                                              sameOutput: running && output == startedOutput) {
+            case .wait: changePending = true; return []
+            case .ignore: return []
+            case .act: return send(.configurationChanged, now: now)
+            }
+        case .configurationChanged:
+            switch phase {
+            case .interrupted, .servicesLost: return []
+            default: return send(.outputChanged, now: now)
+            }
+        case .outputChanged:
+            // Never start on its own on speakers after headphones or an interface go.
+            switch phase {
+            case .servicesLost: return [.suspend]
+            case .interrupted:
+                phase = .interrupted(resume: [false, false])
+                return [.suspend, .notice(.outputChangedStaysPaused)]
+            default:
+                return [.suspend] + begin(resume: [false, false], notice: .outputChangedPressPlay, now: now)
+            }
+        case .interruptionBegan(let playing):
+            switch phase {
+            case .interrupted, .servicesLost: return []
+            default:
+                phase = .interrupted(resume: playing)
+                return [.suspend, .notice(.interrupted)]
+            }
+        case .interruptionEnded(let shouldResume):
+            guard case .interrupted(let resume) = phase else { return [] }
+            return begin(resume: shouldResume ? resume : [false, false],
+                         notice: shouldResume && resume.contains(true) ? nil : .readyPressPlay, now: now)
+        case .servicesLost:
+            phase = .servicesLost
+            return [.suspend, .notice(.servicesRestarting)]
+        case .servicesReset:
+            phase = .rebuilding
+            return [.suspend, .rebuild]
+        case .rebuilt:
+            guard phase == .rebuilding else { return [] }
+            return begin(resume: [false, false], notice: .restoredPressPlay, now: now)
+        case .willSleep:
+            // Asleep with media services gone, they are still gone on waking.
+            if phase != .servicesLost { phase = .asleep }
+            return [.suspend, .notice(.pausedForSleep)]
+        case .foreground(let running):
+            switch phase {
+            case .interrupted, .servicesLost, .starting, .rebuilding: return []
+            default:
+                guard !running else { return [] }
+                return [.suspend] + begin(resume: [false, false], notice: .readyPressPlay, now: now)
+            }
+        case .shutdown:
+            phase = .shutDown
+            changePending = false
+            return []
+        }
+    }
+
+    private mutating func begin(resume: [Bool], notice: MixerNotice?, now: Double,
+                                retried: Bool = false, delay: Double = 0) -> [Effect] {
+        phase = .starting(resume: resume, notice: notice, retried: retried)
+        settlingUntil = now + Self.settleTime
+        return [.start(delay: delay)]
+    }
+}
+
 /// Notification ownership is independent of engine ownership. Replacing an
 /// engine removes its old subscriptions; callbacks capture only weak owners.
 final class AudioLifecycleObservers: @unchecked Sendable {

@@ -227,6 +227,7 @@ All on `main` in dex-sw, last `21213e5`.
 | Fix | What changed |
 | --- | --- |
 | **One transport truth** (finding 1, 13 Nov) | Five stages, each heard by the user. (1) The engine elects the master. (2) A locked follower's TEMPO is the engine's lock; out of ±16% it sits at the limit and chases nothing. (3) `DeckTimeline` replaces the clock and loop clock, following the engine's blocks and loop. (4) A pending start and the heard end come from the engine and the timeline; the one intent left, `soundRequested`, lives in the timeline by the user's choice. (5) The mixer's 30 Hz heartbeat is the only transport loop; it can't go, since it keeps decks current in the background. The deck's own flags are now just `playing` and `dropped` |
+| Audio lifecycle (finding 7, 13 Nov) | One state machine, `AudioLifecycle`, in place of loose flags; the mixer carries out what it decides. One new behaviour: a start that fails mid output change retries once, half a second later. Every path unit-tested; not tried on a device |
 | Typed errors (finding 5, 13 Nov) | Errors are values (`Problems.swift`), turned into words only in `ProblemText` in the app. Not checked by the user as such: see Awaiting the user |
 | Unreadable audio | A failed read is never stored as silence. The loader retries it every 250 ms, the engine waits for it as for any audio not there yet, and the deck reports it once per spell of trouble |
 | Playlists | Versioned file, backup of the save before, an unreadable file copied aside first, a newer version's never written, nothing written before reading. Saved through `LibraryStorage`, under its lock, off the main thread |
@@ -266,13 +267,10 @@ stage, which is how the hot cue marker was compared.
 ### Still to do, in the suggested order
 
 1. **The user's checks** (Awaiting the user, below).
-2. **The audio lifecycle as an explicit state machine** (finding 7), once the start-up fix
-   has been tried on devices. A start that fails outright with an output change pending still
-   ends as "no audio" until the app comes forward.
-3. **Restructuring, if wanted at all** (findings 4, 11): `NativeDeck` split into rules,
+2. **Restructuring, if wanted at all** (findings 4, 11): `NativeDeck` split into rules,
    engine port and observable; the library in its own module; the engine file split by
    concern. None of it changes what is seen or heard.
-4. **Optional, larger:** the engine telling the app when something changes, instead of the
+3. **Optional, larger:** the engine telling the app when something changes, instead of the
    30 Hz heartbeat asking (the rest of finding 10). Meters, jog and the display link keep
    their own loops; each is its own job.
 
