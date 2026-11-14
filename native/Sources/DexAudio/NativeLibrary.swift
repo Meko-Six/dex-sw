@@ -62,11 +62,17 @@ public final class NativeLibrary: ObservableObject {
     /// kept as `playlists.backup.json`. A file this build can't read is never written over.
     /// An edit shows here at once; the storage writes it soon after, off the main actor.
     @Published public private(set) var playlists: [Playlist] = []
+    /// Every set and what it played, saved in `sets.json`. The current set's tracks are
+    /// the ones marked played in the library, until NEW SET.
+    @Published public private(set) var sets = SetHistory()
+    private var setsLocked = false
+    private var setsUnsaved = false
+    private var setsWriter: Task<Void, Never>?
     private let storage: LibraryStorage
     /// The file holds playlists this build must not replace: a newer version's, or ones that
     /// couldn't be read or set aside.
     private var playlistsLocked: PlaylistLock?
-    private var opening: Task<(tracks: [LibraryTrack], playlists: SavedPlaylists), Error>?
+    private var opening: Task<(tracks: [LibraryTrack], playlists: SavedPlaylists, sets: SavedSets), Error>?
     private var writer: Task<Void, Never>?
     /// One writer for playlists too: it saves the list as it stands when its turn comes.
     private var playlistWriter: Task<Void, Never>?
@@ -106,12 +112,18 @@ public final class NativeLibrary: ObservableObject {
         if ready { return }
         // The saved playlists are read with the catalog, so the library is never ready,
         // and so never writes playlists, before it has them.
-        if opening == nil { opening = Task { [storage] in (try await storage.open(), try await storage.openPlaylists()) } }
+        if opening == nil {
+            opening = Task { [storage] in (try await storage.open(), try await storage.openPlaylists(), try await storage.openSets()) }
+        }
         do {
             let loaded = try await opening!.value
             if !ready {
                 tracks = loaded.tracks; ready = true
                 let playlistNotice = loadPlaylists(loaded.playlists)
+                switch loaded.sets {
+                case .loaded(let history): sets = SetHistory.normalize(history, known: Set(tracks.map(\.id.uuidString)))
+                case .newer, .unreadable: setsLocked = true
+                }
                 let catalogNotice: LibraryNotice.Restoration? = await storage.recoveredCatalog ? .catalog : nil
                 let restorations = [catalogNotice, playlistNotice].compactMap { $0 }
                 if !restorations.isEmpty {
@@ -356,6 +368,7 @@ public final class NativeLibrary: ObservableObject {
             try await storage.remove(id)
             tracks.removeAll { $0.id == id }
             setPlaylists(Playlists.forget(playlists, track: id.uuidString))
+            var history = sets; history.forget(id.uuidString); setSets(history)
             operationError = nil
         } catch { operationError = .removeFailed(Failure(error)) }
     }
@@ -473,6 +486,50 @@ public final class NativeLibrary: ObservableObject {
     public func deletePlaylist(_ id: String) { setPlaylists(Playlists.delete(playlists, id: id)) }
     public func addToPlaylist(_ id: String, tracks: [UUID]) { setPlaylists(Playlists.add(playlists, id: id, tracks: tracks.map(\.uuidString))) }
     public func removeFromPlaylist(_ id: String, track: UUID) { setPlaylists(Playlists.remove(playlists, id: id, track: track.uuidString)) }
-    public func flush() async { startWriter(); await writer?.value; await playlistWriter?.value }
+    public func flush() async { startWriter(); await writer?.value; await playlistWriter?.value; await setsWriter?.value }
+
+    // MARK: Sets and ratings
+
+    /// The crowd has heard a track for long enough: it joins the current set.
+    public func recordPlay(_ id: UUID, at time: Date = Date()) {
+        guard tracks.contains(where: { $0.id == id }) else { return }
+        var history = sets; history.record(id.uuidString, at: time); setSets(history)
+    }
+    /// NEW SET: the played marks clear; the set just ended stays in the history.
+    public func newSet(at time: Date = Date()) {
+        var history = sets; history.newSet(at: time); setSets(history)
+    }
+    /// SAVE AS PLAYLIST: a playlist of the set's tracks, in the order played. Returns its id.
+    @discardableResult public func saveSetAsPlaylist(_ id: String, named name: String) -> String? {
+        let tracks = sets.tracks(of: id)
+        guard !tracks.isEmpty else { return nil }
+        let playlist = createPlaylist(named: name)
+        setPlaylists(Playlists.add(playlists, id: playlist, tracks: tracks))
+        return playlist
+    }
+    private func setSets(_ next: SetHistory) {
+        guard ready, next != sets else { return }
+        sets = next
+        guard !setsLocked else { return }
+        setsUnsaved = true
+        guard setsWriter == nil else { return }
+        setsWriter = Task { [weak self] in await self?.drainSets() }
+    }
+    private func drainSets() async {
+        while setsUnsaved {
+            setsUnsaved = false
+            do { try await storage.saveSets(sets) }
+            catch { operationError = .playlistSaveFailed(Failure(error)); break }
+        }
+        setsWriter = nil
+    }
+    /// The DJ's stars for a track, 1 to 5; nil clears them.
+    public func setRating(_ id: UUID, _ stars: Int?) {
+        guard let index = tracks.firstIndex(where: { $0.id == id }) else { return }
+        let old = tracks[index]
+        var updated = old
+        updated.rating = stars.flatMap { (1...5).contains($0) ? $0 : nil }
+        commit(old, updated)
+    }
     var persistenceCommits: Int { get async { await storage.commitCount } }
 }

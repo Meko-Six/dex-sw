@@ -920,6 +920,7 @@
             <rect x="1173.5" y="812.8" width="1" height="4.4" transform="translate(-191.0154 1238.3605) rotate(-52)"/>
             <rect x="1171.8" y="814.5" width="4.4" height="1" transform="translate(-191.0154 1238.3605) rotate(-52)"/>
             <!-- Platters -->
+            <g id="platters">
             <circle class="st127" cx="234" cy="545" r="131"/>
             <circle class="st18" cx="234" cy="545" r="16"/>
             <circle class="st18" cx="234" cy="545" r="19"/>
@@ -1294,6 +1295,7 @@
             <path class="st133" d="M858.3,600.66q-1.12-1.6-2.45-3.02"/>
             <line class="st133" x1="870.61" y1="621.5" x2="870.58" y2="621.58"/>
             <line class="st133" x1="862.43" y1="625.69" x2="862.44" y2="625.62"/>
+            </g>
             <!-- Mixer faceplate -->
             <rect class="st30" x="297" y="419" width="600" height="324" rx="3" ry="3"/>
             <rect class="st86" x="297" y="415" width="600" height="324" rx="3" ry="3"/>
@@ -1537,6 +1539,13 @@
             <text class="st59" transform="translate(1063.5585 754.4041)"><tspan x="0" y="0">LOOP</tspan></text>
           </g>
           <g id="dyn"></g>
+          <!-- A platter being scrubbed rises over the mixer until it's let go -->
+          <defs>
+            <clipPath id="liftA"><circle cx="234" cy="545" r="131"/></clipPath>
+            <clipPath id="liftB"><circle cx="960" cy="545" r="131"/></clipPath>
+            <filter id="liftShadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+          </defs>
+          <g id="lift" pointer-events="none"></g>
         </svg>
         <div class="over" id="over"><div class="targets" id="targets"></div></div>
         <img class="drawing" src="stage-two-decks%20FA.svg" alt="">
@@ -1850,9 +1859,41 @@
         ? `<rect class="st77" x="${P.play - 6.5}" y="${cy - 7.58}" width="4.33" height="15.17" rx="1.08"/>
            <rect class="st77" x="${f2(P.play + 2.17)}" y="${cy - 7.58}" width="4.33" height="15.17" rx="1.08"/>`
         : `<path class="st77" d="M${f2(P.play - 4.33)},${f2(cy - 7.04)}v14.08l11.91-7.04Z"/>`;
-      return `<g data-ctl="tcue:${k}" role="button">${ring(P.cue, d.tCue ? 'st124' : 'st137')}
+      return slideTrack(k) + `<g data-ctl="tcue:${k}" role="button">${ring(P.cue, d.tCue ? 'st124' : 'st137')}
           <text class="${d.tCue ? 'st31' : 'st72'}" x="${f2(P.cue - 18.25)}" y="787.66">CUE</text></g>
-        <g data-ctl="play:${k}" role="button" aria-pressed="${d.playing}">${ring(P.play, d.playing ? 'st136' : 'st137')}${play}</g>`;
+        <g data-ctl="play:${k}" role="button" aria-pressed="${d.playing}">${ring(P.play, d.playing ? 'st136' : 'st137')}${play}</g>${slidePuck(k)}`;
+    }
+
+    /* Holding CUE: a track joins CUE to PLAY, and a puck follows the finger along it.
+       Reaching PLAY latches the preview, and both turn green until the finger lifts. */
+    const SLIDE = { orange: '#E18400', green: '#35D06B' };
+    function slideTrack(k) {
+      const d = S[k], P = TRANSPORT[k], cy = TRANSPORT.cy;
+      if (d.slide == null) return '';
+      const c = d.latched ? SLIDE.green : SLIDE.orange;
+      return `<rect x="${P.cue - 39}" y="${cy - 39}" width="${P.play - P.cue + 78}" height="78" rx="39"
+        fill="${c}" fill-opacity=".12" stroke="${c}" stroke-opacity=".6" stroke-width="1.5" pointer-events="none"/>`;
+    }
+    function slidePuck(k) {
+      const d = S[k], P = TRANSPORT[k], cy = TRANSPORT.cy;
+      if (d.slide == null) return '';
+      const c = d.latched ? SLIDE.green : SLIDE.orange, x = clamp(d.slide, P.cue, P.play);
+      return `<circle cx="${f2(x)}" cy="${cy}" r="33" fill="${c}" fill-opacity=".3" stroke="${c}" stroke-width="2" pointer-events="none"/>`;
+    }
+
+    /* Scrubbing lifts the platter over the mixer, with a soft shadow, until it's let go. */
+    const PLATTER = { A: 234, B: 960, cy: 545, r: 131 };
+    const FACE = { x: 297, y: 415, w: 600, h: 324 };
+    function platterAt(p) {
+      const inFace = p.x >= FACE.x && p.x <= FACE.x + FACE.w && p.y >= FACE.y && p.y <= FACE.y + FACE.h;
+      if (inFace) return null;
+      return ['A', 'B'].find((k) => Math.hypot(p.x - PLATTER[k], p.y - PLATTER.cy) <= PLATTER.r) || null;
+    }
+    function drawLift() {
+      const up = ['A', 'B'].filter((k) => S[k].lifted);
+      document.getElementById('lift').innerHTML = up.map((k) => `
+        <circle cx="${PLATTER[k]}" cy="${PLATTER.cy + 6}" r="${PLATTER.r}" fill="#000" fill-opacity=".7" filter="url(#liftShadow)"/>
+        <use href="#platters" clip-path="url(#lift${k})"/>`).join('');
     }
 
     function loop(k) {
@@ -2106,7 +2147,15 @@
       const p = point(e);
       if (picker && !pointers.has(picker.pointerId)) { closePicker(); return; }   // a tap outside the list
       const t = e.target.closest('[data-ctl]');
-      if (!t) return;
+      if (!t) {
+        const k = platterAt(p);
+        if (!k) return;
+        try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+        e.preventDefault();
+        S[k].lifted = true; drawLift();
+        pointers.set(e.pointerId, { kind: 'platter', k });
+        return;
+      }
       const ctl = t.dataset.ctl;
       try { svg.setPointerCapture(e.pointerId); } catch (_) {}
       e.preventDefault();
@@ -2135,6 +2184,11 @@
         const put = (q) => { S.M.xf = clamp((q.x - XF.x - XF.half) / (XF.w - 2 * XF.half), 0, 1); render(); };
         pointers.set(e.pointerId, { kind: 'xf', put });
         put(p);
+      } else if (ctl.startsWith('tcue:')) {
+        const k = ctl.slice(5), d = S[k];          // held: the preview plays from the cue
+        d.tCue = true; d.playing = true; d.slide = p.x; d.latched = false;
+        pointers.set(e.pointerId, { kind: 'cue', k });
+        render();
       } else {
         pointers.set(e.pointerId, { kind: 'tap', ctl, start: p });
       }
@@ -2156,6 +2210,11 @@
         showReadout(h.id, h.drag);
       } else if (h.kind === 'xf') {
         h.put(p);
+      } else if (h.kind === 'cue') {
+        const d = S[h.k], P = TRANSPORT[h.k];
+        d.slide = p.x;
+        if (Math.abs(p.x - P.play) <= 33 && Math.abs(p.y - TRANSPORT.cy) <= 33) d.latched = true;
+        render();
       } else if (h.kind === 'picker') {
         pickerHover(p);
       } else if (h.kind === 'tap') {
@@ -2182,6 +2241,13 @@
         closePanel(h.id);
       } else if (h.kind === 'fader') {
         hideReadout(h.id);
+      } else if (h.kind === 'platter') {
+        S[h.k].lifted = false; drawLift();
+      } else if (h.kind === 'cue') {
+        const d = S[h.k];                          // let go off PLAY: back to the cue
+        if (!d.latched) d.playing = false;
+        d.slide = null; d.latched = false;
+        render();
       } else if (h.kind === 'picker') {
         if (picker && picker.slid) takeEffect(picker.lit);
         else if (picker) picker.el.classList.add('static');   // lift without sliding: tap one

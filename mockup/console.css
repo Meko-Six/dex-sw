@@ -801,10 +801,10 @@ html, body {
 .lib-filter { flex: none; display: flex; align-items: flex-start; gap: 8px; padding-top: 7px; font-size: 14px; color: var(--muted); min-height: 40px; }
 .lib-filter:has(.seg) { align-items: center; padding-top: 0; }
 .lib-filter .seg button { min-height: 28px; padding: 4px 10px; font-size: 14px; }
-.lib-cols, .lib-row { display: grid; grid-template-columns: 68px 45px minmax(0, 1fr) 71px 64px 103px 67px 51px; align-items: center; }
+.lib-cols, .lib-row { display: grid; grid-template-columns: 68px 45px minmax(0, 1fr) 71px 64px 103px 67px 116px 51px; align-items: center; }
 .lib-cols { flex: none; height: 26px; font: 700 14px/1 var(--font-avenir); text-transform: uppercase; color: #74747b; }
 .lib-cols > :first-child { grid-column: 1 / 4; padding-left: 7px; text-align: left; }
-.lib-cols > :nth-child(n+2), .lib-row > :is(.lib-bpm, .lib-dur, .lib-tonality, .lib-grid, .lib-more, .lib-import) {
+.lib-cols > :nth-child(n+2), .lib-row > :is(.lib-bpm, .lib-dur, .lib-tonality, .lib-grid, .lib-stars, .lib-more, .lib-import) {
   height: 100%; border-left: 1px solid var(--lib-divider);
 }
 .lib-cols button {
@@ -830,6 +830,19 @@ html, body {
 .lib-art { height: 100%; background: var(--art) center / cover; }
 .lib-mark { display: flex; align-items: center; justify-content: center; gap: 2px; color: var(--row-fg); }
 .lib-mark svg { display: block; height: 25px; fill: currentColor; }
+/* Played in this set: the note turns orange, until NEW SET. */
+.lib-mark.played, .ztitle .note.played, .lib-side-item.set i { color: #e18400; }
+/* The DJ's stars: lit yellow, unlit dim. */
+.lib-stars, .zstars { display: flex; align-items: center; justify-content: center; }
+.lib-stars button, .zstars button {
+  appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer;
+  width: 21px; height: 100%; font: 400 19px/1 var(--font-ui); color: #3b3f40;
+}
+.lib-stars button.on, .zstars button.on { color: #dbe22d; }
+.lib-row.selected .lib-stars button:not(.on) { color: rgba(255, 255, 255, .35); }
+.zstars { flex: none; align-self: stretch; margin-left: auto; }
+.zstars button { width: 17px; font-size: 15px; color: #3d5670; }
+.lib-head .btn.newset.armed { border-color: #ff5a4f; color: #ff5a4f; }
 .lib-deck { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 2px; background: #f5f5f6; color: #0b0913; font: 700 20px/1 var(--font-avenir); }
 .lib-deck.playing { width: 30px; padding-right: 5px; box-sizing: border-box; background: #80c342; clip-path: polygon(0 0, 72% 0, 100% 50%, 72% 100%, 0 100%); }
 .lib-mark.both { flex-direction: column; }

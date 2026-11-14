@@ -5,8 +5,9 @@
 // app draws live (the platter displays' marks and the meter rungs), and prints it to two
 // vector PDFs the app draws as they are:
 //
-//   chassis-base.pdf  the fascia and screws, always shown
-//   chassis-art.pdf   everything else, hidden with the controls while the library is up
+//   chassis-base.pdf     the fascia and screws, always shown
+//   chassis-platters.pdf the two platters, which the app also draws on top while one is scrubbed
+//   chassis-art.pdf      everything else, hidden with the controls while the library is up
 //
 // Both cover the chassis only: the drawing's x 10 … 1184, y 348 … 824.
 //
@@ -28,12 +29,13 @@ const defs = svg.slice(svg.indexOf('<defs>'), svg.indexOf('</defs>') + 7);
 const art = svg.slice(svg.indexOf('<g id="art">') + 12, svg.indexOf('<g id="dyn">'));
 
 const base = art.slice(art.indexOf('<!-- Fascia and screws -->'), art.indexOf('<!-- Platters -->'));
-let rest = art.slice(art.indexOf('<!-- Platters -->'));
+let platters = art.slice(art.indexOf('<!-- Platters -->'), art.indexOf('<!-- Mixer faceplate -->'));
+let rest = art.slice(art.indexOf('<!-- Mixer faceplate -->'));
 rest = rest.slice(0, rest.lastIndexOf('</g>'));
 
 // The platter displays' marks: the app turns them with the track.
 const centres = [[234, 545], [960, 545]];
-rest = rest.replace(/<line\b[^>]*>/g, (tag) => {
+platters = platters.replace(/<line\b[^>]*>/g, (tag) => {
   const n = (k) => +(tag.match(new RegExp(`\\s${k}="([-\\d.]+)"`)) || [])[1];
   const [x, y] = [n('x1'), n('y1')];
   return centres.some(([cx, cy]) => Math.hypot(x - cx, y - cy) < 50) ? '' : tag;
@@ -70,6 +72,7 @@ app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, width: 1174, height: 476 });
   try {
     await print(win, 'chassis-base', base);
+    await print(win, 'chassis-platters', platters);
     await print(win, 'chassis-art', rest);
   } catch (error) {
     console.error(error);

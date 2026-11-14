@@ -39,6 +39,8 @@ public struct LibraryTrack: Codable, Identifiable, Equatable, Sendable {
     public var loudness: TrackLoudness? = nil
     /// The trim the DJ chose for this track, in dB. Nil plays it at AUTO.
     public var trimDb: Double? = nil
+    /// The DJ's stars, 1 to 5. Nil until rated.
+    public var rating: Int? = nil
     /// The trim a deck starts this track at: the DJ's own, else AUTO.
     public var startingTrim: Double { trimDb ?? loudness?.autoTrim() ?? 0 }
     /// "Artist — Title" from the tags, else the file name: `trackLabel` in library.ts.
@@ -62,6 +64,7 @@ struct LibraryMutation: Sendable {
     struct Names: Sendable { let artist: String?; let title: String?; let details: TrackDetails? }
     struct Loudness: Sendable { let value: TrackLoudness? }
     struct Trim: Sendable { let value: Double? }
+    struct Rating: Sendable { let value: Int? }
     let id: UUID
     var grid: Grid?
     var cues: [Cue]
@@ -69,7 +72,8 @@ struct LibraryMutation: Sendable {
     var names: Names?
     var loudness: Loudness?
     var trim: Trim?
-    var isEmpty: Bool { grid == nil && cues.isEmpty && key == nil && names == nil && loudness == nil && trim == nil }
+    var rating: Rating?
+    var isEmpty: Bool { grid == nil && cues.isEmpty && key == nil && names == nil && loudness == nil && trim == nil && rating == nil }
     init(from old: LibraryTrack, to new: LibraryTrack) {
         id = old.id
         grid = old.grid != new.grid || old.gridUncertain != new.gridUncertain || old.alternatives != new.alternatives
@@ -80,6 +84,7 @@ struct LibraryMutation: Sendable {
             ? Names(artist: new.artist, title: new.tagTitle, details: new.details) : nil
         loudness = old.loudness != new.loudness ? Loudness(value: new.loudness) : nil
         trim = old.trimDb != new.trimDb ? Trim(value: new.trimDb) : nil
+        rating = old.rating != new.rating ? Rating(value: new.rating) : nil
     }
     func merging(_ newer: LibraryMutation?) -> LibraryMutation {
         guard let newer else { return self }
@@ -89,6 +94,7 @@ struct LibraryMutation: Sendable {
         if let names = newer.names { result.names = names }
         if let loudness = newer.loudness { result.loudness = loudness }
         if let trim = newer.trim { result.trim = trim }
+        if let rating = newer.rating { result.rating = rating }
         for cue in newer.cues { result.cues.removeAll { $0.slot == cue.slot }; result.cues.append(cue) }
         return result
     }
@@ -99,6 +105,7 @@ struct LibraryMutation: Sendable {
         if let names { result.artist = names.artist; result.tagTitle = names.title; result.details = names.details }
         if let loudness { result.loudness = loudness.value }
         if let trim { result.trimDb = trim.value }
+        if let rating { result.rating = rating.value }
         for cue in cues where result.hotCues.indices.contains(cue.slot) { result.hotCues[cue.slot] = cue.value }
         return result
     }

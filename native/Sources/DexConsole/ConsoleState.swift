@@ -82,6 +82,9 @@ public struct ConsoleState: Equatable, Sendable {
         public var hotCues: [Double?]
         /// Previewing on CUE: PLAY shows ▶ even though the deck is sounding.
         public var previewing = false
+        /// The track's stars, 1 … 5, and whether the current set has played it.
+        public var rating: Int?
+        public var played = false
         public var eq = Bands()
         public var kills = Kills()
         public var level = 1.0
@@ -194,6 +197,8 @@ public struct ConsoleState: Equatable, Sendable {
             public var art: Art?
             /// The cover saved from the tags, read when its row appears.
             public var coverURL: URL?
+            /// The DJ's stars, 1 … 5.
+            public var rating: Int?
             public init(id: String, name: String, key: String? = nil, camelot: String? = nil, keyChecked: Bool = false,
                         bpm: Double, durationSec: Double, confidence: Double, gridUncertain: Bool = false,
                         alternates: [Alternate] = [], missing: Bool = false, title: String? = nil, artist: String? = nil) {
@@ -211,6 +216,23 @@ public struct ConsoleState: Equatable, Sendable {
             public var trackIDs: [String]
             public init(id: String, name: String, trackIDs: [String] = []) { self.id = id; self.name = name; self.trackIDs = trackIDs }
         }
+        /// A set: what the crowd heard, in order. The last of `sets` is the current one.
+        public struct SetEntry: Equatable, Sendable, Identifiable {
+            public struct Play: Equatable, Sendable {
+                public var trackID: String
+                /// The clock time it joined the set: "22:04".
+                public var time: String
+                public init(trackID: String, time: String) { self.trackID = trackID; self.time = time }
+            }
+            public var id: String
+            /// "Fri 13 Nov" for the sidebar, and "Fri 13 Nov · 22:04" for the heading.
+            public var day: String
+            public var started: String
+            public var plays: [Play]
+            public init(id: String, day: String, started: String, plays: [Play] = []) {
+                self.id = id; self.day = day; self.started = started; self.plays = plays
+            }
+        }
         public struct PendingImport: Equatable, Sendable, Identifiable {
             public let id: String
             public let title: String
@@ -224,6 +246,10 @@ public struct ConsoleState: Equatable, Sendable {
         public var tracks: [Track]
         public var playlists: [Playlist]
         public var pendingImports: [PendingImport] = []
+        /// Every set, the current one last; its tracks are the played ones.
+        public var sets: [SetEntry] = [SetEntry(id: "set-now", day: "", started: "")]
+        public var currentSet: SetEntry? { sets.last }
+        public var played: Set<String> { Set(currentSet?.plays.map(\.trackID) ?? []) }
         /// The row picked for loading: tap a deck's art to load it.
         public var selected: String?
         /// Something is importing or analysing.
@@ -379,6 +405,12 @@ public struct LibraryActions {
     public var removeFromPlaylist: (_ playlist: String, _ track: String) -> Void = { _, _ in }
     public var renamePlaylist: (_ playlist: String, _ name: String) -> Void = { _, _ in }
     public var deletePlaylist: (String) -> Void = { _ in }
+    /// Stars for a track, 1 … 5; nil clears them.
+    public var rate: (_ track: String, _ stars: Int?) -> Void = { _, _ in }
+    /// NEW SET: the played marks clear and a new set starts.
+    public var newSet: () -> Void = {}
+    /// SAVE AS PLAYLIST: a playlist of the set's tracks; returns its id.
+    public var saveSet: (String) -> String? = { _ in nil }
     public init() {}
 }
 

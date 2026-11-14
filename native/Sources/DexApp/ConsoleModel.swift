@@ -51,6 +51,8 @@ final class ConsoleModel: ObservableObject {
     private var changes: Set<AnyCancellable> = []
     private var rebuildQueued = false
     private var meterTask: Task<Void, Never>?
+    /// Counts what the crowd hears, once a second, for the set history.
+    private var playTask: Task<Void, Never>?
     private var active = true
 
     init(mixer: NativeMixer, library: NativeLibrary) {
@@ -83,6 +85,29 @@ final class ConsoleModel: ObservableObject {
         }
         actions = makeActions()
         rebuild()
+        startPlayCounter()
+    }
+
+    /// A track joins the set once the crowd has heard it for 30 seconds (`PlayCounter`).
+    private func startPlayCounter() {
+        playTask = Task { [weak self] in
+            var counter = PlayCounter()
+            var last = ProcessInfo.processInfo.systemUptime
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                guard let self else { return }
+                let now = ProcessInfo.processInfo.systemUptime
+                let sides = MixMath.crossfade(mixer.crossfader)
+                for deck in decks {
+                    let heard = PlayCounter.heard(playing: deck.playing, previewing: deck.previewing,
+                                                  level: Double(deck.level), crossfadeSide: deck.label == "B" ? sides.1 : sides.0)
+                    if let track = counter.advance(deck: deck.label, track: deck.libraryTrackID, heard: heard, dt: now - last) {
+                        library.recordPlay(track)
+                    }
+                }
+                last = now
+            }
+        }
     }
 
     private var decks: [NativeDeck] { [mixer.a, mixer.b] }
@@ -188,8 +213,22 @@ final class ConsoleModel: ObservableObject {
                                                       fraction: pending.progress.fraction, art: placeholderArt(id))
         }
         state.justMade = justMade
+        state.sets = library.sets.sets.map { set in
+            ConsoleState.Library.SetEntry(
+                id: set.id, day: Self.day.string(from: set.startedAt),
+                started: Self.day.string(from: set.startedAt) + " · " + Self.time.string(from: set.startedAt),
+                plays: set.plays.map { .init(trackID: $0.track, time: Self.time.string(from: $0.at)) })
+        }
         return state
     }
+
+    /// "Fri 13 Nov" and "22:04", in the user's language and clock.
+    private static let day: DateFormatter = {
+        let f = DateFormatter(); f.setLocalizedDateFormatFromTemplate("EEE d MMM"); return f
+    }()
+    private static let time: DateFormatter = {
+        let f = DateFormatter(); f.timeStyle = .short; f.dateStyle = .none; return f
+    }()
 
     private func deckState(_ deck: NativeDeck) -> ConsoleState.Deck {
         let id = deck.label, loaded = deck.duration > 0
@@ -207,6 +246,8 @@ final class ConsoleModel: ObservableObject {
             art: loaded ? cover(deck) : nil, rate: deck.tempo, keyLock: deck.keyLock,
             camelot: loaded ? track?.key?.camelot : nil, hotCues: deck.hotCues)
         state.previewing = deck.previewing
+        state.rating = loaded ? track?.rating : nil
+        state.played = loaded && deck.libraryTrackID.map { library.sets.played.contains($0.uuidString) } == true
         state.eq = faders[id]!.eq
         state.kills = ConsoleState.Kills(low: deck.kills.low, mid: deck.kills.mid, high: deck.kills.high)
         state.level = faders[id]!.level
@@ -446,6 +487,15 @@ final class ConsoleModel: ObservableObject {
         }
         actions.renamePlaylist = { [weak self] in self?.library.renamePlaylist($0, to: $1) }
         actions.deletePlaylist = { [weak self] in self?.library.deletePlaylist($0) }
+        actions.rate = { [weak self] track, stars in
+            guard let uuid = UUID(uuidString: track) else { return }
+            self?.library.setRating(uuid, stars)
+        }
+        actions.newSet = { [weak self] in self?.library.newSet() }
+        actions.saveSet = { [weak self] id in
+            guard let self, let set = library.sets.sets.first(where: { $0.id == id }) else { return nil }
+            return library.saveSetAsPlaylist(id, named: "Set " + Self.day.string(from: set.startedAt))
+        }
         return actions
     }
 
@@ -623,6 +673,7 @@ struct LibraryRows {
         row.release = track.details?.release.map { Tags.releaseText($0) } ?? ""
         row.art = placeholderArt(track.id.uuidString)
         row.coverURL = coverURL
+        row.rating = track.rating
         return row
     }
 }

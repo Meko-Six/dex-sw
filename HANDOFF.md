@@ -63,7 +63,7 @@ Bose has to be paired again.
   native tests plus Mac/iPad builds). GitHub's macOS runner ships an older Xcode than this
   Mac, so native code must compile on both SDKs. CI passed on `d60a6b6`; it was still
   running on `21213e5` (the transport work, pushed 13 November) at closeout, so check it.
-- **Tests:** `swift test`, 13 November 2026 (14 Nov added the PHONES render test): 346 tests (187 audio, 70 core, 47 engine,
+- **Tests:** `swift test`, 13 November 2026 (14 Nov added the PHONES render test and set-history tests; 189 in the last full run, 0 failures): 346 tests (187 audio, 70 core, 47 engine,
   42 console), 0 failures, 6 optional skips.
 
 ### The engine (6 November 2026)
@@ -203,6 +203,36 @@ audio.
 
 Tools: BSD `sed` has no `\b`, so a substitution using it silently does nothing, and
 zsh's builtin `log` shadows the tool, so use `/usr/bin/log`.
+
+## Set history, ratings, platter lift, CUE slide — 14 November 2026
+
+Mocked up first (`mockup/xdj-mixer-alt.html` + `console.css` for the library and title bars,
+`mockup/stage-two-decks.html` for the platter and CUE), then ported. The user chose each rule.
+
+- **Played in this set.** A track counts once the crowd has heard it for 30 s in all on one load:
+  playing, not a CUE preview, LEVEL × its crossfader side at −12 dB or louder (`PlayCounter` in
+  `DexCore/SetHistory.swift`, counted once a second in `ConsoleModel`). Its music note turns orange
+  in the library and the deck's title bar. **This set** (sidebar) lists plays in order with the
+  time; **New set** asks twice, then clears the marks; the old set stays under **Past sets**.
+  **Save as playlist** makes a playlist of a set, each track once, in play order. Saved as
+  `sets.json` (with a backup) beside the catalog.
+- **Ratings:** 1–5 stars, a RATING column (sortable, most stars first) and stars in each deck's
+  title bar; tap the top lit star to clear. Stored on the track (`LibraryTrack.rating`).
+- **Platter lift:** scrubbing redraws that platter over the mixer with a shadow until the finger
+  lifts. The platters are now their own PDF, `chassis-platters.pdf` (three PDFs from
+  `build-stage-art.mjs`).
+- **CUE slide:** holding CUE shows an orange track joining CUE to PLAY and a puck under the
+  finger; both turn green once it reaches PLAY (the preview latches).
+- **CUE and PLAY touch fix.** After the stage-two port they ignored touches on the iPad (DexSlider's
+  stage gesture cancelled their UIKit control). `Press` now uses `SpatialEventGesture`, so a quick
+  CUE tap is a real press and release (a short blip from the cue point), hold plays and returns,
+  and slide-to-PLAY latches. PLAY is play/pause on the press itself, not the release. Checked in
+  the simulator; the user confirmed CUE on the iPad. Two-finger CUE+PLAY and the Mac with a
+  mouse are untried.
+- **Press-to-sound.** The app now asks iOS for a 256-frame (5.3 ms) IO buffer. Measured in the
+  simulator: a start from stopped is scheduled 27 ms after the press. The delay the user heard
+  was Bluetooth (150–250 ms, not removable); cue on wired output. CUE's wait for the other
+  deck's beat is deliberate and was kept (the user confirmed, 14 Nov).
 
 ## Stage two from the user's drawing — 14 November 2026
 

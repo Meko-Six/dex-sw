@@ -28,6 +28,10 @@ enum Palette {
     static let rowText = Color(hex: 0xF2F4F3)
     static let rowDim = Color(hex: 0x74747B)
     static let playing = Color(hex: 0x80C342)
+    /// A track's note once the current set has played it.
+    static let played = Color(hex: 0xE18400)
+    /// Lit stars.
+    static let star = Color(hex: 0xDBE22D)
     /// `--a` / `--b`: each deck's colour.
     static func accent(_ deck: String) -> Color { deck == "B" ? Color(hex: 0xFF8A1F) : blue }
 }

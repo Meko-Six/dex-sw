@@ -293,17 +293,14 @@ private struct Press: ViewModifier {
     let down: () -> Void
     let moved: (CGPoint) -> Void
     let up: (CGPoint?) -> Void
-#if !os(iOS)
-    @GestureState private var touching = false
-    @State private var pressed = false
-#endif
+    /// The finger holding the key; another finger landing on it is ignored.
+    @State private var finger: SpatialEventCollection.Event.ID?
 
+    // Per-finger touch events, as DexSlider's stage uses. They arrive the moment a finger
+    // lands, so a quick tap on CUE is a real press and release with the blip between them.
+    // (A UIKit control here was cancelled by the stage's own gesture on the iPad; a
+    // DragGesture reported a quick tap only once the finger had lifted, so it made no sound.)
     func body(content: Content) -> some View {
-#if os(iOS)
-        content.overlay {
-            PressSurface(enabled: enabled, down: down, moved: moved, up: up)
-        }
-#else
         GeometryReader { geometry in
             let unit = { (point: CGPoint) in
                 CGPoint(x: point.x / max(1, geometry.size.width), y: point.y / max(1, geometry.size.height))
@@ -311,92 +308,36 @@ private struct Press: ViewModifier {
             content
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 0)
-                    .updating($touching) { _, state, _ in state = true }
-                    .onChanged { gesture in
-                        guard enabled else { return }
-                        if !pressed { pressed = true; down() } else { moved(unit(gesture.location)) }
-                    }
-                    .onEnded { gesture in
-                        guard pressed else { return }
-                        pressed = false
-                        up(unit(gesture.location))
-                    })
-                .onRelease(touching) {
-                    guard pressed else { return }
-                    pressed = false
-                    up(nil)
-                }
+                .gesture(SpatialEventGesture(coordinateSpace: .local)
+                    .onChanged { events in handle(events, unit: unit, over: false) }
+                    .onEnded { events in handle(events, unit: unit, over: true) })
         }
-#endif
+    }
+
+    private func handle(_ events: SpatialEventCollection, unit: (CGPoint) -> CGPoint, over: Bool) {
+        if finger == nil {
+            guard enabled, !over, let first = events.first(where: { $0.phase == .active }) else { return }
+            finger = first.id
+            down()
+        }
+        guard let id = finger, let event = events.first(where: { $0.id == id }) else {
+            // The gesture finished without our finger in the last report: let go where it was.
+            if over, finger != nil { finger = nil; up(nil) }
+            return
+        }
+        switch event.phase {
+        case .active where !over:
+            moved(unit(event.location))
+        case .cancelled:
+            finger = nil
+            up(nil)
+        default:
+            finger = nil
+            up(unit(event.location))
+        }
     }
 }
 
-#if os(iOS)
-private struct PressSurface: UIViewRepresentable {
-    let enabled: Bool
-    let down: () -> Void
-    let moved: (CGPoint) -> Void
-    let up: (CGPoint?) -> Void
-
-    func makeUIView(context: Context) -> PressControl {
-        let control = PressControl()
-        control.backgroundColor = .clear
-        control.isExclusiveTouch = false
-        // The SwiftUI view under it owns accessibility.
-        control.isAccessibilityElement = false
-        update(control)
-        return control
-    }
-    func updateUIView(_ control: PressControl, context: Context) { update(control) }
-    static func dismantleUIView(_ control: PressControl, coordinator: ()) { control.release(at: nil) }
-
-    private func update(_ control: PressControl) {
-        control.down = down; control.moved = moved; control.up = up
-        if !enabled { control.release(at: nil) }
-        control.isEnabled = enabled
-    }
-}
-
-final class PressControl: UIControl {
-    var down: () -> Void = {}
-    var moved: (CGPoint) -> Void = { _ in }
-    var up: (CGPoint?) -> Void = { _ in }
-    private var holding = false
-
-    private func unit(_ touch: UITouch) -> CGPoint {
-        let point = touch.location(in: self)
-        return CGPoint(x: point.x / max(1, bounds.width), y: point.y / max(1, bounds.height))
-    }
-    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-        guard isEnabled, !holding else { return false }
-        holding = true
-        down()
-        return true
-    }
-    override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-        guard holding else { return false }
-        moved(unit(touch))
-        return true
-    }
-    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
-        release(at: touch.map(unit))
-    }
-    override func cancelTracking(with event: UIEvent?) {
-        release(at: nil)
-        super.cancelTracking(with: event)
-    }
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        if window == nil { release(at: nil) }
-    }
-    func release(at point: CGPoint?) {
-        guard holding else { return }
-        holding = false
-        up(point)
-    }
-}
-#endif
 
 /// Files and library rows dropped on a deck's window or lane. While one is
 /// held over the deck its window says what will happen; a playing deck

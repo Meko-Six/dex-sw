@@ -216,7 +216,8 @@ actor LibraryStorage {
         track.alternatives.allSatisfy { $0.bpm.isFinite && $0.bpm > 0 && $0.offsetMs.isFinite && $0.salience.isFinite } &&
         (track.key.map { $0.confidence.isFinite && (0...1).contains($0.confidence) } ?? true) &&
         (track.loudness.map { $0.integrated.isFinite && $0.main.isFinite && $0.peak.isFinite } ?? true) &&
-        (track.trimDb.map { $0.isFinite && abs($0) <= 12 } ?? true)
+        (track.trimDb.map { $0.isFinite && abs($0) <= 12 } ?? true) &&
+        (track.rating.map { (1...5).contains($0) } ?? true)
     }
     private func encode<T: Encodable>(_ value: T) throws -> Data {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
@@ -468,6 +469,61 @@ actor LibraryStorage {
             }
         }
     }
+}
+
+// MARK: Set history
+
+extension LibraryStorage {
+    private var setsURL: URL { directory.appendingPathComponent("sets.json") }
+    private var setsBackupURL: URL { directory.appendingPathComponent("sets.backup.json") }
+
+    private func readSets(_ url: URL) -> SavedSets? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        guard let data = try? Data(contentsOf: url) else { return .unreadable }
+        struct Header: Decodable { let version: Int }
+        if let header = try? JSONDecoder.sets.decode(Header.self, from: data), header.version > SetHistory.version { return .newer }
+        guard let history = try? JSONDecoder.sets.decode(SetHistory.self, from: data) else { return .unreadable }
+        return .loaded(history)
+    }
+
+    /// Reads the set history, from its backup if the file is missing or damaged. A damaged
+    /// file is copied aside before anything is written over it.
+    func openSets() throws -> SavedSets {
+        try locked {
+            let backup = readSets(setsBackupURL).flatMap { if case .loaded(let h) = $0 { SavedSets.loaded(h) } else { nil } }
+            switch readSets(setsURL) {
+            case nil: return backup ?? .loaded(SetHistory())
+            case .unreadable?:
+                let kept = directory.appendingPathComponent("sets.damaged-\(UUID().uuidString).json")
+                try? FileManager.default.copyItem(at: setsURL, to: kept)
+                return backup ?? .loaded(SetHistory())
+            case let read?: return read
+            }
+        }
+    }
+
+    func saveSets(_ history: SetHistory) throws {
+        try locked {
+            let data = try JSONEncoder.sets.encode(history)
+            let onDisk = readSets(setsURL)
+            if case .newer? = onDisk { throw LibraryError.newerVersion }
+            if case .loaded? = onDisk, let previous = try? Data(contentsOf: setsURL) {
+                try previous.write(to: setsBackupURL, options: .atomic)
+            }
+            try data.write(to: setsURL, options: .atomic)
+        }
+    }
+}
+
+enum SavedSets: Sendable {
+    case loaded(SetHistory), newer, unreadable
+}
+
+private extension JSONEncoder {
+    static var sets: JSONEncoder { let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; e.outputFormatting = [.sortedKeys]; return e }
+}
+private extension JSONDecoder {
+    static var sets: JSONDecoder { let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d }
 }
 
 /// A file's names and details, its cover already saved.

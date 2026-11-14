@@ -12,6 +12,10 @@ struct Chassis: View {
     let state: ConsoleState
     let actions: ConsoleActions
     let bank: SliderBank
+    /// The decks whose platter is being scrubbed: it rises over the mixer until let go.
+    @State private var lifted: Set<String> = []
+    /// A finger holding CUE, by deck: where it is along CUE → PLAY, and whether it reached PLAY.
+    @State private var slides: [String: CueSlide] = [:]
 
     /// DexSliderLab's tuning (the user's iPad tuning of 10 November), with the faders'
     /// travel set to the drawing's: LEVEL's 0 … 10 scale and TEMPO's ±16 % comb.
@@ -28,12 +32,15 @@ struct Chassis: View {
         ZStack(alignment: .topLeading) {
             StageArt(file: .base)
             Group {
+                StageArt(file: .platters)
                 StageArt(file: .art)
                 ForEach(state.decks, id: \.id) { deck in
                     Live(deck: deck) { PlatterMarks(deck: $0) }
                         .place(Layout.platterRect(deck.id))
-                    PlatterTouch(deck: deck, scrub: actions.deck.scrub)
-                        .place(Layout.platterRect(deck.id))
+                    PlatterTouch(deck: deck, scrub: actions.deck.scrub) { touching in
+                        if touching { lifted.insert(deck.id) } else { lifted.remove(deck.id) }
+                    }
+                    .place(Layout.platterRect(deck.id))
                 }
                 StageMeters(fallback: state.meters)
                 Canvas { context, _ in
@@ -49,12 +56,16 @@ struct Chassis: View {
                 Canvas { context, _ in
                     var context = context
                     context.translateBy(x: -Layout.origin.x, y: -Layout.origin.y)
-                    Draw.transport(context, state: state)
+                    Draw.transport(context, state: state, slides: slides)
                 }
                 .allowsHitTesting(false)
-                Transport(state: state, actions: actions)
+                Transport(state: state, actions: actions, slides: $slides)
             }
             .kept(folded)
+            ForEach(state.decks.filter { lifted.contains($0.id) }, id: \.id) { deck in
+                LiftedPlatter(deck: deck)
+            }
+            .folded(folded)
             ForEach(state.decks.filter(\.hotCuesOpen), id: \.id) { deck in
                 HotCuePop(deck: deck, actions: actions.deck)
                     .offset(x: Layout.deckX(deck.id).platter - 150 - Layout.origin.x, y: 85)
@@ -145,7 +156,7 @@ extension View {
 /// One of the PDFs `mockup/build-stage-art.mjs` prints from the drawing, drawn at
 /// the chassis's size. CoreGraphics draws PDFs as vectors, so it is sharp at any scale.
 private struct StageArt: View {
-    enum File: String { case base = "chassis-base", art = "chassis-art" }
+    enum File: String, CaseIterable { case base = "chassis-base", platters = "chassis-platters", art = "chassis-art" }
     let file: File
 
     var body: some View {
@@ -166,7 +177,7 @@ private struct StageArt: View {
 
     private static let pages: [File: CGPDFPage] = {
         var pages: [File: CGPDFPage] = [:]
-        for file in [File.base, .art] {
+        for file in File.allCases {
             if let url = Bundle.module.url(forResource: file.rawValue, withExtension: "pdf", subdirectory: "Art"),
                let page = CGPDFDocument(url as CFURL)?.page(at: 1) {
                 pages[file] = page
@@ -487,11 +498,18 @@ private extension GraphicsContext {
 
     // MARK: The transport row
 
-    static func transport(_ c: GraphicsContext, state: ConsoleState) {
+    static func transport(_ c: GraphicsContext, state: ConsoleState, slides: [String: CueSlide]) {
         for deck in state.decks {
             let p = Layout.transport(deck.id), cy = Layout.transportY
             var c = c
             c.opacity = deck.loaded ? 1 : 0.35
+            let slide = slides[deck.id], slideInk = slide?.latched == true ? Ink.green : Ink.orange
+            if slide != nil {
+                // Holding CUE: a track joins CUE to PLAY, under the keys.
+                let track = Path(roundedRect: CGRect(x: p.cue - 39, y: cy - 39, width: p.play - p.cue + 78, height: 78), cornerRadius: 39)
+                c.fill(track, with: .color(slideInk.opacity(0.12)))
+                c.stroke(track, with: .color(slideInk.opacity(0.6)), lineWidth: 1.5)
+            }
             ring(c, cx: p.cue, lit: deck.loaded ? Ink.orange : nil)
             c.text("CUE", .bold(16, spacing: 0.12), Ink.orange, x: p.cue - 18.25, y: 787.66, middle: false)
             ring(c, cx: p.play, lit: deck.playing ? Ink.green : nil)
@@ -503,6 +521,13 @@ private extension GraphicsContext {
                 play.move(to: CGPoint(x: p.play - 4.33, y: cy - 7.04)); play.addLine(to: CGPoint(x: p.play - 4.33, y: cy + 7.04))
                 play.addLine(to: CGPoint(x: p.play + 7.58, y: cy)); play.closeSubpath()
                 c.fill(play, with: .color(Ink.green))
+            }
+            if let slide {
+                // …and a puck follows the finger along it, green once it has reached PLAY.
+                let x = min(p.play, max(p.cue, slide.x))
+                let puck = Path(ellipseIn: CGRect(x: x - 33, y: cy - 33, width: 66, height: 66))
+                c.fill(puck, with: .color(slideInk.opacity(0.3)))
+                c.stroke(puck, with: .color(slideInk), lineWidth: 2)
             }
             loop(c, deck: deck)
         }
@@ -532,6 +557,31 @@ private extension GraphicsContext {
 }
 
 // MARK: - The platters
+
+/// A platter being scrubbed, drawn again over everything with a soft shadow, so the
+/// whole disc shows while the finger is on it (`#lift` in the mockup).
+private struct LiftedPlatter: View {
+    let deck: ConsoleState.Deck
+
+    var body: some View {
+        let rect = Layout.platterRect(deck.id)
+        ZStack(alignment: .topLeading) {
+            Circle().fill(Color.black.opacity(0.7))
+                .frame(width: rect.width, height: rect.height)
+                .blur(radius: 8)
+                .offset(x: rect.minX, y: rect.minY + 6)
+            StageArt(file: .platters)
+                .mask(alignment: .topLeading) {
+                    Circle().frame(width: rect.width, height: rect.height).offset(x: rect.minX, y: rect.minY)
+                }
+            Live(deck: deck) { PlatterMarks(deck: $0) }
+                .place(rect)
+        }
+        .frame(width: Stage.width, height: Layout.height, alignment: .topLeading)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
 
 /// The platter display's marks: forty, nine degrees apart, three dashes each, with a
 /// four-mark gap that goes round two beats a turn, as the drawing shows it at the top.
@@ -564,6 +614,8 @@ private struct PlatterMarks: View {
 private struct PlatterTouch: View {
     let deck: ConsoleState.Deck
     let scrub: (String, Scrub) -> Void
+    /// Told when a finger lands on the disc and when it lifts.
+    let lift: (Bool) -> Void
     @GestureState private var touching = false
     @State private var drag: Drag?
 
@@ -588,6 +640,7 @@ private struct PlatterTouch: View {
                 if drag != nil { scrub(deck.id, .cancel) }
                 drag = nil
             }
+            .onValueChange(of: touching) { lift($0) }
             .accessibilityHidden(true)
     }
 
@@ -780,29 +833,41 @@ private struct SliderTarget: View {
 private struct Transport: View {
     let state: ConsoleState
     let actions: ConsoleActions
+    @Binding var slides: [String: CueSlide]
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(state.decks, id: \.id) { deck in TransportKeys(deck: deck, actions: actions.deck) }
+            ForEach(state.decks, id: \.id) { deck in
+                TransportKeys(deck: deck, actions: actions.deck, slide: $slides[deck.id])
+            }
             Crossfader(position: state.crossfader, set: actions.setCrossfader)
                 .place(Layout.at(Layout.crossfader.x - 6, 750, Layout.crossfader.w + 12, 64))
         }
     }
 }
 
+/// A finger holding CUE: its x in the drawing, and whether it has reached PLAY.
+struct CueSlide: Equatable {
+    var x: CGFloat
+    var latched = false
+}
+
 private struct TransportKeys: View {
     let deck: ConsoleState.Deck
     let actions: DeckActions
-    /// PLAY's press kept a CUE preview, so its release must not pause it.
-    @State private var continuedOnPress = false
+    @Binding var slide: CueSlide?
 
     var body: some View {
         let p = Layout.transport(deck.id), cy = Layout.transportY, empty = !deck.loaded
         let on = deck.loop != nil, beats = deck.loop?.lengthBeats ?? deck.loopBeats
         ZStack(alignment: .topLeading) {
             Color.clear.contentShape(Circle())
-                .press(enabled: !empty, down: { actions.cueDown(deck.id) }, moved: latchCue) { point in
+                .press(enabled: !empty, down: {
+                    slide = CueSlide(x: p.cue)
+                    actions.cueDown(deck.id)
+                }, moved: latchCue) { point in
                     if let point { latchCue(point) }
+                    slide = nil
                     actions.cueUp(deck.id)
                 }
                 .accessibilityLabel("Deck \(deck.id) cue")
@@ -810,14 +875,12 @@ private struct TransportKeys: View {
                 .accessibilityAction { actions.cueDown(deck.id); actions.cueUp(deck.id) }
                 .place(Layout.at(p.cue - 33, cy - 33, 66, 66))
             Color.clear.contentShape(Circle())
+                // PLAY is play/pause, on the press itself, as on a deck: the drop lands
+                // where the finger lands, not where it lifts. A second finger here while the
+                // first holds CUE keeps the preview playing instead.
                 .press(enabled: !empty, down: {
-                    // A second finger can keep the preview while the first holds CUE.
-                    continuedOnPress = actions.continueCue(deck.id)
-                }) { point in
-                    defer { continuedOnPress = false }
-                    guard let point, !continuedOnPress, (0...1).contains(point.x), (0...1).contains(point.y) else { return }
-                    actions.togglePlay(deck.id)
-                }
+                    if !actions.continueCue(deck.id) { actions.togglePlay(deck.id) }
+                }) { _ in }
                 .accessibilityLabel("Deck \(deck.id) \(deck.playing && !deck.previewing ? "pause" : "play")")
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction { actions.togglePlay(deck.id) }
@@ -845,8 +908,15 @@ private struct TransportKeys: View {
     /// Sliding off CUE onto PLAY keeps the preview playing. PLAY's centre is 74 pt right
     /// of CUE's, the same size, so in CUE's units it spans 74 … 140 / 66.
     private func latchCue(_ point: CGPoint) {
-        let left = (Layout.transport(deck.id).play - Layout.transport(deck.id).cue) / 66
-        if point.x >= left, point.x <= left + 1, (0...1).contains(point.y) { _ = actions.continueCue(deck.id) }
+        let cue = Layout.transport(deck.id).cue
+        let left = (Layout.transport(deck.id).play - cue) / 66
+        var next = slide ?? CueSlide(x: cue)
+        next.x = cue - 33 + point.x * 66
+        if point.x >= left, point.x <= left + 1, (0...1).contains(point.y) {
+            _ = actions.continueCue(deck.id)
+            next.latched = true
+        }
+        if next != slide { slide = next }
     }
 }
 

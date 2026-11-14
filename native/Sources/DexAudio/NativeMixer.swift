@@ -287,6 +287,9 @@ public final class NativeMixer: ObservableObject {
         if session.category != .playback || session.mode != .default || !session.categoryOptions.isEmpty {
             try session.setCategory(.playback, mode: .default, options: [])
         }
+        // A small hardware buffer keeps a press close to its sound: 256 frames at 48 kHz, as DJ
+        // apps ask for. iOS grants what the route allows; Bluetooth adds its own delay regardless.
+        try? session.setPreferredIOBufferDuration(256.0 / 48_000)
         guard !ticket.isCancelled else { return (connected, 0, nil) }
         // The SDK documents activation as blocking. This executes on the serial
         // control worker, never the main actor or a high-QoS render thread.

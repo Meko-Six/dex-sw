@@ -19,10 +19,13 @@ struct LibraryPane: View {
 
     private var library: ConsoleState.Library { state.library }
     private var playlist: ConsoleState.Library.Playlist? { library.playlists.first { $0.id == ui.view } }
+    /// The set open in place of a playlist: its tracks in the order played.
+    private var openSet: ConsoleState.Library.SetEntry? { library.sets.first { $0.id == ui.view } }
+    private var isCurrentSet: Bool { openSet != nil && openSet?.id == library.currentSet?.id }
 
     var body: some View {
         let rows = self.rows
-        let total = playlist?.trackIDs.count ?? library.tracks.count
+        let total = playlist?.trackIDs.count ?? openSet?.plays.count ?? library.tracks.count
         VStack(alignment: .leading, spacing: 8) {
             head(total: total, shown: rows.count)
             HStack(alignment: .top, spacing: 11) {
@@ -41,34 +44,52 @@ struct LibraryPane: View {
         .onValueChange(of: library.justMade) { id in
             if let id { open(id); ui.renaming = id }
         }
-        .onValueChange(of: library.playlists.map(\.id)) { ids in
+        .onValueChange(of: library.playlists.map(\.id) + library.sets.map(\.id)) { ids in
+            // NEW SET starts a set with a new id: THIS SET moves on to it.
+            if ui.followingSet != nil { ui.followingSet = nil; ui.view = library.currentSet?.id; return }
             // A deleted playlist drops the view back to the whole library.
-            if let view = ui.view, !ids.contains(view) { ui.view = nil }
+            guard let view = ui.view, !ids.contains(view) else { return }
+            ui.view = nil
         }
     }
 
     // MARK: Rows
 
+    /// A track row; in a set, each play is a row of its own, with when it was played.
+    private struct Entry: Identifiable {
+        let track: ConsoleState.Library.Track
+        var at: String? = nil
+        let id: String
+    }
+
     private enum Row: Identifiable {
-        case track(ConsoleState.Library.Track)
+        case track(Entry)
         case pending(ConsoleState.Library.PendingImport)
 
         var id: String {
             switch self {
-            case .track(let track): track.id
+            case .track(let entry): entry.id
             case .pending(let pending): pending.id
             }
         }
     }
 
     /// `rows` in Sheets.tsx: the view's tracks, by key and search, then sorted.
-    private var rows: [ConsoleState.Library.Track] {
+    private var rows: [Entry] {
         let needle = ui.query.trimmingCharacters(in: .whitespaces).lowercased()
         let byID = Dictionary(library.tracks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let base = playlist.map { $0.trackIDs.compactMap { byID[$0] } }
-            ?? library.tracks.sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
+        let base: [Entry] = if let set = openSet {
+            set.plays.enumerated().compactMap { index, play in
+                byID[play.trackID].map { Entry(track: $0, at: play.time, id: "\(index)-\($0.id)") }
+            }
+        } else {
+            (playlist.map { $0.trackIDs.compactMap { byID[$0] } }
+                ?? library.tracks.sorted { $0.title.localizedCompare($1.title) == .orderedAscending })
+                .map { Entry(track: $0, id: $0.id) }
+        }
         let keys = keyCodes
-        let list = base.filter { track in
+        let list = base.filter { entry in
+            let track = entry.track
             if let keys, !keys.contains(track.camelot ?? "") { return false }
             if needle.isEmpty { return true }
             if Camelot.parse(needle.uppercased()) != nil { return track.camelot == needle.uppercased() }
@@ -76,9 +97,9 @@ struct LibraryPane: View {
         }
         guard let sort = ui.sort else { return list }
         return list.sorted { a, b in
-            let order = sort.column.compare(a, b)
+            let order = sort.column.compare(a.track, b.track)
             if order != .orderedSame { return (order == .orderedAscending) == (sort.ascending) }
-            return a.title.localizedCompare(b.title) == .orderedAscending
+            return a.track.title.localizedCompare(b.track.title) == .orderedAscending
         }
     }
 
@@ -92,7 +113,7 @@ struct LibraryPane: View {
     private func head(total: Int, shown: Int) -> some View {
         let missingKeys = library.tracks.filter { $0.camelot == nil && !$0.keyChecked && !$0.missing }.count
         return HStack(spacing: 8) {
-            Text((playlist?.name ?? "Library").uppercased())
+            Text((playlist?.name ?? openSet.map { isCurrentSet ? "This set" : $0.started } ?? "Library").uppercased())
                 .font(Face.avenir(22, weight: .bold).font).tracking(3.96).lineLimit(1)
                 .foregroundStyle(Palette.text).frame(height: 22)
             Text("\(total) \(total == 1 ? "track" : "tracks")" + (shown != total ? " · \(shown) shown" : "")
@@ -116,11 +137,27 @@ struct LibraryPane: View {
             .padding(.horizontal, 13).frame(minWidth: 100, maxWidth: 300).frame(height: 36)
             .box(fill: Color(hex: 0x141416), border: Color(hex: 0x3A3A40), radius: 3)
             .padding(.trailing, 30)
-            if missingKeys > 0, library.findsKeys {
-                headerKey("Find keys (\(missingKeys))", disabled: library.busy, action: actions.library.findKeys)
+            if let set = openSet {
+                headerKey("Save as playlist", disabled: set.plays.isEmpty) {
+                    if let id = actions.library.saveSet(set.id) { open(id) }
+                }
+                if isCurrentSet {
+                    // NEW SET asks twice: the played marks clear.
+                    SheetButton(title: ui.confirmNewSet ? "Tap again: new set" : "New set", style: ui.confirmNewSet ? .danger : .outline,
+                                height: 36, face: .avenir(15, weight: .bold)) {
+                        if !ui.confirmNewSet { ui.confirmNewSet = true; return }
+                        ui.confirmNewSet = false
+                        ui.followingSet = set.id
+                        actions.library.newSet()
+                    }
+                }
+            } else {
+                if missingKeys > 0, library.findsKeys {
+                    headerKey("Find keys (\(missingKeys))", disabled: library.busy, action: actions.library.findKeys)
+                }
+                headerKey("Add files", action: actions.library.addFiles)
+                headerKey("Add folder", action: actions.library.addFolder)
             }
-            headerKey("Add files", action: actions.library.addFiles)
-            headerKey("Add folder", action: actions.library.addFolder)
             SheetIconButton(kind: .info) { actions.setHelp(.library) }
             SheetIconButton(kind: .close) { actions.library.setOpen(false) }
         }
@@ -137,7 +174,18 @@ struct LibraryPane: View {
     private var side: some View {
         VStack(alignment: .leading, spacing: 3) {
             sideLabel("COLLECTION")
-            SideItem(icon: nil, name: "All tracks", count: library.tracks.count, on: playlist == nil) { open(nil) }
+            SideItem(icon: nil, name: "All tracks", count: library.tracks.count, on: playlist == nil && openSet == nil) { open(nil) }
+            if let current = library.currentSet {
+                SideItem(icon: nil, iconColour: Palette.played, name: "This set", count: current.plays.count, on: isCurrentSet) { open(current.id) }
+            }
+            let past = library.sets.dropLast().reversed()
+            if !past.isEmpty {
+                sideLabel("PAST SETS").padding(.top, 8)
+                ForEach(Array(past)) { entry in
+                    SideItem(icon: "◷", plain: true, name: entry.day, count: entry.plays.count, on: ui.view == entry.id) { open(entry.id) }
+                        .accessibilityHint("Set started \(entry.started)")
+                }
+            }
             HStack {
                 sideLabel("PLAYLISTS")
                 Spacer(minLength: 0)
@@ -223,14 +271,14 @@ struct LibraryPane: View {
     }
 
     private func open(_ id: String?) {
-        if id != ui.view { setListMenu(nil) }
+        if id != ui.view { setListMenu(nil); ui.confirmNewSet = false }
         ui.view = id
         ui.sort = nil
     }
 
     // MARK: Tracks
 
-    private func main(_ rows: [ConsoleState.Library.Track]) -> some View {
+    private func main(_ rows: [Entry]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             filter
             columns
@@ -292,7 +340,7 @@ struct LibraryPane: View {
         let on = ui.sort?.column == column
         return Button { sort(by: column) } label: {
             HStack(spacing: 0) {
-                Label(column.title, columnFace).foregroundStyle(on ? Palette.rowText : Palette.rowDim)
+                Label(column == .time && openSet != nil ? "PLAYED" : column.title, columnFace).foregroundStyle(on ? Palette.rowText : Palette.rowDim)
                 if on { Label(ui.sort!.ascending ? " ▲" : " ▼", columnFace).foregroundStyle(Palette.blue) }
             }
             .padding(.leading, column == .name ? 7 : 0)
@@ -302,7 +350,7 @@ struct LibraryPane: View {
         .buttonStyle(.plain)
     }
 
-    private func list(_ tracks: [ConsoleState.Library.Track]) -> some View {
+    private func list(_ tracks: [Entry]) -> some View {
         let rows = library.pendingImports.map(Row.pending) + tracks.map(Row.track)
         return GeometryReader { geometry in
             ZStack(alignment: .top) {
@@ -338,6 +386,7 @@ struct LibraryPane: View {
                 }
                 if rows.isEmpty {
                     Para(library.tracks.isEmpty ? "No tracks yet. Add files or a folder, or drop audio onto a deck."
+                         : openSet != nil && ui.query.isEmpty && ui.keyFilter.isEmpty ? "Nothing played yet. A track joins the set after 30 seconds on the master."
                          : !ui.query.isEmpty || !ui.keyFilter.isEmpty ? "Nothing matches that search or key."
                          : "This playlist is empty. Drag tracks onto it, or use ⋯ on a track.", .avenir(16, weight: .regular), lineHeight: 1.3, centred: true)
                         .foregroundStyle(Color(hex: 0x74747B))
@@ -356,7 +405,7 @@ struct LibraryPane: View {
     private func listRow(_ entry: Row, index: Int) -> some View {
         let odd = index % 2 == 0
         switch entry {
-        case .track(let track): row(track, odd: odd)
+        case .track(let entry): row(entry, odd: odd)
         case .pending(let pending): pendingRow(pending, odd: odd)
         }
     }
@@ -365,7 +414,7 @@ struct LibraryPane: View {
         rowBand(odd: odd) {
             HStack(spacing: 0) {
                 RowArt(art: pending.art, url: nil).frame(width: 68, height: Self.rowHeight - 1).clipped()
-                RowMark(decks: [], colour: Palette.rowDim).frame(width: 45)
+                RowMark(decks: [], colour: Palette.rowDim, played: false).frame(width: 45)
                 Text(pending.title).font(Face.avenir(22).font).foregroundStyle(Palette.rowText)
                     .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading).padding(.trailing, 8)
                 columnCell(Self.metadataWidth) {
@@ -402,7 +451,8 @@ struct LibraryPane: View {
     }
 
     /// `.lib-row`: alternating bands. A playing track's text turns green.
-    private func row(_ track: ConsoleState.Library.Track, odd: Bool) -> some View {
+    private func row(_ entry: Entry, odd: Bool) -> some View {
+        let track = entry.track
         let decks = state.decks.filter { $0.trackID == track.id }
         let playing = decks.contains(where: \.playing)
         let selected = library.selected == track.id
@@ -413,7 +463,7 @@ struct LibraryPane: View {
         return rowBand(odd: odd, selected: selected) {
             HStack(spacing: 0) {
                 RowArt(art: track.art, url: track.coverURL).frame(width: 68, height: Self.rowHeight - 1).clipped()
-                RowMark(decks: decks, colour: fg).frame(width: 45)
+                RowMark(decks: decks, colour: fg, played: library.played.contains(track.id)).frame(width: 45)
                 HStack(spacing: 10) {
                     Text(track.title).font(face.font).foregroundStyle(fg).lineLimit(1).truncationMode(.tail)
                     if track.missing { Label("file missing", .avenir(16)).foregroundStyle(dim) }
@@ -422,7 +472,7 @@ struct LibraryPane: View {
                 columnCell(SortColumn.bpm.width) {
                     Label(String(format: "%.1f", track.bpm), .avenir(21, tabular: true)).foregroundStyle(fg)
                 }
-                columnCell(SortColumn.time.width) { Label(clock(track.durationSec), number).foregroundStyle(dim) }
+                columnCell(SortColumn.time.width) { Label(entry.at ?? clock(track.durationSec), number).foregroundStyle(dim) }
                 columnCell(SortColumn.key.width) {
                     HStack(spacing: 0) {
                         CamelotBadge(code: track.camelot, selected: !ui.keyFilter.isEmpty && ui.keyFilter == track.camelot, large: true)
@@ -434,6 +484,12 @@ struct LibraryPane: View {
                 columnCell(SortColumn.grid.width) {
                     Label("\(Int((track.confidence * 100).rounded()))%" + (track.gridUncertain ? "?" : ""), number)
                         .foregroundStyle(track.gridUncertain ? Color(hex: 0xFFB455) : dim)
+                }
+                columnCell(SortColumn.rating.width) {
+                    Stars(rating: track.rating, size: 19, step: 21, unlit: selected ? Color.white.opacity(0.35) : Color(hex: 0x3B3F40)) {
+                        actions.library.rate(track.id, $0)
+                    }
+                    .frame(height: Self.rowHeight - 1)
                 }
                 columnCell(Self.moreWidth) {
                     Button { actions.library.setMore(ConsoleState.More(track: track.id)) } label: {
@@ -478,6 +534,10 @@ public struct LibraryView: Sendable {
     public var listMenu: String?
     public var confirmDelete = false
     public var renaming: String?
+    /// NEW SET waits for a second tap.
+    public var confirmNewSet = false
+    /// NEW SET was pressed: THIS SET opens the new set once it exists.
+    var followingSet: String?
     /// Start scrolled to the last row.
     public var scrolledToEnd = false
     public init(view: String? = nil, listMenu: String? = nil, confirmDelete: Bool = false, renaming: String? = nil,
@@ -488,11 +548,11 @@ public struct LibraryView: Sendable {
 }
 
 enum SortColumn: Int, CaseIterable {
-    case name, bpm, time, key, grid
+    case name, bpm, time, key, grid, rating
 
-    var title: String { ["TRACK", "BPM", "TIME", "KEY", "GRID"][rawValue] }
+    var title: String { ["TRACK", "BPM", "TIME", "KEY", "GRID", "RATING"][rawValue] }
     /// The title takes the remaining width after the other columns.
-    var width: CGFloat { [0, 71, 64, 103, 67][rawValue] }
+    var width: CGFloat { [0, 71, 64, 103, 67, 116][rawValue] }
 
     func compare(_ a: ConsoleState.Library.Track, _ b: ConsoleState.Library.Track) -> ComparisonResult {
         func order<T: Comparable>(_ x: T, _ y: T) -> ComparisonResult { x < y ? .orderedAscending : x > y ? .orderedDescending : .orderedSame }
@@ -502,6 +562,8 @@ enum SortColumn: Int, CaseIterable {
         case .bpm: return order(a.bpm, b.bpm)
         case .time: return order(a.durationSec.rounded(.down), b.durationSec.rounded(.down))
         case .grid: return order((a.confidence * 100).rounded(), (b.confidence * 100).rounded())
+        // Most stars first.
+        case .rating: return order(b.rating ?? 0, a.rating ?? 0)
         }
     }
 }
@@ -560,6 +622,9 @@ struct CamelotBadge: View {
 private struct SideItem<Accessory: View>: View {
     /// A glyph, or nil for the music note.
     let icon: String?
+    var iconColour = Color(hex: 0x74747B)
+    /// A glyph item that is not a playlist: its count reads like All tracks'.
+    var plain = false
     let name: String
     let count: Int
     let on: Bool
@@ -569,12 +634,12 @@ private struct SideItem<Accessory: View>: View {
     @ViewBuilder var accessory: Accessory
 
     var body: some View {
-        let isPlaylist = icon != nil
+        let isPlaylist = icon != nil && !plain
         HStack(spacing: 9) {
             Group {
                 if let icon { Text(icon).font(Face.avenir(16, weight: .regular).font) } else { NoteIcon(height: 18) }
             }
-            .foregroundStyle(Color(hex: 0x74747B)).frame(width: 16)
+            .foregroundStyle(iconColour).frame(width: 16)
             if renaming {
                 RenameField(name: name, commit: rename)
             } else {
@@ -601,8 +666,9 @@ private struct SideItem<Accessory: View>: View {
 }
 
 extension SideItem where Accessory == EmptyView {
-    init(icon: String?, name: String, count: Int, on: Bool, action: @escaping () -> Void) {
-        self.init(icon: icon, name: name, count: count, on: on, action: action) { EmptyView() }
+    init(icon: String?, iconColour: Color = Color(hex: 0x74747B), plain: Bool = false, name: String, count: Int, on: Bool,
+         action: @escaping () -> Void) {
+        self.init(icon: icon, iconColour: iconColour, plain: plain, name: name, count: count, on: on, action: action) { EmptyView() }
     }
 }
 
@@ -706,10 +772,13 @@ private struct MenuRow: View {
 private struct RowMark: View {
     let decks: [ConsoleState.Deck]
     let colour: Color
+    /// Played in the current set: the note turns orange until NEW SET.
+    let played: Bool
 
     var body: some View {
         if decks.isEmpty {
-            NoteIcon(height: 25).foregroundStyle(colour)
+            NoteIcon(height: 25).foregroundStyle(played ? Palette.played : colour)
+                .accessibilityLabel(played ? "Played in this set" : "")
         } else {
             VStack(spacing: 2) {
                 ForEach(decks, id: \.id) { deck in DeckBadge(letter: deck.id, playing: deck.playing, stacked: decks.count > 1) }
@@ -994,5 +1063,39 @@ private struct ChipFlow: SwiftUI.Layout {
             row = max(row, size.height)
         }
         return (spots, y + row)
+    }
+}
+
+/// `.lib-stars` / `.zstars`: five stars. Tap one to rate; tap the top lit star again to clear.
+struct Stars: View {
+    let rating: Int?
+    let size: CGFloat
+    /// Each star's width, which is its tap target across.
+    let step: CGFloat
+    let unlit: Color
+    let rate: (Int?) -> Void
+
+    var body: some View {
+        let lit = rating ?? 0
+        HStack(spacing: 0) {
+            ForEach(1...5, id: \.self) { star in
+                Button { rate(star == lit ? nil : star) } label: {
+                    Text("★").font(.system(size: size)).foregroundStyle(star <= lit ? Palette.star : unlit)
+                        .frame(width: step).frame(maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Rating")
+        .accessibilityValue(lit == 0 ? "Not rated" : "\(lit) of 5 stars")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: rate(min(5, lit + 1))
+            case .decrement: rate(lit <= 1 ? nil : lit - 1)
+            @unknown default: break
+            }
+        }
     }
 }
