@@ -5,1035 +5,2248 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Dex · Stage two · decks</title>
   <style>
-    /* Stage two, dressed as hardware.
-       The grid is untouched: every coordinate is still the agreed layout in
-       chassis points (1174 × 476), and the top half is still the current
-       stage's song windows. What changes is the surface — what the controls
-       are made of, in the language of the decks in out/UI:
+    /* Stage two, from the user's drawing (mockup/stage-two-decks FA.svg, 14 Nov 2026).
 
-         · flat matte faceplates with a fine vertical brush, seams and
-           cross-head screws at the corners, every legend silkscreen on the panel
-         · keys are caps: a hairline bevel, engraved legend, LED; the agreed
-           elliptical gradient only when the key is lit, with a bloom in its colour
-         · chips are recessed caps with a printed legend, a segment-style value
-           and the fill as a flat tint with a bright level edge
-         · faders sit in toothed metal wells; flat silver caps with grip grooves,
-           printed scales on the panel (DJM's 10 … 0, CDJ's tempo comb)
-         · the platter is the CDJ-900's: dimpled aluminium ring, rubber face,
-           metal hub around the cue display
-         · CUE · PLAY · loop are illuminated keys with LED rings; the meter is
-           an inset window with its scale printed under it
+       Everything below the song windows is the drawing. The static artwork
+       (chassis, platters, faceplate, meter, fader scales, EQ brackets, FX wells,
+       crossfader comb) is the drawing's own SVG, copied in unchanged. Every
+       control is drawn by a template that reproduces the drawing's two looks:
+       deck A shows one state and deck B the other, and each control can take
+       either. Coordinates are iPad points on the 1194 × 834 canvas, the same as
+       the drawing's viewBox, so the overlay (O) lines up 1:1.
 
-       Flat by design: a surface is one flat fill under a 1 px hairline, never a
-       wash. The only gradients left are the lit keys' and the AUTO chip's — the
-       agreed language — plus the printed textures: panel brush, stipple, cap
-       grooves, jog grooves, crossfader comb.
-
-       Touch: this one is live. Every control is a real target — pointer events
-       with capture (a drag never jumps), 44 pt minimum, extra hit padding on
-       the 78 × 40 deck keys, no hover-only states, no double-tap zoom, no text
-       selection. Options → Targets draws every hit area with its size. */
+       The popups are DexSliderLab's, with the user's iPad tuning of 10 Nov:
+       a chip opens an 80 × 140 bar on the finger with the number and six meter
+       rungs above it; relative drag, sideways for FINE, stretch at the ends,
+       double-tap resets, detents; FX holds still for the effect list. LEVEL and
+       TEMPO are caps on tracks, with their readout above while touched. */
     :root {
-      --bg: #070708;
-      --panel-0: #0b0b0d;
-      --panel-1: #111113;
-      --panel-2: #18181b;
-      --panel-3: #202024;
-      --seam: #000;
       --text: #f2f2f4;
       --muted: #a0a0a6;
-      --print: #d6d7db;          /* silkscreen white, a touch under white */
       --silk: #9a9ba1;
-      --silk-dim: #6b6c72;
-      --a: #276fff;
-      --b: #ff8a1f;
-      --led: #ff8a00;
-      --green: #35d06b;
-      --red: #e8402f;
-      --chip-green: #66ce77;
-      --chip-yellow: #dbe22d;
-      --chip-grey: #55555b;
       --font-cond: "Avenir Next Condensed", "Helvetica Neue Condensed", Helvetica, Arial, sans-serif;
       --font-ui: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      /* the slider lab's theme (SliderTheme.swift) */
+      --lab-backdrop: #262628;
+      --lab-chip: #151517;
+      --lab-outline: #55555b;
+      --lab-text: #f2f2f4;
+      --lab-dim: #8f8f96;
+      --lab-track: #9c9c9c;
+      --lab-fill: #f1f1f3;
+      --lab-mark: #ff8a00;
+      --lab-green: #66ce77;
+      --lab-yellow: #f8d04a;
+      --lab-red: #de5c3c;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: #08080a; color: var(--text); font: 15px/1.35 var(--font-ui); -webkit-font-smoothing: antialiased; }
 
     /* ---------- page ---------- */
     .bar {
-      display: flex; align-items: center; gap: 14px; padding: 10px 20px; border-bottom: 1px solid #1d1d20;
+      display: flex; align-items: center; gap: 14px; padding: 10px 20px; border-bottom: 1px solid #1d1d20; flex-wrap: wrap;
       font: 700 13px/1 var(--font-cond); letter-spacing: .14em; text-transform: uppercase; color: var(--silk);
     }
     .bar h1 { margin: 0; font: inherit; color: var(--text); letter-spacing: .18em; }
     .bar .sp { flex: 1; }
     .bar button {
-      appearance: none; border: 1px solid #3a3a40; background: #151517; color: var(--muted, #a0a0a6); border-radius: 3px;
+      appearance: none; border: 1px solid #3a3a40; background: #151517; color: var(--muted); border-radius: 3px;
       font: 700 13px/1 var(--font-cond); letter-spacing: .12em; padding: 0 12px; min-height: 36px; cursor: pointer;
       touch-action: manipulation; -webkit-tap-highlight-color: transparent;
     }
     .bar button.on { color: #ff7ad9; border-color: #b0428f; }
     .wrap { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
     .frame { position: relative; }
-    .ipad {
-      position: absolute; left: 0; top: 0; transform-origin: top left;
-      width: 1194px; height: 834px; border: 10px solid #030304; border-radius: 22px; overflow: hidden;
-      background: #0c0c0d; box-shadow: 0 40px 90px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .05);
-    }
-    .top { display: block; width: 1174px; height: 338px; object-fit: cover; object-position: top; }
-    .notes { max-width: 1194px; width: 100%; color: var(--muted, #a0a0a6); font-size: 14px; }
+    .ipad { position: absolute; left: 0; top: 0; width: 1194px; height: 834px; transform-origin: top left; }
+    .ipad > svg { position: absolute; inset: 0; width: 1194px; height: 834px; display: block;
+      user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
+    .notes { max-width: 1194px; width: 100%; color: var(--muted); font-size: 14px; }
     .notes h2 { font: 700 13px/1 var(--font-cond); letter-spacing: .14em; color: var(--text); margin: 0 0 8px; }
     .notes ul { margin: 0; padding-left: 18px; columns: 2; column-gap: 32px; }
     .notes li { margin: 0 0 6px; break-inside: avoid; }
     .notes b { color: var(--text); font-weight: 600; }
     .notes h2 + ul + h2 { margin-top: 14px; }
 
-    /* ---------- chassis: the panel itself ---------- */
-    .chassis {
-      position: relative; width: 1174px; height: 476px; overflow: hidden;
-      background:
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, .016) 0 1px, transparent 1px 3px),
-        #101013;
-      border-top: 1px solid #000;
-      border-radius: 0 0 12px 12px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
-      user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
-    }
-    .at { position: absolute; }
+    /* the drawing laid over the mockup, to check it */
+    .drawing { position: absolute; inset: 0; width: 1194px; height: 834px; pointer-events: none; display: none; }
+    body.overlay-half .drawing { display: block; opacity: .5; }
+    body.overlay-diff .drawing { display: block; mix-blend-mode: difference; }
 
-    /* cross-head screws in the panel corners */
-    .screw {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #2c2d32;
-      box-shadow: inset 0 0 0 1px #000, 0 1px 0 rgba(255, 255, 255, .07);
-    }
-    .screw::before, .screw::after {
-      content: ""; position: absolute; left: 50%; top: 50%; background: #000;
-      transform: translate(-50%, -50%) rotate(38deg);
-      box-shadow: 0 1px 0 rgba(255, 255, 255, .09);
-    }
-    .screw::before { width: 4.4px; height: 1px; }
-    .screw::after { width: 1px; height: 4.4px; }
+    /* ---------- the stage ---------- */
+    #art { pointer-events: none; }
+    [data-ctl] { cursor: pointer; }
+    .hit { fill: transparent; }
 
-    /* The mixer faceplate: a raised plate under the channel strips and meter. */
-    .face {
-      background: #16161a;
-      border: 1px solid #000; border-radius: 3px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 3px 8px rgba(0, 0, 0, .4);
+    /* ---------- popups (DexSliderLab) ---------- */
+    .over { position: absolute; inset: 0; width: 1194px; height: 834px; pointer-events: none; overflow: hidden; border-radius: 22px; }
+    .panel { position: absolute; left: 0; top: 0; }
+    .panel .bd {
+      position: absolute; border-radius: 18px; background: var(--lab-backdrop);
+      box-shadow: 0 6px 36px rgba(0, 0, 0, .45); opacity: 0; transition: opacity .18s ease-out;
     }
+    .panel .ph {
+      position: absolute; display: flex; flex-direction: column; align-items: center;
+      transform: scale(.6); transform-origin: 50% 100%; opacity: 0;
+      transition: transform .18s cubic-bezier(.2, .9, .3, 1.15), opacity .18s ease-out;
+    }
+    .panel .pb {
+      position: absolute; overflow: hidden; background: var(--lab-chip); border-radius: 8px;
+      transition: left .18s cubic-bezier(.2, .9, .3, 1.15), top .18s cubic-bezier(.2, .9, .3, 1.15),
+                  width .18s cubic-bezier(.2, .9, .3, 1.15), height .18s cubic-bezier(.2, .9, .3, 1.15),
+                  border-radius .18s, background-color .18s;
+    }
+    .panel .pb i { position: absolute; left: 0; right: 0; display: block; }
+    .panel .pb .pf { background: rgba(200, 200, 206, .3); transition: background-color .18s; }
+    .panel .pb .pm { height: 3px; background: var(--lab-mark); }
+    .panel.open .bd, .panel.open .ph { opacity: 1; }
+    .panel.open .ph { transform: scale(1); }
+    .panel.open .pb { background: var(--lab-track); border-radius: 3.5px; }
+    .panel.open .pb .pf { background: var(--lab-fill); }
+    .panel.live .pb { transition: none; }
+    .panel.live .ph { transition: opacity .18s ease-out; }
+    .rungs { display: flex; gap: 6px; }
+    .rungs .col { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .rungs s { display: block; height: 16px; border-radius: 2px; text-decoration: none; }
+    .rungs s.g { background: var(--lab-green); } .rungs s.y { background: var(--lab-yellow); } .rungs s.r { background: var(--lab-red); }
+    .rungs s.off { opacity: .16; }
+    .pnum { font: 700 46px/1 var(--font-cond); font-variant-numeric: tabular-nums; color: var(--lab-text); height: 50px;
+      display: flex; align-items: center; white-space: nowrap; }
+    .pcap { font: 600 14px/1 var(--font-cond); font-variant-numeric: tabular-nums; color: var(--lab-dim); height: 18px;
+      display: flex; align-items: center; white-space: nowrap; }
+    .pcap.fine { color: var(--lab-mark); }
 
-    /* ---------- silkscreen ---------- */
-    .print {
-      font: 700 11px/12px var(--font-cond); letter-spacing: .14em; color: var(--print);
-      text-align: center; white-space: nowrap; text-shadow: 0 1px 0 rgba(0, 0, 0, .85);
+    /* LEVEL and TEMPO readouts, above the fader while touched */
+    .readout {
+      position: absolute; transform: translate(-50%, -100%); padding: 8px 10px; border-radius: 12px; background: var(--lab-backdrop);
+      display: flex; flex-direction: column; align-items: center; gap: 4px; white-space: nowrap;
+      opacity: 0; transition: opacity .15s ease-out;
     }
-    .scale { font: 700 10px/10px var(--font-cond); color: var(--silk); white-space: nowrap; letter-spacing: .04em; }
+    .readout.on { opacity: 1; }
+    .readout .rungs { gap: 4px; }
+    .readout .rungs .col { gap: 2px; }
+    .readout .rungs s { height: 8.8px; }
+    .readout .rn { font: 700 26px/1 var(--font-cond); font-variant-numeric: tabular-nums; color: var(--lab-text); }
+    .readout .rt { font: 700 24px/1 var(--font-cond); font-variant-numeric: tabular-nums; color: var(--lab-text); }
+    .readout .rc { font: 600 14px/1 var(--font-cond); font-variant-numeric: tabular-nums; color: var(--lab-dim); margin-top: -2px; }
+    .readout .rc.fine { color: var(--lab-mark); }
 
-    /* ---------- deck keys: caps, not outlines ---------- */
-    .pill {
-      --key: var(--a);
-      --lit: radial-gradient(ellipse closest-side, #02adee 0%, #05a4f1 65%, #1491f6 95%, #2573fe 125%, #276fff 135%);
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-      padding: 0 4px; border-radius: 5px;
-      border: 1.25px solid color-mix(in srgb, var(--key) 68%, #000);
-      color: var(--key);
-      background: #1b1b1f;
-      background-origin: border-box;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), inset 0 -1px 0 rgba(0, 0, 0, .7), 0 2px 3px rgba(0, 0, 0, .5);
-      font: 700 15px/13px var(--font-cond); letter-spacing: .09em; text-transform: uppercase;
-      text-align: center; text-shadow: 0 1px 0 rgba(0, 0, 0, .8);
-      cursor: pointer; touch-action: manipulation;
+    /* FX effect list */
+    .picker { position: absolute; }
+    .picker .bd { position: absolute; border-radius: 18px; background: var(--lab-backdrop); box-shadow: 0 6px 36px rgba(0, 0, 0, .45); }
+    .picker .row {
+      position: absolute; border-radius: 10px; background: var(--lab-chip); box-shadow: inset 0 0 0 2px var(--lab-outline);
+      font: 700 20px/1 var(--font-cond); color: var(--lab-text); display: flex; align-items: center; justify-content: center;
+      transition: background-color .08s ease-out, color .08s ease-out;
     }
-    /* the unlit LED in the key's corner; it goes quiet once the cap is lit */
-    .pill .led {
-      position: absolute; right: 5px; top: 5px; width: 4px; height: 4px; border-radius: 50%;
-      background: color-mix(in srgb, var(--key) 55%, transparent);
-      box-shadow: 0 0 4px color-mix(in srgb, var(--key) 40%, transparent);
-    }
-    .pill.sync {
-      --key: #f2f4f3;
-      --lit: radial-gradient(ellipse closest-side, #fff 0%, #f3f3f3 65%, #e6e6e6 85%, #d2d2d2 105%, #d1d1d1 110%);
-    }
-    .pill.master {
-      --key: #e18400;
-      --lit: radial-gradient(ellipse closest-side, #cd9c04 0%, #d49210 65%, #dc8519 85%, #e87022 105%, #f05a27 125%);
-    }
-    /* MASTER TEMPO is red, as its LED is on a CDJ. */
-    .pill.mt {
-      --key: #ec4a37;
-      --lit: radial-gradient(ellipse closest-side, #ff7a5c 0%, #f8654a 45%, #f0553d 70%, #e64634 95%, #d93a2b 115%, #cc3024 135%);
-      font-size: 12px; line-height: 12px; letter-spacing: .1em;
-    }
-    .pill.on {
-      background-image: var(--lit);
-      border-color: #000; color: #000;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, .28);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, .55),
-        inset 0 -2px 4px rgba(0, 0, 0, .22),
-        0 0 14px color-mix(in srgb, var(--key) 46%, transparent),
-        0 2px 4px rgba(0, 0, 0, .5);
-    }
-    .pill.on .led { opacity: .18; }
-    .pill:active:not(.on) { transform: translateY(1px); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .6), 0 1px 2px rgba(0, 0, 0, .5); }
-    /* the 78 × 40 caps get 3 pt of hit padding so a finger still lands on 46 */
-    .pill::after { content: ""; position: absolute; inset: -3px; border-radius: 7px; }
+    .picker .row.cur { box-shadow: inset 0 0 0 2px var(--lab-green); }
+    .picker .row.lit { background: var(--lab-fill); color: #000; }
+    .picker.static .row { pointer-events: auto; cursor: pointer; }
 
-    /* ---------- chips: recessed caps with a lit acrylic fill ---------- */
-    .chip {
-      --ring: var(--chip-grey);
-      border-radius: 6px; overflow: hidden;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: #16161a;
-      border: 1px solid #000;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), inset 0 -1px 0 rgba(0, 0, 0, .7), 0 2px 3px rgba(0, 0, 0, .45);
-      font: 700 13px/1 var(--font-cond); color: #e9eaee;
-      cursor: ns-resize; touch-action: none;
-    }
-    .chip::after {
-      content: ""; position: absolute; inset: 0; border-radius: 6px; pointer-events: none;
-      box-shadow: inset 0 0 0 1.25px color-mix(in srgb, var(--ring) 88%, #0b0b0d);
-      opacity: .85;
-    }
-    .chip b {
-      position: relative; font-size: 10.5px; font-weight: 700; letter-spacing: .16em;
-      color: #c6c7cc; text-shadow: 0 1px 0 #000; text-transform: uppercase;
-    }
-    .chip span {
-      position: relative; font-size: 19px; margin-top: 3px; letter-spacing: .01em;
-      font-variant-numeric: tabular-nums; color: #eef0f3;
-      text-shadow: 0 1px 2px #000, 0 0 12px rgba(255, 255, 255, .07);
-    }
-    .chip .fill {
-      position: absolute; left: 0; right: 0; bottom: 0; height: var(--fill, 0%);
-      background: color-mix(in srgb, var(--ring) 12%, transparent);
-      box-shadow: inset 0 1.5px 0 color-mix(in srgb, var(--ring) 46%, transparent);
-      transition: height .1s linear;
-    }
-    .chip .fill.mid { bottom: auto; top: 50%; height: 0; }
-    .chip .mark {
-      position: absolute; right: 3px; width: 9px; height: 2px; border-radius: 1px;
-      background: var(--led); bottom: var(--at);
-      box-shadow: 0 0 5px rgba(255, 138, 0, .55);
-    }
-    .chip .mark.l { right: auto; left: 3px; }
-    .chip.green { --ring: var(--chip-green); }
-    .chip.yellow { --ring: var(--chip-yellow); background: #1a1a14; color: #f3f6b0; }
-    .chip.yellow b { color: color-mix(in srgb, var(--chip-yellow) 62%, #6c6c6c); }
-    .chip.yellow .fill { background: color-mix(in srgb, var(--chip-yellow) 22%, transparent); }
-    /* AUTO lit: the deck keys' gradient, in Dex's green. */
-    .chip.auto {
-      --ring: #000; color: #04140a; border-color: #000;
-      background: radial-gradient(ellipse closest-side, #8be596 0%, #74da82 45%, #62cf72 70%, #55c467 95%, #49ba60 115%, #3fae56 135%);
-      box-shadow: 0 0 18px rgba(80, 200, 110, .22), inset 0 1px 0 rgba(255, 255, 255, .5), inset 0 -3px 6px rgba(0, 0, 0, .18);
-    }
-    .chip.auto b { color: #0b2a13; }
-    .chip.auto span { color: #04140a; text-shadow: 0 1px 0 rgba(255, 255, 255, .3); }
-    .chip.auto .fill { display: none; }
-    .chip.auto::after { box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, .8); }
-    .chip:active:not(.auto):not(.on) { background: #121215; }
-    /* a lit state chip: FILTER on, and any key that latches after a tap */
-    .chip.on {
-      --ring: var(--chip-green);
-      background: #16231a;
-      box-shadow: 0 0 12px rgba(80, 200, 110, .10), inset 0 1px 0 rgba(255, 255, 255, .08);
-    }
-    .chip.on b { color: #a9dfb7; }
-    .chip.on span { color: #c4f2cf; }
-
-    /* ---------- faders: toothed metal wells, silver caps ---------- */
-    .vf .bezel {
-      position: absolute; inset: 0; border-radius: 4px;
-      background: #0c0c0f;
-      border: 1px solid #000;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, .9), inset 0 -1px 0 rgba(255, 255, 255, .05);
-    }
-    .vf .slot {
-      position: absolute; left: 50%; top: 6px; bottom: 6px; width: 10px; transform: translateX(-50%);
-      border-radius: 2px;
-      background: #0a0a0c;
-      box-shadow: inset 0 0 0 1px #2a2a2f, inset 0 2px 5px #000;
-    }
-    .vf .slot::after {
-      content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1.5px; transform: translateX(-50%);
-      background: rgba(255, 255, 255, .05);
-    }
-    /* the fill under the cap is frosted, not a white pole */
-    .vf .lit {
-      position: absolute; left: 50%; bottom: 6px; width: 4px; transform: translateX(-50%);
-      border-radius: 1px;
-      background: rgba(255, 255, 255, .16);
-    }
-    .vf .cap {
-      position: absolute; left: 0; right: 0; height: 28px; border-radius: 3px;
-      background: #c9c9cf;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, .7), inset 0 1px 0 #f4f4f6, inset 0 -1px 0 rgba(0, 0, 0, .28);
-    }
-    /* grip grooves at the ends of the cap, like the DJM's channel fader */
-    .vf .cap::before {
-      content: ""; position: absolute; inset: 3px;
-      background: repeating-linear-gradient(90deg, rgba(0, 0, 0, .11) 0 1px, transparent 1px 2.5px);
-      -webkit-mask-image: linear-gradient(90deg, #000 0 16%, transparent 16% 84%, #000 84% 100%);
-              mask-image: linear-gradient(90deg, #000 0 16%, transparent 16% 84%, #000 84% 100%);
-    }
-    .vf .cap::after {
-      content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 2px; transform: translateY(-50%);
-      background: #141416; box-shadow: 0 1px 0 rgba(255, 255, 255, .55);
-    }
-    .vf .zero {
-      position: absolute; left: 50%; width: 26px; height: 1.5px; transform: translate(-50%, -50%);
-      background: var(--led); box-shadow: 0 0 6px rgba(255, 138, 0, .55);
-    }
-    .ticks i { position: absolute; height: 1px; background: rgba(255, 255, 255, .24); }
-    .ticks i.major { background: rgba(255, 255, 255, .46); }
-
-    /* EQ bracket, as Pioneer prints beside the EQ knobs. */
-    .bracket { border: 1px solid rgba(255, 255, 255, .26); }
-    .bracket.a { border-right: 0; }
-    .bracket.b { border-left: 0; }
-    .bracket-label {
-      background: #141417; padding: 4px 0;
-      font: 700 10px/10px var(--font-cond); letter-spacing: .14em; color: var(--print); text-align: center;
-      text-shadow: 0 1px 0 #000;
-    }
-
-    /* Pioneer's stippled panel behind the colour FX. */
-    .stipple {
-      border-radius: 5px;
-      background-color: #131316;
-      background-image: radial-gradient(rgba(255, 255, 255, .14) 0.7px, transparent 1px);
-      background-size: 3px 3px;
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .045);
-    }
-
-    /* ---------- platter: dimpled aluminium ring, rubber face, metal hub ---------- */
-    .platter {
-      width: 100%; height: 100%; border-radius: 50%; position: relative;
-      background: #0c0c0e;
-      box-shadow:
-        inset 0 0 0 1px rgba(0, 0, 0, .9),
-        0 6px 14px rgba(0, 0, 0, .6),
-        0 1px 0 rgba(255, 255, 255, .06);
-      display: grid; place-items: center;
-    }
-    .jog-face {
-      position: absolute; inset: 0; border-radius: 50%;
-      background:
-        repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .026) 0 1px, transparent 1px 3px),
-        #101013;
-      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .8);
-    }
-    .jog-ring { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-    .platter-display {
-      position: absolute; z-index: 2; width: 104px; height: 104px; border-radius: 50%;
-      background: #06070a;
-      box-shadow: 0 0 0 1px #2a2c31, 0 0 0 4px rgba(0, 0, 0, .55), 0 3px 8px #000, inset 0 0 12px rgba(0, 0, 0, .9);
-    }
-    .platter-display svg { display: block; width: 100%; height: 100%; }
-    .p-edge { fill: none; stroke: #14171c; stroke-width: 1; }
-    .p-ticks { fill: none; stroke: #e4e8ed; stroke-width: 2.4; }
-    .p-accent { fill: none; stroke: var(--accent); stroke-width: 1.8; }
-    .p-inner { fill: none; stroke: #9da4ad; stroke-width: 1.8; stroke-dasharray: 25 4.845; transform: rotate(-45deg); transform-origin: 50px 50px; }
-    .p-hub { fill: #0b0c0f; stroke: #16191d; stroke-width: 1; }
-
-    /* ---------- meter window: inset glass ---------- */
-    .meter-face {
-      background: #0f0f12;
-      border: 1px solid #000; border-radius: 4px;
-      box-shadow: inset 0 2px 8px rgba(0, 0, 0, .85), inset 0 0 0 1px rgba(255, 255, 255, .04), 0 1px 0 rgba(255, 255, 255, .05);
-    }
-    .meter-v {
-      background: #06060a; border: 1px solid #000; border-radius: 1px; overflow: hidden;
-      box-shadow: inset 0 0 0 1px #1e1e22, inset 0 2px 5px #000;
-    }
-    .meter-v .rung { position: absolute; left: 0; right: 0; background: #121216; }
-    .meter-v .rung.on.g { background: #2b9e58; box-shadow: 0 0 4px rgba(37, 168, 89, .3); }
-    .meter-v .rung.on.a { background: #c99a26; box-shadow: 0 0 4px rgba(216, 160, 41, .3); }
-    .meter-v .rung.on.r { background: #c9372a; box-shadow: 0 0 4px rgba(208, 58, 44, .3); }
-    .meter-v .rung.held { background: #d8d8dd; box-shadow: 0 0 5px rgba(255, 255, 255, .35); }
-    .meter-v .aim { position: absolute; left: 0; right: 0; height: 1px; background: #8e8e96; opacity: .7; }
-    .m-title { font: 700 10px/12px var(--font-cond); letter-spacing: .12em; color: var(--print); text-align: center; text-shadow: 0 1px 0 #000; }
-    .m-unit { font: 700 9px/10px var(--font-cond); letter-spacing: .06em; color: var(--silk); text-align: center; }
-    .m-num { font: 700 10px/10px var(--font-cond); color: var(--silk); text-align: center; letter-spacing: .02em; }
-    .m-num.zero { color: var(--text); }
-    .m-clip { font: 700 9px/10px var(--font-cond); letter-spacing: .14em; color: #8a4f48; text-align: center; }
-
-    /* ---------- keys and rows ---------- */
-    .key {
-      border-radius: 4px; border: 1px solid #000; color: #cdced4;
-      background: #1a1a1e;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), inset 0 -1px 0 rgba(0, 0, 0, .7), 0 2px 3px rgba(0, 0, 0, .45);
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-      font: 700 12px/1.15 var(--font-cond); letter-spacing: .13em; text-transform: uppercase;
-      text-shadow: 0 1px 0 #000; cursor: pointer; touch-action: manipulation;
-    }
-    .key:active { transform: translateY(1px); }
-    .key.dot::before {
-      content: ""; width: 5px; height: 5px; border-radius: 50%; flex: none;
-      background: #2b2b31; box-shadow: inset 0 1px 1px #000;
-    }
-    .key.dot.on::before { background: var(--led); box-shadow: 0 0 7px rgba(255, 138, 0, .8); }
-    .key.cue { font-size: 19px; letter-spacing: .12em; text-indent: .12em; border: 1.25px solid color-mix(in srgb, var(--led) 78%, #000); color: #ffab40; }
-    .key.cue.on {
-      color: #1a0d00; border-color: #000;
-      background: #ff9d2b;
-      box-shadow: 0 0 14px rgba(255, 138, 0, .26), inset 0 1px 0 rgba(255, 255, 255, .45);
-      text-shadow: 0 1px 0 rgba(255, 255, 255, .3);
-    }
-    .jstep { display: flex; align-items: center; justify-content: center; }
-    .jstep svg { width: 24px; height: 24px; fill: currentColor; }
-    /* No block borders: the strip's own height is the cells' height, so each
-       length cell is a full 44 pt tall. The recess is drawn inside instead. */
-    .jlen {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      border-inline: 1px solid #000; border-block: 0; border-radius: 4px; overflow: hidden;
-      background: #08080a;
-      box-shadow: inset 0 1px 0 #000, inset 0 4px 7px -2px rgba(0, 0, 0, .95), inset 0 -1px 0 rgba(255, 255, 255, .05);
-    }
-    .jlen i {
-      font: 700 17px/1 var(--font-cond); font-style: normal; color: #9a9ba1;
-      display: grid; place-items: center; cursor: pointer; touch-action: manipulation;
-      background: #17171b;
-      border-left: 1px solid #000; text-shadow: 0 1px 0 #000;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
-    }
-    .jlen i:first-child { border-left: 0; }
-    .jlen i.on {
-      color: #f2f2f4; background: #2a2a2f;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), inset 0 -3px 0 var(--a);
-      text-shadow: 0 0 8px rgba(255, 255, 255, .25);
-    }
-    .big {
-      border-radius: 50%; display: grid; place-items: center;
-      background: #1a1a1e;
-      color: #eaeaee;
-      box-shadow:
-        inset 0 0 0 2px #3a3a42,
-        inset 0 2px 4px rgba(255, 255, 255, .05),
-        0 3px 6px rgba(0, 0, 0, .65);
-      font: 700 19px/1 var(--font-cond); letter-spacing: .14em; text-indent: .14em;
-      text-shadow: 0 1px 0 #000; cursor: pointer; touch-action: manipulation;
-    }
-    .big:active { transform: translateY(1px); }
-    .big.cue {
-      color: #ffab40;
-      box-shadow:
-        inset 0 0 0 2px var(--led), inset 0 0 20px rgba(255, 138, 0, .12),
-        0 0 16px rgba(255, 138, 0, .10), 0 3px 6px rgba(0, 0, 0, .65);
-    }
-    .big.cue.on {
-      color: #1a0d00;
-      background: #ff9d2b;
-      box-shadow: 0 0 20px rgba(255, 138, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .45);
-      text-shadow: 0 1px 0 rgba(255, 255, 255, .3);
-    }
-    .big.play.playing {
-      color: #0c2a17;
-      background: #57c980;
-      box-shadow: 0 0 18px rgba(53, 208, 107, .20), inset 0 1px 0 rgba(255, 255, 255, .30), inset 0 0 0 2px #0d2917;
-      text-shadow: none;
-    }
-    .big svg { width: 26px; height: 26px; fill: currentColor; }
-    .loopbar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 6px; }
-    .loopbar i {
-      font-style: normal; border-radius: 4px; border: 1px solid #000; background: #191a1d;
-      color: #cdced4; display: grid; place-items: center; font: 700 22px/1 var(--font-cond);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), inset 0 -1px 0 rgba(0, 0, 0, .7), 0 2px 3px rgba(0, 0, 0, .45);
-      cursor: pointer; touch-action: manipulation; text-shadow: 0 1px 0 #000;
-    }
-    .loopbar i.n { font-size: 32px; }
-    .loopbar i:active { transform: translateY(1px); }
-    .loopbar.on i {
-      background: #dd8630;
-      border-color: #000; color: #1a0d00;
-      box-shadow: 0 0 10px rgba(255, 138, 0, .16), inset 0 1px 0 rgba(255, 255, 255, .25);
-      text-shadow: 0 1px 0 rgba(255, 255, 255, .28);
-    }
-
-    /* Crossfader: DJM's dark cap with grip lines, in a recessed channel. */
-    .xf { cursor: ew-resize; touch-action: none; }
-    .xf .channel {
-      position: absolute; left: 0; right: 0; top: 50%; height: 12px; transform: translateY(-50%);
-      border-radius: 3px; background: #0b0b0d;
-      border: 1px solid #000;
-      box-shadow: inset 0 2px 5px rgba(0, 0, 0, .9), inset 0 -1px 0 rgba(255, 255, 255, .05);
-    }
-    .xf .comb { position: absolute; left: 0; right: 0; height: 9px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .26) 0 1px, transparent 1px 19.4px); }
-    .xf .thumb {
-      position: absolute; top: 50%; width: 58px; height: 38px; transform: translate(-50%, -50%); border-radius: 3px;
-      border: 1px solid #000;
-      background: #24242a;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 -1px 0 rgba(0, 0, 0, .6);
-    }
-    .xf .thumb::before {
-      content: ""; position: absolute; inset: 4px 5px;
-      background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .28) 0 1px, transparent 1px 3px);
-    }
-    .xf .thumb::after {
-      content: ""; position: absolute; top: 5px; bottom: 5px; left: 50%; width: 2px; transform: translateX(-50%);
-      background: #ececf0; box-shadow: 0 0 6px rgba(255, 255, 255, .35);
-    }
-    .xside { font: 700 14px/1 var(--font-cond); letter-spacing: .08em; color: var(--print); text-shadow: 0 1px 0 #000; }
-
-    /* Guides: the grid the layout is built on. */
-    .guides { position: absolute; inset: 0; pointer-events: none; display: none; z-index: 50; }
-    body.show-guides .guides { display: block; }
-    .guides .h, .guides .v { position: absolute; background: rgba(255, 64, 200, .55); }
-    .guides .h { left: 0; right: 0; height: 1px; }
-    .guides .v { top: 0; bottom: 0; width: 1px; }
-    .guides .h.c, .guides .v.c { background: rgba(64, 220, 255, .6); }
-    .guides .tag { position: absolute; font: 700 11px/1 var(--font-cond); color: #fff; background: #b0428f; padding: 2px 3px; border-radius: 2px; transform: translate(-50%, -50%); }
-    .guides .tag.c { background: #1f8fb0; }
-
-    /* Targets: every hit area with its size in chassis points. Anything under
-       44 × 44 pt is boxed in red — the iPad's minimum. */
-    .targets { position: absolute; inset: 0; pointer-events: none; display: none; z-index: 60; }
-    body.show-targets .targets { display: block; }
-    .targets i {
-      position: absolute; border: 1px dashed rgba(89, 194, 255, .85); border-radius: 3px;
-    }
-    .targets i.bad { border: 1.5px solid #ff5a3c; background: rgba(255, 90, 60, .07); }
-    .targets b {
-      position: absolute; transform: translate(-50%, -50%); padding: 1px 4px; border-radius: 2px;
-      background: #3aa8ff; color: #00131f; font: 700 10px/1.3 var(--font-cond); letter-spacing: .04em;
-    }
+    /* hit areas (T) */
+    .targets i { position: absolute; border: 1px dashed rgba(80, 220, 255, .9); background: rgba(80, 220, 255, .07); }
+    .targets b { position: absolute; transform: translate(-50%, -50%); font: 700 10px/1 var(--font-cond); color: #021018;
+      background: rgba(80, 220, 255, .9); padding: 2px 3px; border-radius: 2px; }
+    .targets i.bad { border-color: #ff5a3c; background: rgba(255, 90, 60, .12); }
     .targets b.bad { background: #ff5a3c; color: #210400; }
   </style>
 </head>
 <body>
   <div class="bar">
     <h1>Dex · Stage two · decks</h1>
-    <span>Fixed layout, hardware surfaces · live on touch</span>
+    <span>From the drawing · live on touch</span>
     <span class="sp"></span>
+    <button id="overlayBtn" onclick="cycleOverlay()">Drawing (O)</button>
+    <button id="swapBtn" onclick="swapStates()">Swap states (S)</button>
     <button id="targetsBtn" onclick="toggleTargets()">Targets (T)</button>
-    <button id="guidesBtn" onclick="toggleGuides()">Guides (G)</button>
   </div>
   <div class="wrap">
     <div class="frame" id="frame">
       <div class="ipad" id="ipad">
-        <img class="top" src="stage-two-top.png" alt="Song windows from the current stage">
-        <div class="chassis" id="chassis"></div>
+        <svg id="stage" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1194 834">
+          <defs>
+            <style>
+      .st0, .st1, .st2, .st3, .st4, .st5, .st6, .st7, .st8, .st9, .st10, .st11, .st12, .st13, .st14, .st15, .st16, .st17, .st18, .st19, .st20, .st21, .st22, .st23, .st24 {
+        fill: none;
+      }
+
+      .st25, .st26, .st1, .st27, .st28, .st29, .st30, .st31, .st2, .st3, .st32, .st4, .st33, .st34, .st35, .st7, .st36, .st37, .st38, .st39, .st40, .st41, .st42, .st15, .st43, .st44, .st45, .st46, .st47, .st48, .st49, .st16, .st17, .st18, .st19, .st20, .st21, .st50, .st51, .st52, .st53, .st54, .st55, .st56, .st57, .st58, .st59, .st60, .st61, .st62, .st63, .st64, .st65, .st66, .st67, .st68, .st69, .st70, .st71 {
+        isolation: isolate;
+      }
+
+      .st25, .st31, .st32, .st33, .st72, .st73, .st74, .st39, .st40, .st44, .st48, .st75, .st51, .st52, .st54, .st57 {
+        font-family: AvenirNext-Bold, 'Avenir Next';
+        font-weight: 700;
+      }
+
+      .st25, .st44 {
+        fill: #eef0f3;
+      }
+
+      .st25, .st44, .st54 {
+        font-size: 19px;
+      }
+
+      .st25, .st54 {
+        letter-spacing: 0em;
+      }
+
+      .st76 {
+        fill: url(#comb);
+      }
+
+      .st77, .st56 {
+        fill: #35d06b;
+      }
+
+      .st26, .st78, .st74, .st79 {
+        fill: #f2f1f3;
+      }
+
+      .st26, .st80 {
+        opacity: .3;
+      }
+
+      .st1 {
+        stroke-width: 4px;
+      }
+
+      .st1, .st81, .st82, .st83, .st84, .st85, .st86, .st87, .st88, .st89, .st90, .st91, .st92, .st93, .st17, .st94, .st95, .st96, .st97 {
+        stroke: #000;
+      }
+
+      .st1, .st35 {
+        opacity: .55;
+      }
+
+      .st27 {
+        fill: #8a4f48;
+        letter-spacing: .1em;
+      }
+
+      .st27, .st98, .st99, .st34, .st36, .st38, .st100, .st43, .st46, .st47, .st49, .st50, .st101, .st102, .st55, .st103, .st104, .st58, .st59 {
+        font-weight: 300;
+      }
+
+      .st27, .st98, .st34, .st36, .st38, .st100, .st43, .st46, .st47, .st49, .st50, .st102, .st55, .st103, .st104, .st58, .st59 {
+        font-family: AvenirNext-DemiBold, 'Avenir Next';
+      }
+
+      .st27, .st36, .st46, .st47, .st48, .st55, .st58 {
+        font-size: 9px;
+      }
+
+      .st28, .st31, .st72, .st100 {
+        fill: #e18400;
+      }
+
+      .st28, .st105, .st106 {
+        opacity: .4;
+      }
+
+      .st29, .st45 {
+        opacity: .28;
+      }
+
+      .st107, .st43, .st102 {
+        fill: #c6c7cc;
+      }
+
+      .st81 {
+        stroke-width: 1.08px;
+      }
+
+      .st81, .st83, .st108, .st109 {
+        fill: #24242a;
+      }
+
+      .st110 {
+        fill: #030304;
+      }
+
+      .st30 {
+        opacity: .4;
+      }
+
+      .st31, .st72 {
+        font-size: 16px;
+        letter-spacing: .12em;
+      }
+
+      .st82 {
+        fill: url(#radial-gradient);
+      }
+
+      .st82, .st111, .st112, .st87, .st88, .st89, .st113, .st19, .st20, .st114 {
+        stroke-width: 1.25px;
+      }
+
+      .st115 {
+        fill: #0a0a0c;
+        stroke: #2a2a2f;
+      }
+
+      .st111 {
+        stroke: #a03225;
+      }
+
+      .st116 {
+        letter-spacing: .04em;
+      }
+
+      .st116, .st117 {
+        font-size: 23px;
+      }
+
+      .st117 {
+        letter-spacing: .04em;
+      }
+
+      .st2 {
+        stroke: #f2f1f3;
+      }
+
+      .st2, .st7, .st19, .st20 {
+        opacity: .85;
+      }
+
+      .st105 {
+        fill: url(#linear-gradient1);
+      }
+
+      .st106 {
+        fill: url(#linear-gradient3);
+      }
+
+      .st83 {
+        stroke-width: 1px;
+      }
+
+      .st3 {
+        stroke-width: 1.05px;
+      }
+
+      .st3, .st4, .st15, .st16, .st18, .st21 {
+        stroke: #fff;
+      }
+
+      .st3, .st15, .st67 {
+        opacity: .26;
+      }
+
+      .st118 {
+        letter-spacing: 0em;
+      }
+
+      .st118, .st74, .st119 {
+        font-size: 14px;
+      }
+
+      .st112 {
+        stroke: #995a00;
+      }
+
+      .st78, .st108, .st109 {
+        opacity: .7;
+      }
+
+      .st98 {
+        fill: #ec4a37;
+      }
+
+      .st98, .st99, .st101 {
+        font-size: 13.74px;
+      }
+
+      .st120 {
+        fill: url(#brush);
+      }
+
+      .st99 {
+        fill: #e94f2d;
+      }
+
+      .st99, .st101 {
+        font-family: AvenirNextCondensed-DemiBold, 'Avenir Next Condensed';
+      }
+
+      .st84 {
+        fill: #1a1a1e;
+      }
+
+      .st32, .st39 {
+        font-size: 26px;
+        letter-spacing: .02em;
+      }
+
+      .st4 {
+        opacity: .12;
+        stroke-width: 1.31px;
+      }
+
+      .st33, .st40 {
+        font-size: 17px;
+        letter-spacing: .03em;
+      }
+
+      .st33, .st47, .st49, .st51, .st55 {
+        fill: #9a9ba1;
+      }
+
+      .st34, .st121, .st73, .st53, .st122, .st57 {
+        fill: #276fff;
+      }
+
+      .st34, .st100, .st43, .st102, .st103, .st104 {
+        font-size: 15px;
+      }
+
+      .st85 {
+        fill: url(#linear-gradient);
+      }
+
+      .st85, .st91 {
+        stroke-width: .54px;
+      }
+
+      .st85, .st91, .st123 {
+        stroke-miterlimit: 10;
+      }
+
+      .st5, .st6 {
+        stroke-width: 1.87px;
+      }
+
+      .st5, .st7, .st124 {
+        stroke: #e18400;
+      }
+
+      .st121, .st125, .st19 {
+        stroke: #276fff;
+      }
+
+      .st80 {
+        fill: #d4e108;
+      }
+
+      .st86 {
+        fill: #16161a;
+      }
+
+      .st87 {
+        fill: url(#radial-gradient4);
+      }
+
+      .st88 {
+        fill: url(#radial-gradient2);
+      }
+
+      .st89 {
+        fill: url(#radial-gradient1);
+      }
+
+      .st90 {
+        fill: url(#radial-gradient3);
+      }
+
+      .st6 {
+        stroke: #276fff;
+      }
+
+      .st126 {
+        fill: #cdced4;
+      }
+
+      .st35 {
+        fill: #ececf0;
+      }
+
+      .st127 {
+        fill: #0c0c0e;
+      }
+
+      .st91 {
+        fill: url(#linear-gradient2);
+      }
+
+      .st128 {
+        fill: #5a5a5a;
+      }
+
+      .st129 {
+        fill: #141417;
+      }
+
+      .st36, .st38, .st50, .st59 {
+        fill: #d6d7db;
+      }
+
+      .st108 {
+        stroke-width: .75px;
+      }
+
+      .st108, .st109 {
+        stroke: #a0a0a5;
+      }
+
+      .st109 {
+        stroke-width: .81px;
+      }
+
+      .st8 {
+        stroke: #14171c;
+      }
+
+      .st8, .st130 {
+        stroke-width: 1.04px;
+      }
+
+      .st9 {
+        stroke-width: 2.5px;
+      }
+
+      .st9, .st10, .st11, .st12, .st13, .st14 {
+        stroke: #e4e8ed;
+      }
+
+      .st73, .st75, .st52, .st57 {
+        font-size: 22px;
+        letter-spacing: .02em;
+      }
+
+      .st131 {
+        fill: #2a2a2f;
+      }
+
+      .st39, .st46, .st48, .st75, .st52 {
+        fill: #a0a0a5;
+      }
+
+      .st40, .st58 {
+        fill: #f2f2f4;
+      }
+
+      .st132 {
+        fill: #101013;
+      }
+
+      .st10 {
+        stroke-miterlimit: 4;
+        stroke-width: 2.5px;
+      }
+
+      .st11 {
+        stroke-miterlimit: 4;
+        stroke-width: 2.5px;
+      }
+
+      .st12 {
+        stroke-width: 2.5px;
+      }
+
+      .st12, .st22 {
+        stroke-miterlimit: 4;
+      }
+
+      .st13 {
+        stroke-miterlimit: 4;
+        stroke-width: 2.5px;
+      }
+
+      .st14 {
+        stroke-miterlimit: 4;
+        stroke-width: 2.5px;
+      }
+
+      .st41 {
+        fill: #e18400;
+        opacity: .18;
+      }
+
+      .st42 {
+        fill: #8e8e96;
+        opacity: .7;
+      }
+
+      .st113 {
+        stroke: #a5a6a5;
+      }
+
+      .st133 {
+        fill: #262626;
+      }
+
+      .st45 {
+        fill: #494949;
+      }
+
+      .st46 {
+        letter-spacing: .14em;
+      }
+
+      .st92 {
+        fill: #0c0c0f;
+      }
+
+      .st93 {
+        fill: #08080a;
+      }
+
+      .st47, .st58 {
+        letter-spacing: .02em;
+      }
+
+      .st48 {
+        letter-spacing: .14em;
+      }
+
+      .st49 {
+        letter-spacing: .06em;
+      }
+
+      .st49, .st59 {
+        font-size: 8px;
+      }
+
+      .st16, .st63 {
+        opacity: .05;
+      }
+
+      .st134 {
+        fill: #c99a26;
+      }
+
+      .st17 {
+        opacity: .9;
+        stroke-width: .5px;
+      }
+
+      .st18 {
+        opacity: .03;
+      }
+
+      .st135 {
+        fill: #17171b;
+      }
+
+      .st20, .st136 {
+        stroke: #35d06b;
+      }
+
+      .st21, .st61 {
+        opacity: .04;
+      }
+
+      .st22 {
+        stroke: #9da4ad;
+        stroke-dasharray: 26 5.04;
+        stroke-width: 1.87px;
+      }
+
+      .st50, .st51 {
+        font-size: 10px;
+      }
+
+      .st137 {
+        stroke: #3a3a42;
+      }
+
+      .st123 {
+        stroke: #d4e108;
+      }
+
+      .st138 {
+        fill: #37383a;
+      }
+
+      .st130 {
+        fill: #0b0c0f;
+        stroke: #16191d;
+      }
+
+      .st23 {
+        stroke: #2a2c31;
+      }
+
+      .st114 {
+        stroke: #1a4cad;
+      }
+
+      .st139 {
+        fill: #d8d8dd;
+      }
+
+      .st136, .st124 {
+        stroke-width: 2px;
+      }
+
+      .st51, .st55 {
+        letter-spacing: .04em;
+      }
+
+      .st140 {
+        fill: #0c0c0d;
+      }
+
+      .st141 {
+        fill: #2b9e58;
+      }
+
+      .st24 {
+        stroke: #25262b;
+        stroke-width: 2.1px;
+      }
+
+      .st142 {
+        fill: #121216;
+      }
+
+      .st143 {
+        fill: #06070a;
+      }
+
+      .st53 {
+        opacity: .6;
+      }
+
+      .st95 {
+        fill: #2c2d32;
+      }
+
+      .st144 {
+        fill: #4e4f55;
+      }
+
+      .st145 {
+        fill: #131316;
+      }
+
+      .st96 {
+        fill: #0b0b0d;
+      }
+
+      .st146 {
+        display: none;
+      }
+
+      .st147 {
+        fill: url(#stipple);
+      }
+
+      .st97 {
+        fill: #0f0f12;
+      }
+
+      .st148 {
+        fill: #06060a;
+        stroke: #1e1e22;
+      }
+
+      .st56, .st70 {
+        opacity: .5;
+      }
+
+      .st104 {
+        fill: #a5a6a5;
+      }
+
+      .st60 {
+        opacity: .02;
+      }
+
+      .st60, .st61, .st62, .st63, .st64, .st65, .st66, .st67, .st68, .st69, .st70, .st71 {
+        fill: #fff;
+      }
+
+      .st62 {
+        opacity: .06;
+      }
+
+      .st64 {
+        opacity: .14;
+      }
+
+      .st65 {
+        opacity: .16;
+      }
+
+      .st66 {
+        opacity: .1;
+      }
+
+      .st68 {
+        opacity: .24;
+      }
+
+      .st69 {
+        opacity: .22;
+      }
+
+      .st71 {
+        opacity: .46;
+      }
+              /* Illustrator names the face by its PostScript name and a light weight;
+                 give every DemiBold class the weight it is drawn in. */
+              .st27, .st98, .st99, .st34, .st36, .st38, .st100, .st43, .st46, .st47, .st49, .st50, .st101,
+              .st102, .st55, .st103, .st104, .st58, .st59 { font-weight: 600; }
+              .st99, .st101 { font-family: AvenirNextCondensed-DemiBold, 'Avenir Next Condensed'; }
+              .hit { fill: transparent; }
+            </style>
+            <pattern id="brush" x="0" y="0" width="3" height="3" patternTransform="translate(10 -15940) scale(1 -1)" patternUnits="userSpaceOnUse" viewBox="0 0 3 3">
+            <g>
+            <rect class="st0" width="3" height="3"/>
+            <rect class="st60" width="1" height="3"/>
+            </g>
+            </pattern>
+            <radialGradient id="radial-gradient" cx="287.77" cy="813.02" fx="287.77" fy="813.02" r=".71" gradientTransform="translate(-21785.5427 28038.6535) scale(76.5354 -34.0157)" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#cd9c04"/>
+            <stop offset=".46" stop-color="#d49210"/>
+            <stop offset=".6" stop-color="#dc8519"/>
+            <stop offset=".74" stop-color="#e87022"/>
+            <stop offset=".88" stop-color="#f05a27"/>
+            </radialGradient>
+            <radialGradient id="radial-gradient1" cx="287.77" cy="813.02" fx="287.77" fy="813.02" r=".71" gradientTransform="translate(-16997.1496 28038.6535) scale(59.268 -34.0157)" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ff7a5c"/>
+            <stop offset=".32" stop-color="#f8654a"/>
+            <stop offset=".49" stop-color="#f0553d"/>
+            <stop offset=".67" stop-color="#e64634"/>
+            <stop offset=".81" stop-color="#d93a2b"/>
+            <stop offset=".95" stop-color="#cc3024"/>
+            </radialGradient>
+            <radialGradient id="radial-gradient2" cx="287.64" cy="813.02" fx="287.64" fy="813.02" r=".71" gradientTransform="translate(-21155.5427 28038.6535) scale(76.5354 -34.0157)" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#fff"/>
+            <stop offset=".46" stop-color="#f3f3f3"/>
+            <stop offset=".6" stop-color="#e6e6e6"/>
+            <stop offset=".74" stop-color="#d2d2d2"/>
+            <stop offset=".78" stop-color="#d1d1d1"/>
+            </radialGradient>
+            <linearGradient id="linear-gradient" x1="1144.76" y1="550.43" x2="1144.76" y2="508.97" gradientUnits="userSpaceOnUse">
+            <stop offset=".08" stop-color="#323232"/>
+            <stop offset=".15" stop-color="#242424"/>
+            <stop offset=".21" stop-color="#3c3c3c"/>
+            <stop offset=".28" stop-color="#0a0a0a"/>
+            <stop offset=".33" stop-color="#0c0c0c"/>
+            <stop offset=".35" stop-color="#303030"/>
+            <stop offset=".46" stop-color="#303030"/>
+            <stop offset=".48" stop-color="#b0b0b0"/>
+            <stop offset=".51" stop-color="#b5b5b5"/>
+            <stop offset=".53" stop-color="#515151"/>
+            <stop offset=".66" stop-color="#616161"/>
+            <stop offset=".68" stop-color="#1c1c1c"/>
+            <stop offset=".81" stop-color="#1c1c1c"/>
+            <stop offset=".88" stop-color="#636363"/>
+            <stop offset=".94" stop-color="#606060"/>
+            <stop offset=".97" stop-color="#282828"/>
+            </linearGradient>
+            <linearGradient id="linear-gradient1" x1="1118.06" y1="519.63" x2="1118.06" y2="509.77" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#999" stop-opacity="0"/>
+            <stop offset="1" stop-color="#b5b5b5"/>
+            </linearGradient>
+            <linearGradient id="linear-gradient2" x1="49.24" y1="556.77" x2="49.24" y2="515.32" xlink:href="#linear-gradient"/>
+            <linearGradient id="linear-gradient3" x1="22.54" y1="525.98" x2="22.54" y2="516.11" xlink:href="#linear-gradient1"/>
+            <pattern id="stipple" x="0" y="0" width="3" height="3" patternTransform="translate(10 -15941) scale(1 -1)" patternUnits="userSpaceOnUse" viewBox="0 0 3 3">
+            <g>
+            <rect class="st0" width="3" height="3"/>
+            <circle class="st64" cx="1.5" cy="1.5" r=".7"/>
+            </g>
+            </pattern>
+            <radialGradient id="radial-gradient3" cx="722" cy="383" fx="722" fy="383" r="36.4" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#8be596"/>
+            <stop offset=".32" stop-color="#74da82"/>
+            <stop offset=".49" stop-color="#62cf72"/>
+            <stop offset=".67" stop-color="#55c467"/>
+            <stop offset=".81" stop-color="#49ba60"/>
+            <stop offset=".95" stop-color="#3fae56"/>
+            </radialGradient>
+            <radialGradient id="radial-gradient4" cx="289.49" cy="803.59" fx="289.49" fy="803.59" xlink:href="#radial-gradient"/>
+            <pattern id="comb" x="0" y="0" width="19.4" height="9" patternTransform="translate(10 -15944) scale(1 -1)" patternUnits="userSpaceOnUse" viewBox="0 0 19.4 9">
+            <g>
+            <rect class="st0" width="19.4" height="9"/>
+            <rect class="st67" width="1" height="9"/>
+            </g>
+            </pattern>
+            <!-- The drawing's key and chip gradients, in each shape's own box, so a
+                 look can sit on any control. -->
+            <radialGradient id="kOrange" cx=".5" cy=".5" r=".71">
+              <stop offset="0" stop-color="#cd9c04"/><stop offset=".46" stop-color="#d49210"/><stop offset=".6" stop-color="#dc8519"/>
+              <stop offset=".74" stop-color="#e87022"/><stop offset=".88" stop-color="#f05a27"/>
+            </radialGradient>
+            <radialGradient id="kRed" cx=".5" cy=".5" r=".71">
+              <stop offset="0" stop-color="#ff7a5c"/><stop offset=".32" stop-color="#f8654a"/><stop offset=".49" stop-color="#f0553d"/>
+              <stop offset=".67" stop-color="#e64634"/><stop offset=".81" stop-color="#d93a2b"/><stop offset=".95" stop-color="#cc3024"/>
+            </radialGradient>
+            <radialGradient id="kWhite" cx=".5" cy=".5" r=".71">
+              <stop offset="0" stop-color="#fff"/><stop offset=".46" stop-color="#f3f3f3"/><stop offset=".6" stop-color="#e6e6e6"/>
+              <stop offset=".74" stop-color="#d2d2d2"/><stop offset=".78" stop-color="#d1d1d1"/>
+            </radialGradient>
+            <radialGradient id="kAutoA" gradientUnits="userSpaceOnUse" cx="471" cy="383" r="36.4">
+              <stop offset="0" stop-color="#8be596"/><stop offset=".32" stop-color="#74da82"/><stop offset=".49" stop-color="#62cf72"/>
+              <stop offset=".67" stop-color="#55c467"/><stop offset=".81" stop-color="#49ba60"/><stop offset=".95" stop-color="#3fae56"/>
+            </radialGradient>
+            <radialGradient id="kAutoB" href="#kAutoA" xlink:href="#kAutoA" cx="722" cy="383"/>
+            <linearGradient id="kCap" x1="0" y1="1" x2="0" y2="0">
+              <stop offset=".08" stop-color="#323232"/><stop offset=".15" stop-color="#242424"/><stop offset=".21" stop-color="#3c3c3c"/>
+              <stop offset=".28" stop-color="#0a0a0a"/><stop offset=".33" stop-color="#0c0c0c"/><stop offset=".35" stop-color="#303030"/>
+              <stop offset=".46" stop-color="#303030"/><stop offset=".48" stop-color="#b0b0b0"/><stop offset=".51" stop-color="#b5b5b5"/>
+              <stop offset=".53" stop-color="#515151"/><stop offset=".66" stop-color="#616161"/><stop offset=".68" stop-color="#1c1c1c"/>
+              <stop offset=".81" stop-color="#1c1c1c"/><stop offset=".88" stop-color="#636363"/><stop offset=".94" stop-color="#606060"/>
+              <stop offset=".97" stop-color="#282828"/>
+            </linearGradient>
+            <linearGradient id="kCapHi" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stop-color="#999" stop-opacity="0"/><stop offset="1" stop-color="#b5b5b5"/>
+            </linearGradient>
+          </defs>
+          <g id="art">
+            <!-- the drawing's Device, then the current song windows -->
+            <rect class="st110" width="1194" height="834" rx="22" ry="22"/>
+            <rect class="st16" x=".5" y=".5" width="1193" height="833" rx="21.5" ry="21.5"/>
+            <rect class="st140" x="10" y="10" width="1174" height="814"/>
+            <image href="stage-two-top.png" x="10" y="10" width="1174" height="814" preserveAspectRatio="none"/>
+            <!-- Fascia and screws -->
+            <rect class="st0" x="10" y="10" width="1174" height="814" rx="12" ry="12"/>
+            <rect class="st132" x="10" y="348" width="1174" height="476"/>
+            <rect class="st120" x="10" y="348" width="1174" height="476"/>
+            <rect x="10" y="348" width="1174" height="1"/>
+            <rect class="st66" x="10" y="349" width="1174" height="1"/>
+            <circle class="st95" cx="20" cy="359" r="3"/>
+            <rect x="19.5" y="356.8" width="1" height="4.4" transform="translate(-275.21 153.74) rotate(-52)"/>
+            <rect x="17.8" y="358.5" width="4.4" height="1" transform="translate(-275.21 153.74) rotate(-52)"/>
+            <circle class="st95" cx="1174" cy="359" r="3"/>
+            <rect x="1173.5" y="356.8" width="1" height="4.4" transform="translate(168.3176 1063.1021) rotate(-52)"/>
+            <rect x="1171.8" y="358.5" width="4.4" height="1" transform="translate(168.3176 1063.1021) rotate(-52)"/>
+            <circle class="st95" cx="20" cy="815" r="3"/>
+            <rect x="19.5" y="812.8" width="1" height="4.4" transform="translate(-634.54 329) rotate(-52)"/>
+            <rect x="17.8" y="814.5" width="4.4" height="1" transform="translate(-634.54 329) rotate(-52)"/>
+            <circle class="st95" cx="1174" cy="815" r="3"/>
+            <rect x="1173.5" y="812.8" width="1" height="4.4" transform="translate(-191.0154 1238.3605) rotate(-52)"/>
+            <rect x="1171.8" y="814.5" width="4.4" height="1" transform="translate(-191.0154 1238.3605) rotate(-52)"/>
+            <!-- Platters -->
+            <circle class="st127" cx="234" cy="545" r="131"/>
+            <circle class="st18" cx="234" cy="545" r="16"/>
+            <circle class="st18" cx="234" cy="545" r="19"/>
+            <circle class="st18" cx="234" cy="545" r="22"/>
+            <circle class="st18" cx="234" cy="545" r="25"/>
+            <circle class="st18" cx="234" cy="545" r="28"/>
+            <circle class="st18" cx="234" cy="545" r="31"/>
+            <circle class="st18" cx="234" cy="545" r="34"/>
+            <circle class="st18" cx="234" cy="545" r="37"/>
+            <circle class="st18" cx="234" cy="545" r="40"/>
+            <circle class="st18" cx="234" cy="545" r="43"/>
+            <circle class="st18" cx="234" cy="545" r="46"/>
+            <circle class="st18" cx="234" cy="545" r="49"/>
+            <circle class="st18" cx="234" cy="545" r="52"/>
+            <circle class="st18" cx="234" cy="545" r="55"/>
+            <circle class="st18" cx="234" cy="545" r="58"/>
+            <circle class="st18" cx="234" cy="545" r="61"/>
+            <circle class="st18" cx="234" cy="545" r="64"/>
+            <circle class="st18" cx="234" cy="545" r="67"/>
+            <circle class="st18" cx="234" cy="545" r="70"/>
+            <circle class="st18" cx="234" cy="545" r="73"/>
+            <circle class="st18" cx="234" cy="545" r="76"/>
+            <circle class="st18" cx="234" cy="545" r="79"/>
+            <circle class="st18" cx="234" cy="545" r="82"/>
+            <circle class="st18" cx="234" cy="545" r="85"/>
+            <circle class="st18" cx="234" cy="545" r="88"/>
+            <circle class="st18" cx="234" cy="545" r="91"/>
+            <circle class="st18" cx="234" cy="545" r="94"/>
+            <circle class="st18" cx="234" cy="545" r="97"/>
+            <circle class="st18" cx="234" cy="545" r="100"/>
+            <circle class="st18" cx="234" cy="545" r="103"/>
+            <circle class="st18" cx="234" cy="545" r="106"/>
+            <circle class="st18" cx="234" cy="545" r="109"/>
+            <circle class="st18" cx="234" cy="545" r="112"/>
+            <circle class="st18" cx="234" cy="545" r="115"/>
+            <circle class="st18" cx="234" cy="545" r="118"/>
+            <circle class="st18" cx="234" cy="545" r="121"/>
+            <circle class="st18" cx="234" cy="545" r="124"/>
+            <circle class="st18" cx="234" cy="545" r="127"/>
+            <circle class="st17" cx="234" cy="545" r="102.7"/>
+            <circle class="st144" cx="234" cy="545" r="60.26"/>
+            <circle class="st24" cx="234" cy="545" r="60.26"/>
+            <circle class="st4" cx="234" cy="545" r="56.59"/>
+            <circle class="st1" cx="234" cy="545" r="54"/>
+            <circle class="st143" cx="234" cy="545" r="52"/>
+            <circle class="st23" cx="234" cy="545" r="51.5"/>
+            <circle class="st8" cx="234" cy="545" r="49.9"/>
+            <line class="st13" x1="260.28" y1="508.82" x2="257.84" y2="512.19"/>
+            <line class="st13" x1="256.62" y1="513.87" x2="254.78" y2="516.39"/>
+            <line class="st13" x1="253.56" y1="518.08" x2="251.73" y2="520.6"/>
+            <line class="st12" x1="265.62" y1="513.38" x2="262.68" y2="516.32"/>
+            <line class="st12" x1="261.21" y1="517.79" x2="259" y2="520"/>
+            <line class="st12" x1="257.53" y1="521.47" x2="255.33" y2="523.67"/>
+            <line class="st13" x1="270.18" y1="518.71" x2="266.81" y2="521.16"/>
+            <line class="st13" x1="265.13" y1="522.38" x2="262.61" y2="524.22"/>
+            <line class="st13" x1="260.92" y1="525.44" x2="258.4" y2="527.27"/>
+            <line class="st14" x1="273.84" y1="524.7" x2="270.14" y2="526.59"/>
+            <line class="st14" x1="268.29" y1="527.53" x2="265.51" y2="528.95"/>
+            <line class="st14" x1="263.65" y1="529.89" x2="260.87" y2="531.31"/>
+            <line class="st11" x1="276.53" y1="531.18" x2="272.57" y2="532.47"/>
+            <line class="st11" x1="270.6" y1="533.11" x2="267.63" y2="534.07"/>
+            <line class="st11" x1="265.65" y1="534.72" x2="262.68" y2="535.68"/>
+            <line class="st10" x1="278.17" y1="538" x2="274.06" y2="538.66"/>
+            <line class="st10" x1="272.01" y1="538.98" x2="268.92" y2="539.47"/>
+            <line class="st10" x1="266.87" y1="539.79" x2="263.79" y2="540.28"/>
+            <line class="st9" x1="278.72" y1="545" x2="274.56" y2="545"/>
+            <line class="st9" x1="272.48" y1="545" x2="269.36" y2="545"/>
+            <line class="st9" x1="267.28" y1="545" x2="264.16" y2="545"/>
+            <line class="st10" x1="278.17" y1="552" x2="274.06" y2="551.34"/>
+            <line class="st10" x1="272.01" y1="551.02" x2="268.92" y2="550.53"/>
+            <line class="st10" x1="266.87" y1="550.21" x2="263.79" y2="549.72"/>
+            <line class="st11" x1="276.53" y1="558.82" x2="272.57" y2="557.53"/>
+            <line class="st11" x1="270.6" y1="556.89" x2="267.63" y2="555.93"/>
+            <line class="st11" x1="265.65" y1="555.28" x2="262.68" y2="554.32"/>
+            <line class="st14" x1="273.84" y1="565.3" x2="270.14" y2="563.41"/>
+            <line class="st14" x1="268.28" y1="562.47" x2="265.51" y2="561.05"/>
+            <line class="st14" x1="263.65" y1="560.11" x2="260.87" y2="558.69"/>
+            <line class="st13" x1="270.18" y1="571.29" x2="266.81" y2="568.84"/>
+            <line class="st13" x1="265.13" y1="567.62" x2="262.61" y2="565.78"/>
+            <line class="st13" x1="260.92" y1="564.56" x2="258.4" y2="562.73"/>
+            <line class="st12" x1="265.62" y1="576.62" x2="262.68" y2="573.68"/>
+            <line class="st12" x1="261.21" y1="572.21" x2="259" y2="570"/>
+            <line class="st12" x1="257.53" y1="568.53" x2="255.33" y2="566.33"/>
+            <line class="st13" x1="260.28" y1="581.18" x2="257.84" y2="577.81"/>
+            <line class="st13" x1="256.62" y1="576.13" x2="254.78" y2="573.61"/>
+            <line class="st13" x1="253.56" y1="571.92" x2="251.73" y2="569.4"/>
+            <line class="st14" x1="254.3" y1="584.85" x2="252.41" y2="581.14"/>
+            <line class="st14" x1="251.47" y1="579.29" x2="250.05" y2="576.51"/>
+            <line class="st14" x1="249.11" y1="574.65" x2="247.69" y2="571.87"/>
+            <line class="st11" x1="247.82" y1="587.53" x2="246.53" y2="583.57"/>
+            <line class="st11" x1="245.89" y1="581.6" x2="244.93" y2="578.63"/>
+            <line class="st11" x1="244.28" y1="576.65" x2="243.32" y2="573.68"/>
+            <line class="st10" x1="240.99" y1="589.17" x2="240.34" y2="585.06"/>
+            <line class="st10" x1="240.02" y1="583.01" x2="239.53" y2="579.92"/>
+            <line class="st10" x1="239.21" y1="577.87" x2="238.72" y2="574.79"/>
+            <line class="st9" x1="234" y1="589.72" x2="234" y2="585.56"/>
+            <line class="st9" x1="234" y1="583.48" x2="234" y2="580.36"/>
+            <line class="st9" x1="234" y1="578.28" x2="234" y2="575.16"/>
+            <line class="st10" x1="227" y1="589.17" x2="227.65" y2="585.06"/>
+            <line class="st10" x1="227.98" y1="583.01" x2="228.47" y2="579.92"/>
+            <line class="st10" x1="228.79" y1="577.87" x2="229.28" y2="574.79"/>
+            <line class="st11" x1="220.18" y1="587.53" x2="221.47" y2="583.57"/>
+            <line class="st11" x1="222.11" y1="581.6" x2="223.07" y2="578.63"/>
+            <line class="st11" x1="223.71" y1="576.65" x2="224.68" y2="573.68"/>
+            <line class="st14" x1="213.7" y1="584.85" x2="215.59" y2="581.14"/>
+            <line class="st14" x1="216.53" y1="579.29" x2="217.95" y2="576.51"/>
+            <line class="st14" x1="218.89" y1="574.65" x2="220.31" y2="571.87"/>
+            <line class="st13" x1="207.71" y1="581.18" x2="210.16" y2="577.81"/>
+            <line class="st13" x1="211.38" y1="576.13" x2="213.21" y2="573.61"/>
+            <line class="st13" x1="214.44" y1="571.92" x2="216.27" y2="569.4"/>
+            <line class="st12" x1="202.38" y1="576.62" x2="205.32" y2="573.68"/>
+            <line class="st12" x1="206.79" y1="572.21" x2="209" y2="570"/>
+            <line class="st12" x1="210.47" y1="568.53" x2="212.67" y2="566.33"/>
+            <line class="st13" x1="197.82" y1="571.29" x2="201.19" y2="568.84"/>
+            <line class="st13" x1="202.87" y1="567.62" x2="205.39" y2="565.78"/>
+            <line class="st13" x1="207.07" y1="564.56" x2="209.6" y2="562.73"/>
+            <line class="st14" x1="194.15" y1="565.3" x2="197.86" y2="563.41"/>
+            <line class="st14" x1="199.71" y1="562.47" x2="202.49" y2="561.05"/>
+            <line class="st14" x1="204.35" y1="560.11" x2="207.13" y2="558.69"/>
+            <line class="st11" x1="191.47" y1="558.82" x2="195.42" y2="557.53"/>
+            <line class="st11" x1="197.4" y1="556.89" x2="200.37" y2="555.93"/>
+            <line class="st11" x1="202.35" y1="555.28" x2="205.32" y2="554.32"/>
+            <line class="st10" x1="189.83" y1="552" x2="193.94" y2="551.34"/>
+            <line class="st10" x1="195.99" y1="551.02" x2="199.07" y2="550.53"/>
+            <line class="st10" x1="201.13" y1="550.21" x2="204.21" y2="549.72"/>
+            <line class="st9" x1="189.28" y1="545" x2="193.44" y2="545"/>
+            <line class="st9" x1="195.52" y1="545" x2="198.64" y2="545"/>
+            <line class="st9" x1="200.72" y1="545" x2="203.84" y2="545"/>
+            <line class="st10" x1="189.83" y1="538" x2="193.94" y2="538.66"/>
+            <line class="st10" x1="195.99" y1="538.98" x2="199.07" y2="539.47"/>
+            <line class="st10" x1="201.13" y1="539.79" x2="204.21" y2="540.28"/>
+            <line class="st11" x1="191.47" y1="531.18" x2="195.42" y2="532.47"/>
+            <line class="st11" x1="197.4" y1="533.11" x2="200.37" y2="534.07"/>
+            <line class="st11" x1="202.35" y1="534.72" x2="205.32" y2="535.68"/>
+            <line class="st14" x1="194.15" y1="524.7" x2="197.86" y2="526.59"/>
+            <line class="st14" x1="199.71" y1="527.53" x2="202.49" y2="528.95"/>
+            <line class="st14" x1="204.35" y1="529.89" x2="207.13" y2="531.31"/>
+            <line class="st13" x1="197.82" y1="518.71" x2="201.19" y2="521.16"/>
+            <line class="st13" x1="202.87" y1="522.38" x2="205.39" y2="524.22"/>
+            <line class="st13" x1="207.07" y1="525.44" x2="209.6" y2="527.27"/>
+            <line class="st12" x1="202.38" y1="513.38" x2="205.32" y2="516.32"/>
+            <line class="st12" x1="206.79" y1="517.79" x2="209" y2="520"/>
+            <line class="st12" x1="210.47" y1="521.47" x2="212.67" y2="523.67"/>
+            <line class="st13" x1="207.71" y1="508.82" x2="210.16" y2="512.19"/>
+            <line class="st13" x1="211.38" y1="513.87" x2="213.21" y2="516.39"/>
+            <line class="st13" x1="214.44" y1="518.08" x2="216.27" y2="520.6"/>
+            <line class="st14" x1="213.7" y1="505.15" x2="215.59" y2="508.86"/>
+            <line class="st14" x1="216.53" y1="510.71" x2="217.95" y2="513.49"/>
+            <line class="st14" x1="218.89" y1="515.35" x2="220.31" y2="518.13"/>
+            <line class="st11" x1="220.18" y1="502.47" x2="221.47" y2="506.43"/>
+            <line class="st11" x1="222.11" y1="508.4" x2="223.07" y2="511.37"/>
+            <line class="st11" x1="223.71" y1="513.35" x2="224.68" y2="516.32"/>
+            <line class="st10" x1="227" y1="500.83" x2="227.65" y2="504.94"/>
+            <line class="st10" x1="227.98" y1="506.99" x2="228.47" y2="510.08"/>
+            <line class="st10" x1="228.79" y1="512.13" x2="229.28" y2="515.21"/>
+            <circle class="st6" cx="234" cy="545" r="24.96"/>
+            <circle class="st22" cx="234" cy="545" r="19.76"/>
+            <circle class="st130" cx="234" cy="545" r="15.6"/>
+            <path class="st138" d="M364.27,539.22c-.54-12.47-2.88-24.85-6.93-36.65-3.94-11.45-9.49-22.33-16.43-32.24-6.87-9.82-15.08-18.68-24.36-26.27-9.31-7.63-19.69-13.97-30.74-18.76-11.33-4.91-23.35-8.17-35.6-9.7-12.62-1.56-25.47-1.3-38.01.82-12.11,2.04-23.91,5.8-34.96,11.15-10.83,5.24-20.91,11.99-29.89,19.99-8.96,7.97-16.81,17.17-23.27,27.26-6.54,10.23-11.64,21.37-15.1,33-3.58,12.05-5.37,24.61-5.37,37.18q0,5.75.5,11.5c1.07,12.35,3.92,24.54,8.45,36.09,4.41,11.24,10.39,21.84,17.71,31.44,7.27,9.52,15.84,18.05,25.42,25.24,9.65,7.26,20.3,13.18,31.58,17.51,11.58,4.44,23.8,7.21,36.18,8.2,12.65,1.01,25.44.2,37.85-2.45,11.96-2.54,23.54-6.79,34.31-12.57,10.58-5.68,20.36-12.84,28.99-21.18,8.63-8.34,16.1-17.86,22.14-28.22,6.14-10.53,10.78-21.92,13.74-33.73C363.56,564.56,364.82,551.85,364.27,539.22ZM347.19,555.73c-1.15,12.31-4.33,24.41-9.38,35.69-4.92,10.99-11.6,21.17-19.7,30.07-8.08,8.88-17.55,16.47-27.98,22.4-10.63,6.05-22.23,10.35-34.23,12.69-12.45,2.43-25.32,2.76-37.88.99-12.18-1.71-24.06-5.42-35.04-10.95-10.73-5.39-20.59-12.51-29.12-20.98-8.52-8.47-15.69-18.27-21.16-28.98-5.59-10.93-9.37-22.78-11.17-34.93-.81-5.54-1.22-11.13-1.22-16.73,0-12.53,2.06-25.05,6.13-36.91,3.92-11.43,9.69-22.22,17.01-31.85,7.26-9.54,16.02-17.92,25.87-24.75,9.97-6.9,21.04-12.21,32.68-15.61,12.11-3.54,24.8-5.03,37.4-4.44,12.43.58,24.74,3.2,36.32,7.77,11.22,4.43,21.7,10.66,30.97,18.38,9.22,7.67,17.22,16.8,23.6,26.95,6.48,10.29,11.29,21.64,14.17,33.47C347.46,530.31,348.37,543.12,347.19,555.73Z"/>
+            <path class="st133" d="M157.5,646.61c2.21,1.15,4.88,2.6,7.46,2.14,2.97-.53,2.62-4.04,1.62-6.15-2.61-5.51-7.17-9.54-12.43-12.46-1.33-.63-2.66-1.18-4.09-1.55-1.28-.33-2.87-.57-4.14-.09-3.42,1.31-1.37,5.29-.12,7.44,1.34,2.28,3.37,4.23,5.3,6.01C153.04,643.75,155.24,645.23,157.5,646.61Z"/>
+            <path class="st133" d="M196.88,666.71c2.47.32,5.47.78,7.74-.54,2.61-1.52,1.08-4.69-.58-6.33-4.34-4.28-10-6.52-15.94-7.46-1.47-.14-2.91-.2-4.38-.06-1.3.13-2.9.45-3.92,1.33-2.77,2.4.52,5.44,2.44,7.04,2.01,1.66,4.56,2.8,6.95,3.8C191.67,665.53,194.26,666.18,196.88,666.71Z"/>
+            <path class="st133" d="M240.76,672.13c2.43-.54,5.41-1.14,7.09-3.16,1.92-2.31-.6-4.77-2.71-5.75-5.55-2.53-11.62-2.7-17.53-1.55-1.43.36-2.8.8-4.14,1.44-1.17.57-2.56,1.41-3.22,2.59-1.78,3.2,2.33,4.93,4.69,5.77,2.49.89,5.29,1.08,7.91,1.21C235.5,672.81,238.14,672.53,240.76,672.13Z"/>
+            <path class="st133" d="M283.84,662.22c2.09-1.35,4.7-2.93,5.59-5.4,1.01-2.84-2.2-4.28-4.52-4.48-6.07-.49-11.85,1.44-17.01,4.55-1.21.83-2.35,1.7-3.39,2.76-.91.94-1.93,2.21-2.14,3.54-.58,3.62,3.89,3.84,6.38,3.82,2.65-.01,5.35-.79,7.85-1.58C279.14,664.64,281.51,663.48,283.84,662.22Z"/>
+            <path class="st133" d="M320.93,638.16c1.52-1.98,3.42-4.34,3.41-6.98,0-3.01-3.53-3.28-5.77-2.65-5.88,1.6-10.65,5.39-14.43,10.07-.86,1.2-1.63,2.42-2.24,3.76-.54,1.2-1.06,2.74-.81,4.07.7,3.59,4.96,2.27,7.3,1.4,2.49-.92,4.76-2.58,6.84-4.17C317.35,642.06,319.18,640.15,320.93,638.16Z"/>
+            <path class="st133" d="M347.56,602.87c.75-2.37,1.73-5.25.82-7.72-1.04-2.82-4.44-1.87-6.33-.52-4.98,3.52-8.16,8.71-10.11,14.4-.41,1.42-.71,2.83-.82,4.3-.11,1.31-.07,2.93.63,4.09,1.87,3.14,5.44.44,7.34-1.17,2-1.7,3.56-4.01,4.96-6.19C345.5,607.8,346.59,605.36,347.56,602.87Z"/>
+            <path class="st133" d="M360.52,560.6c-.11-2.49-.18-5.52-1.88-7.53-1.94-2.3-4.81-.24-6.13,1.67-3.46,5.01-4.68,10.98-4.57,17,.11,1.47.3,2.89.7,4.32.35,1.26.94,2.77,1.99,3.62,2.84,2.32,5.26-1.44,6.5-3.61,1.3-2.28,1.97-4.98,2.55-7.51C360.27,565.94,360.46,563.28,360.52,560.6Z"/>
+            <path class="st133" d="M358.24,516.45c-.96-2.3-2.06-5.13-4.34-6.44-2.61-1.5-4.6,1.42-5.19,3.68-1.54,5.89-.65,11.91,1.51,17.53.61,1.34,1.28,2.62,2.14,3.82.76,1.06,1.84,2.28,3.12,2.73,3.46,1.19,4.44-3.16,4.86-5.63.44-2.6.14-5.4-.18-8C359.82,521.51,359.08,518.96,358.24,516.45Z"/>
+            <path class="st133" d="M127.37,614.25c-2.06-2.5-3.7-5.19-5.19-8.06"/>
+            <path class="st133" d="M336.07,489.34q1.11,1.59,2.44,3.02"/>
+            <line class="st133" x1="123.84" y1="586.25" x2="123.79" y2="586.31"/>
+            <line class="st133" x1="114.73" y1="587.39" x2="114.76" y2="587.33"/>
+            <line class="st133" x1="107.43" y1="543.98" x2="107.48" y2="543.93"/>
+            <line class="st133" x1="137.75" y1="462.75" x2="137.8" y2="462.74"/>
+            <path class="st133" d="M310.87,443.39c-2.21-1.15-4.88-2.61-7.46-2.14-2.97.53-2.62,4.04-1.62,6.15,2.6,5.5,7.16,9.54,12.43,12.46,1.32.63,2.66,1.18,4.09,1.54,1.27.33,2.88.57,4.14.1,3.41-1.32,1.38-5.28.11-7.44-1.33-2.28-3.36-4.23-5.28-6.01C315.33,446.25,313.13,444.77,310.87,443.39Z"/>
+            <path class="st133" d="M271.49,423.29c-2.47-.32-5.47-.78-7.75.54-2.6,1.52-1.07,4.7.59,6.33,4.33,4.28,10,6.52,15.94,7.45,1.47.15,2.91.21,4.37.07,1.31-.13,2.91-.45,3.93-1.33,2.76-2.41-.52-5.44-2.44-7.04-2.04-1.68-4.6-2.82-7.03-3.84C276.66,424.45,274.08,423.82,271.49,423.29Z"/>
+            <path class="st133" d="M227.61,417.87c-2.42.54-5.4,1.14-7.09,3.16-1.93,2.31.6,4.77,2.71,5.74,5.54,2.55,11.63,2.71,17.53,1.56,1.43-.37,2.8-.8,4.14-1.44,1.18-.57,2.56-1.42,3.22-2.59,1.78-3.2-2.34-4.93-4.69-5.78-2.49-.88-5.3-1.07-7.91-1.2C232.86,417.2,230.23,417.47,227.61,417.87Z"/>
+            <path class="st133" d="M184.53,427.79c-2.09,1.33-4.7,2.91-5.59,5.38-1.02,2.84,2.19,4.29,4.52,4.48,6.07.5,11.85-1.43,17-4.54,1.22-.82,2.36-1.71,3.39-2.76.92-.94,1.93-2.21,2.15-3.54.58-3.62-3.89-3.84-6.38-3.82-2.65.01-5.35.8-7.85,1.58C189.23,425.35,186.85,426.52,184.53,427.79Z"/>
+            <path class="st133" d="M147.44,451.84c-1.52,1.97-3.42,4.35-3.41,6.98,0,3.01,3.53,3.27,5.77,2.65,5.88-1.61,10.65-5.39,14.43-10.07.86-1.2,1.63-2.42,2.24-3.77.54-1.19,1.06-2.73.81-4.05-.7-3.6-4.97-2.28-7.31-1.41-2.48.92-4.75,2.57-6.84,4.17C151.02,447.95,149.19,449.85,147.44,451.84Z"/>
+            <path class="st133" d="M120.81,487.13c-.75,2.37-1.73,5.25-.82,7.72,1.04,2.82,4.44,1.87,6.34.53,4.96-3.53,8.15-8.72,10.1-14.41.41-1.43.71-2.83.82-4.3.1-1.31.06-2.93-.63-4.1-1.88-3.14-5.44-.43-7.35,1.19-2.01,1.71-3.58,4.04-4.99,6.25C122.84,482.24,121.77,484.66,120.81,487.13Z"/>
+            <path class="st133" d="M107.85,529.4c.11,2.48.18,5.52,1.87,7.53,1.95,2.31,4.81.24,6.14-1.68,3.46-5.01,4.68-10.97,4.57-16.99-.11-1.47-.31-2.9-.7-4.32-.35-1.26-.94-2.78-1.99-3.63-2.84-2.3-5.26,1.45-6.5,3.62-1.31,2.3-1.98,5.03-2.57,7.58C108.09,524.11,107.91,526.75,107.85,529.4Z"/>
+            <path class="st133" d="M110.13,573.55c.95,2.3,2.06,5.13,4.34,6.43,2.61,1.5,4.6-1.41,5.19-3.67,1.54-5.89.64-11.91-1.52-17.53-.61-1.35-1.27-2.62-2.13-3.82-.76-1.06-1.84-2.28-3.12-2.73-3.46-1.19-4.44,3.16-4.86,5.63-.45,2.61-.15,5.4.18,8C108.56,568.49,109.28,571.04,110.13,573.55Z"/>
+            <path class="st133" d="M341,475.74c-1.05-1.13-2.08-2.19-3.29-3.13-1.01-.78-2.51-1.65-3.85-1.49-3.15.4-3.05,4.94-2.54,7.26.86,4,2.47,7.56,4.74,10.96l2.45,3.02c1.03,1.06,2.1,2.02,3.32,2.86,1.08.74,2.5,1.51,3.86,1.5,3.65-.06,3.09-4.5,2.65-6.96-.38-2.06-1.31-4.03-2.15-5.95"/>
+            <path class="st133" d="M341,475.74c2.06,2.51,3.7,5.2,5.18,8.07"/>
+            <path class="st133" d="M122.18,606.19c-.84-1.92-1.77-3.89-2.15-5.96-.45-2.46-1-6.89,2.65-6.95,1.35-.02,2.79.76,3.86,1.5,1.21.83,2.28,1.81,3.31,2.86l2.45,3.02c2.28,3.4,3.89,6.95,4.75,10.96.5,2.32.61,6.86-2.55,7.25-1.32.17-2.83-.7-3.84-1.48-1.21-.94-2.25-2-3.29-3.14"/>
+            <path class="st133" d="M132.3,600.66q-1.12-1.6-2.45-3.02"/>
+            <line class="st133" x1="144.61" y1="621.5" x2="144.58" y2="621.58"/>
+            <line class="st133" x1="136.43" y1="625.69" x2="136.44" y2="625.62"/>
+            <circle class="st127" cx="960" cy="545" r="131"/>
+            <circle class="st18" cx="960" cy="545" r="16"/>
+            <circle class="st18" cx="960" cy="545" r="19"/>
+            <circle class="st18" cx="960" cy="545" r="22"/>
+            <circle class="st18" cx="960" cy="545" r="25"/>
+            <circle class="st18" cx="960" cy="545" r="28"/>
+            <circle class="st18" cx="960" cy="545" r="31"/>
+            <circle class="st18" cx="960" cy="545" r="34"/>
+            <circle class="st18" cx="960" cy="545" r="37"/>
+            <circle class="st18" cx="960" cy="545" r="40"/>
+            <circle class="st18" cx="960" cy="545" r="43"/>
+            <circle class="st18" cx="960" cy="545" r="46"/>
+            <circle class="st18" cx="960" cy="545" r="49"/>
+            <circle class="st18" cx="960" cy="545" r="52"/>
+            <circle class="st18" cx="960" cy="545" r="55"/>
+            <circle class="st18" cx="960" cy="545" r="58"/>
+            <circle class="st18" cx="960" cy="545" r="61"/>
+            <circle class="st18" cx="960" cy="545" r="64"/>
+            <circle class="st18" cx="960" cy="545" r="67"/>
+            <circle class="st18" cx="960" cy="545" r="70"/>
+            <circle class="st18" cx="960" cy="545" r="73"/>
+            <circle class="st18" cx="960" cy="545" r="76"/>
+            <circle class="st18" cx="960" cy="545" r="79"/>
+            <circle class="st18" cx="960" cy="545" r="82"/>
+            <circle class="st18" cx="960" cy="545" r="85"/>
+            <circle class="st18" cx="960" cy="545" r="88"/>
+            <circle class="st18" cx="960" cy="545" r="91"/>
+            <circle class="st18" cx="960" cy="545" r="94"/>
+            <circle class="st18" cx="960" cy="545" r="97"/>
+            <circle class="st18" cx="960" cy="545" r="100"/>
+            <circle class="st18" cx="960" cy="545" r="103"/>
+            <circle class="st18" cx="960" cy="545" r="106"/>
+            <circle class="st18" cx="960" cy="545" r="109"/>
+            <circle class="st18" cx="960" cy="545" r="112"/>
+            <circle class="st18" cx="960" cy="545" r="115"/>
+            <circle class="st18" cx="960" cy="545" r="118"/>
+            <circle class="st18" cx="960" cy="545" r="121"/>
+            <circle class="st18" cx="960" cy="545" r="124"/>
+            <circle class="st18" cx="960" cy="545" r="127"/>
+            <circle class="st17" cx="960" cy="545" r="102.7"/>
+            <circle class="st144" cx="960" cy="545" r="60.26"/>
+            <circle class="st24" cx="960" cy="545" r="60.26"/>
+            <circle class="st4" cx="960" cy="545" r="56.59"/>
+            <circle class="st1" cx="960" cy="545" r="54"/>
+            <circle class="st143" cx="960" cy="545" r="52"/>
+            <circle class="st23" cx="960" cy="545" r="51.5"/>
+            <circle class="st8" cx="960" cy="545" r="49.9"/>
+            <line class="st13" x1="986.28" y1="508.82" x2="983.84" y2="512.19"/>
+            <line class="st13" x1="982.62" y1="513.87" x2="980.78" y2="516.39"/>
+            <line class="st13" x1="979.56" y1="518.08" x2="977.73" y2="520.6"/>
+            <line class="st12" x1="991.62" y1="513.38" x2="988.68" y2="516.32"/>
+            <line class="st12" x1="987.21" y1="517.79" x2="985" y2="520"/>
+            <line class="st12" x1="983.53" y1="521.47" x2="981.33" y2="523.67"/>
+            <line class="st13" x1="996.18" y1="518.71" x2="992.81" y2="521.16"/>
+            <line class="st13" x1="991.13" y1="522.38" x2="988.61" y2="524.22"/>
+            <line class="st13" x1="986.92" y1="525.44" x2="984.4" y2="527.27"/>
+            <line class="st14" x1="999.84" y1="524.7" x2="996.14" y2="526.59"/>
+            <line class="st14" x1="994.29" y1="527.53" x2="991.51" y2="528.95"/>
+            <line class="st14" x1="989.65" y1="529.89" x2="986.87" y2="531.31"/>
+            <line class="st11" x1="1002.53" y1="531.18" x2="998.57" y2="532.47"/>
+            <line class="st11" x1="996.6" y1="533.11" x2="993.63" y2="534.07"/>
+            <line class="st11" x1="991.65" y1="534.72" x2="988.68" y2="535.68"/>
+            <line class="st10" x1="1004.17" y1="538" x2="1000.06" y2="538.66"/>
+            <line class="st10" x1="998.01" y1="538.98" x2="994.92" y2="539.47"/>
+            <line class="st10" x1="992.87" y1="539.79" x2="989.79" y2="540.28"/>
+            <line class="st9" x1="1004.72" y1="545" x2="1000.56" y2="545"/>
+            <line class="st9" x1="998.48" y1="545" x2="995.36" y2="545"/>
+            <line class="st9" x1="993.28" y1="545" x2="990.16" y2="545"/>
+            <line class="st10" x1="1004.17" y1="552" x2="1000.06" y2="551.34"/>
+            <line class="st10" x1="998.01" y1="551.02" x2="994.92" y2="550.53"/>
+            <line class="st10" x1="992.87" y1="550.21" x2="989.79" y2="549.72"/>
+            <line class="st11" x1="1002.53" y1="558.82" x2="998.57" y2="557.53"/>
+            <line class="st11" x1="996.6" y1="556.89" x2="993.63" y2="555.93"/>
+            <line class="st11" x1="991.65" y1="555.28" x2="988.68" y2="554.32"/>
+            <line class="st14" x1="999.84" y1="565.3" x2="996.14" y2="563.41"/>
+            <line class="st14" x1="994.28" y1="562.47" x2="991.51" y2="561.05"/>
+            <line class="st14" x1="989.65" y1="560.11" x2="986.87" y2="558.69"/>
+            <line class="st13" x1="996.18" y1="571.29" x2="992.81" y2="568.84"/>
+            <line class="st13" x1="991.13" y1="567.62" x2="988.61" y2="565.78"/>
+            <line class="st13" x1="986.92" y1="564.56" x2="984.4" y2="562.73"/>
+            <line class="st12" x1="991.62" y1="576.62" x2="988.68" y2="573.68"/>
+            <line class="st12" x1="987.21" y1="572.21" x2="985" y2="570"/>
+            <line class="st12" x1="983.53" y1="568.53" x2="981.33" y2="566.33"/>
+            <line class="st13" x1="986.28" y1="581.18" x2="983.84" y2="577.81"/>
+            <line class="st13" x1="982.62" y1="576.13" x2="980.78" y2="573.61"/>
+            <line class="st13" x1="979.56" y1="571.92" x2="977.73" y2="569.4"/>
+            <line class="st14" x1="980.3" y1="584.85" x2="978.41" y2="581.14"/>
+            <line class="st14" x1="977.47" y1="579.29" x2="976.05" y2="576.51"/>
+            <line class="st14" x1="975.11" y1="574.65" x2="973.69" y2="571.87"/>
+            <line class="st11" x1="973.82" y1="587.53" x2="972.53" y2="583.57"/>
+            <line class="st11" x1="971.89" y1="581.6" x2="970.93" y2="578.63"/>
+            <line class="st11" x1="970.28" y1="576.65" x2="969.32" y2="573.68"/>
+            <line class="st10" x1="966.99" y1="589.17" x2="966.34" y2="585.06"/>
+            <line class="st10" x1="966.02" y1="583.01" x2="965.53" y2="579.92"/>
+            <line class="st10" x1="965.21" y1="577.87" x2="964.72" y2="574.79"/>
+            <line class="st9" x1="960" y1="589.72" x2="960" y2="585.56"/>
+            <line class="st9" x1="960" y1="583.48" x2="960" y2="580.36"/>
+            <line class="st9" x1="960" y1="578.28" x2="960" y2="575.16"/>
+            <line class="st10" x1="953" y1="589.17" x2="953.65" y2="585.06"/>
+            <line class="st10" x1="953.98" y1="583.01" x2="954.47" y2="579.92"/>
+            <line class="st10" x1="954.79" y1="577.87" x2="955.28" y2="574.79"/>
+            <line class="st11" x1="946.18" y1="587.53" x2="947.47" y2="583.57"/>
+            <line class="st11" x1="948.11" y1="581.6" x2="949.07" y2="578.63"/>
+            <line class="st11" x1="949.71" y1="576.65" x2="950.68" y2="573.68"/>
+            <line class="st14" x1="939.7" y1="584.85" x2="941.59" y2="581.14"/>
+            <line class="st14" x1="942.53" y1="579.29" x2="943.95" y2="576.51"/>
+            <line class="st14" x1="944.89" y1="574.65" x2="946.31" y2="571.87"/>
+            <line class="st13" x1="933.71" y1="581.18" x2="936.16" y2="577.81"/>
+            <line class="st13" x1="937.38" y1="576.13" x2="939.21" y2="573.61"/>
+            <line class="st13" x1="940.44" y1="571.92" x2="942.27" y2="569.4"/>
+            <line class="st12" x1="928.38" y1="576.62" x2="931.32" y2="573.68"/>
+            <line class="st12" x1="932.79" y1="572.21" x2="935" y2="570"/>
+            <line class="st12" x1="936.47" y1="568.53" x2="938.67" y2="566.33"/>
+            <line class="st13" x1="923.82" y1="571.29" x2="927.19" y2="568.84"/>
+            <line class="st13" x1="928.87" y1="567.62" x2="931.39" y2="565.78"/>
+            <line class="st13" x1="933.07" y1="564.56" x2="935.6" y2="562.73"/>
+            <line class="st14" x1="920.15" y1="565.3" x2="923.86" y2="563.41"/>
+            <line class="st14" x1="925.71" y1="562.47" x2="928.49" y2="561.05"/>
+            <line class="st14" x1="930.35" y1="560.11" x2="933.13" y2="558.69"/>
+            <line class="st11" x1="917.47" y1="558.82" x2="921.42" y2="557.53"/>
+            <line class="st11" x1="923.4" y1="556.89" x2="926.37" y2="555.93"/>
+            <line class="st11" x1="928.35" y1="555.28" x2="931.32" y2="554.32"/>
+            <line class="st10" x1="915.83" y1="552" x2="919.94" y2="551.34"/>
+            <line class="st10" x1="921.99" y1="551.02" x2="925.07" y2="550.53"/>
+            <line class="st10" x1="927.13" y1="550.21" x2="930.21" y2="549.72"/>
+            <line class="st9" x1="915.28" y1="545" x2="919.44" y2="545"/>
+            <line class="st9" x1="921.52" y1="545" x2="924.64" y2="545"/>
+            <line class="st9" x1="926.72" y1="545" x2="929.84" y2="545"/>
+            <line class="st10" x1="915.83" y1="538" x2="919.94" y2="538.66"/>
+            <line class="st10" x1="921.99" y1="538.98" x2="925.07" y2="539.47"/>
+            <line class="st10" x1="927.13" y1="539.79" x2="930.21" y2="540.28"/>
+            <line class="st11" x1="917.47" y1="531.18" x2="921.42" y2="532.47"/>
+            <line class="st11" x1="923.4" y1="533.11" x2="926.37" y2="534.07"/>
+            <line class="st11" x1="928.35" y1="534.72" x2="931.32" y2="535.68"/>
+            <line class="st14" x1="920.15" y1="524.7" x2="923.86" y2="526.59"/>
+            <line class="st14" x1="925.71" y1="527.53" x2="928.49" y2="528.95"/>
+            <line class="st14" x1="930.35" y1="529.89" x2="933.13" y2="531.31"/>
+            <line class="st13" x1="923.82" y1="518.71" x2="927.19" y2="521.16"/>
+            <line class="st13" x1="928.87" y1="522.38" x2="931.39" y2="524.22"/>
+            <line class="st13" x1="933.07" y1="525.44" x2="935.6" y2="527.27"/>
+            <line class="st12" x1="928.38" y1="513.38" x2="931.32" y2="516.32"/>
+            <line class="st12" x1="932.79" y1="517.79" x2="935" y2="520"/>
+            <line class="st12" x1="936.47" y1="521.47" x2="938.67" y2="523.67"/>
+            <line class="st13" x1="933.71" y1="508.82" x2="936.16" y2="512.19"/>
+            <line class="st13" x1="937.38" y1="513.87" x2="939.21" y2="516.39"/>
+            <line class="st13" x1="940.44" y1="518.08" x2="942.27" y2="520.6"/>
+            <line class="st14" x1="939.7" y1="505.15" x2="941.59" y2="508.86"/>
+            <line class="st14" x1="942.53" y1="510.71" x2="943.95" y2="513.49"/>
+            <line class="st14" x1="944.89" y1="515.35" x2="946.31" y2="518.13"/>
+            <line class="st11" x1="946.18" y1="502.47" x2="947.47" y2="506.43"/>
+            <line class="st11" x1="948.11" y1="508.4" x2="949.07" y2="511.37"/>
+            <line class="st11" x1="949.71" y1="513.35" x2="950.68" y2="516.32"/>
+            <line class="st10" x1="953" y1="500.83" x2="953.65" y2="504.94"/>
+            <line class="st10" x1="953.98" y1="506.99" x2="954.47" y2="510.08"/>
+            <line class="st10" x1="954.79" y1="512.13" x2="955.28" y2="515.21"/>
+            <circle class="st5" cx="960" cy="545" r="24.96"/>
+            <circle class="st22" cx="960" cy="545" r="19.76"/>
+            <circle class="st130" cx="960" cy="545" r="15.6"/>
+            <path class="st138" d="M1090.27,539.22c-.54-12.47-2.88-24.85-6.93-36.65-3.94-11.45-9.49-22.33-16.43-32.24-6.87-9.82-15.08-18.68-24.36-26.27-9.31-7.63-19.69-13.97-30.74-18.76-11.33-4.91-23.35-8.17-35.6-9.7-12.62-1.56-25.47-1.3-38.01.82-12.11,2.04-23.91,5.8-34.96,11.15-10.83,5.24-20.91,11.99-29.89,19.99-8.96,7.97-16.81,17.17-23.27,27.26-6.54,10.23-11.64,21.37-15.1,33-3.58,12.05-5.37,24.61-5.37,37.18q0,5.75.5,11.5c1.07,12.35,3.92,24.54,8.45,36.09,4.41,11.24,10.39,21.84,17.71,31.44,7.27,9.52,15.84,18.05,25.42,25.24,9.65,7.26,20.3,13.18,31.58,17.51,11.58,4.44,23.8,7.21,36.18,8.2,12.65,1.01,25.44.2,37.85-2.45,11.96-2.54,23.54-6.79,34.31-12.57,10.58-5.68,20.36-12.84,28.99-21.18,8.63-8.34,16.1-17.86,22.14-28.22,6.14-10.53,10.78-21.92,13.74-33.73C1089.56,564.56,1090.82,551.85,1090.27,539.22ZM1073.19,555.73c-1.15,12.31-4.33,24.41-9.38,35.69-4.92,10.99-11.6,21.17-19.7,30.07-8.08,8.88-17.55,16.47-27.98,22.4-10.63,6.05-22.23,10.35-34.23,12.69-12.45,2.43-25.32,2.76-37.88.99-12.18-1.71-24.06-5.42-35.04-10.95-10.73-5.39-20.59-12.51-29.12-20.98-8.52-8.47-15.69-18.27-21.16-28.98-5.59-10.93-9.37-22.78-11.17-34.93-.81-5.54-1.22-11.13-1.22-16.73,0-12.53,2.06-25.05,6.13-36.91,3.92-11.43,9.69-22.22,17.01-31.85,7.26-9.54,16.02-17.92,25.87-24.75,9.97-6.9,21.04-12.21,32.68-15.61,12.11-3.54,24.8-5.03,37.4-4.44,12.43.58,24.74,3.2,36.32,7.77,11.22,4.43,21.7,10.66,30.97,18.38,9.22,7.67,17.22,16.8,23.6,26.95,6.48,10.29,11.29,21.64,14.17,33.47C1073.46,530.31,1074.37,543.12,1073.19,555.73Z"/>
+            <path class="st133" d="M883.5,646.61c2.21,1.15,4.88,2.6,7.46,2.14,2.97-.53,2.62-4.04,1.62-6.15-2.61-5.51-7.17-9.54-12.43-12.46-1.33-.63-2.66-1.18-4.09-1.55-1.28-.33-2.87-.57-4.14-.09-3.42,1.31-1.37,5.29-.12,7.44,1.34,2.28,3.37,4.23,5.3,6.01C879.04,643.75,881.24,645.23,883.5,646.61Z"/>
+            <path class="st133" d="M922.88,666.71c2.47.32,5.47.78,7.74-.54,2.61-1.52,1.08-4.69-.58-6.33-4.34-4.28-10-6.52-15.94-7.46-1.47-.14-2.91-.2-4.38-.06-1.3.13-2.9.45-3.92,1.33-2.77,2.4.52,5.44,2.44,7.04,2.01,1.66,4.56,2.8,6.95,3.8C917.67,665.53,920.26,666.18,922.88,666.71Z"/>
+            <path class="st133" d="M966.76,672.13c2.43-.54,5.41-1.14,7.09-3.16,1.92-2.31-.6-4.77-2.71-5.75-5.55-2.53-11.62-2.7-17.53-1.55-1.43.36-2.8.8-4.14,1.44-1.17.57-2.56,1.41-3.22,2.59-1.78,3.2,2.33,4.93,4.69,5.77,2.49.89,5.29,1.08,7.91,1.21C961.5,672.81,964.14,672.53,966.76,672.13Z"/>
+            <path class="st133" d="M1009.84,662.22c2.09-1.35,4.7-2.93,5.59-5.4,1.01-2.84-2.2-4.28-4.52-4.48-6.07-.49-11.85,1.44-17.01,4.55-1.21.83-2.35,1.7-3.39,2.76-.91.94-1.93,2.21-2.14,3.54-.58,3.62,3.89,3.84,6.38,3.82,2.65-.01,5.35-.79,7.85-1.58C1005.14,664.64,1007.51,663.48,1009.84,662.22Z"/>
+            <path class="st133" d="M1046.93,638.16c1.52-1.98,3.42-4.34,3.41-6.98,0-3.01-3.53-3.28-5.77-2.65-5.88,1.6-10.65,5.39-14.43,10.07-.86,1.2-1.63,2.42-2.24,3.76-.54,1.2-1.06,2.74-.81,4.07.7,3.59,4.96,2.27,7.3,1.4,2.49-.92,4.76-2.58,6.84-4.17C1043.35,642.06,1045.18,640.15,1046.93,638.16Z"/>
+            <path class="st133" d="M1073.56,602.87c.75-2.37,1.73-5.25.82-7.72-1.04-2.82-4.44-1.87-6.33-.52-4.98,3.52-8.16,8.71-10.11,14.4-.41,1.42-.71,2.83-.82,4.3-.11,1.31-.07,2.93.63,4.09,1.87,3.14,5.44.44,7.34-1.17,2-1.7,3.56-4.01,4.96-6.19C1071.5,607.8,1072.59,605.36,1073.56,602.87Z"/>
+            <path class="st133" d="M1086.52,560.6c-.11-2.49-.18-5.52-1.88-7.53-1.94-2.3-4.81-.24-6.13,1.67-3.46,5.01-4.68,10.98-4.57,17,.11,1.47.3,2.89.7,4.32.35,1.26.94,2.77,1.99,3.62,2.84,2.32,5.26-1.44,6.5-3.61,1.3-2.28,1.97-4.98,2.55-7.51C1086.27,565.94,1086.46,563.28,1086.52,560.6Z"/>
+            <path class="st133" d="M1084.24,516.45c-.96-2.3-2.06-5.13-4.34-6.44-2.61-1.5-4.6,1.42-5.19,3.68-1.54,5.89-.65,11.91,1.51,17.53.61,1.34,1.28,2.62,2.14,3.82.76,1.06,1.84,2.28,3.12,2.73,3.46,1.19,4.44-3.16,4.86-5.63.44-2.6.14-5.4-.18-8C1085.82,521.51,1085.08,518.96,1084.24,516.45Z"/>
+            <path class="st133" d="M853.37,614.25c-2.06-2.5-3.7-5.19-5.19-8.06"/>
+            <path class="st133" d="M1062.07,489.34q1.11,1.59,2.44,3.02"/>
+            <line class="st133" x1="849.84" y1="586.25" x2="849.79" y2="586.31"/>
+            <line class="st133" x1="840.73" y1="587.39" x2="840.76" y2="587.33"/>
+            <line class="st133" x1="833.43" y1="543.98" x2="833.48" y2="543.93"/>
+            <line class="st133" x1="863.75" y1="462.75" x2="863.8" y2="462.74"/>
+            <path class="st133" d="M1036.87,443.39c-2.21-1.15-4.88-2.61-7.46-2.14-2.97.53-2.62,4.04-1.62,6.15,2.6,5.5,7.16,9.54,12.43,12.46,1.32.63,2.66,1.18,4.09,1.54,1.27.33,2.88.57,4.14.1,3.41-1.32,1.38-5.28.11-7.44-1.33-2.28-3.36-4.23-5.28-6.01C1041.33,446.25,1039.13,444.77,1036.87,443.39Z"/>
+            <path class="st133" d="M997.49,423.29c-2.47-.32-5.47-.78-7.75.54-2.6,1.52-1.07,4.7.59,6.33,4.33,4.28,10,6.52,15.94,7.45,1.47.15,2.91.21,4.37.07,1.31-.13,2.91-.45,3.93-1.33,2.76-2.41-.52-5.44-2.44-7.04-2.04-1.68-4.6-2.82-7.03-3.84C1002.66,424.45,1000.08,423.82,997.49,423.29Z"/>
+            <path class="st133" d="M953.61,417.87c-2.42.54-5.4,1.14-7.09,3.16-1.93,2.31.6,4.77,2.71,5.74,5.54,2.55,11.63,2.71,17.53,1.56,1.43-.37,2.8-.8,4.14-1.44,1.18-.57,2.56-1.42,3.22-2.59,1.78-3.2-2.34-4.93-4.69-5.78-2.49-.88-5.3-1.07-7.91-1.2C958.86,417.2,956.23,417.47,953.61,417.87Z"/>
+            <path class="st133" d="M910.53,427.79c-2.09,1.33-4.7,2.91-5.59,5.38-1.02,2.84,2.19,4.29,4.52,4.48,6.07.5,11.85-1.43,17-4.54,1.22-.82,2.36-1.71,3.39-2.76.92-.94,1.93-2.21,2.15-3.54.58-3.62-3.89-3.84-6.38-3.82-2.65.01-5.35.8-7.85,1.58C915.23,425.35,912.85,426.52,910.53,427.79Z"/>
+            <path class="st133" d="M873.44,451.84c-1.52,1.97-3.42,4.35-3.41,6.98,0,3.01,3.53,3.27,5.77,2.65,5.88-1.61,10.65-5.39,14.43-10.07.86-1.2,1.63-2.42,2.24-3.77.54-1.19,1.06-2.73.81-4.05-.7-3.6-4.97-2.28-7.31-1.41-2.48.92-4.75,2.57-6.84,4.17C877.02,447.95,875.19,449.85,873.44,451.84Z"/>
+            <path class="st133" d="M846.81,487.13c-.75,2.37-1.73,5.25-.82,7.72,1.04,2.82,4.44,1.87,6.34.53,4.96-3.53,8.15-8.72,10.1-14.41.41-1.43.71-2.83.82-4.3.1-1.31.06-2.93-.63-4.1-1.88-3.14-5.44-.43-7.35,1.19-2.01,1.71-3.58,4.04-4.99,6.25C848.84,482.24,847.77,484.66,846.81,487.13Z"/>
+            <path class="st133" d="M833.85,529.4c.11,2.48.18,5.52,1.87,7.53,1.95,2.31,4.81.24,6.14-1.68,3.46-5.01,4.68-10.97,4.57-16.99-.11-1.47-.31-2.9-.7-4.32-.35-1.26-.94-2.78-1.99-3.63-2.84-2.3-5.26,1.45-6.5,3.62-1.31,2.3-1.98,5.03-2.57,7.58C834.09,524.11,833.91,526.75,833.85,529.4Z"/>
+            <path class="st133" d="M836.13,573.55c.95,2.3,2.06,5.13,4.34,6.43,2.61,1.5,4.6-1.41,5.19-3.67,1.54-5.89.64-11.91-1.52-17.53-.61-1.35-1.27-2.62-2.13-3.82-.76-1.06-1.84-2.28-3.12-2.73-3.46-1.19-4.44,3.16-4.86,5.63-.45,2.61-.15,5.4.18,8C834.56,568.49,835.28,571.04,836.13,573.55Z"/>
+            <path class="st133" d="M1067,475.74c-1.05-1.13-2.08-2.19-3.29-3.13-1.01-.78-2.51-1.65-3.85-1.49-3.15.4-3.05,4.94-2.54,7.26.86,4,2.47,7.56,4.74,10.96l2.45,3.02c1.03,1.06,2.1,2.02,3.32,2.86,1.08.74,2.5,1.51,3.86,1.5,3.65-.06,3.09-4.5,2.65-6.96-.38-2.06-1.31-4.03-2.15-5.95"/>
+            <path class="st133" d="M1067,475.74c2.06,2.51,3.7,5.2,5.18,8.07"/>
+            <path class="st133" d="M848.18,606.19c-.84-1.92-1.77-3.89-2.15-5.96-.45-2.46-1-6.89,2.65-6.95,1.35-.02,2.79.76,3.86,1.5,1.21.83,2.28,1.81,3.31,2.86l2.45,3.02c2.28,3.4,3.89,6.95,4.75,10.96.5,2.32.61,6.86-2.55,7.25-1.32.17-2.83-.7-3.84-1.48-1.21-.94-2.25-2-3.29-3.14"/>
+            <path class="st133" d="M858.3,600.66q-1.12-1.6-2.45-3.02"/>
+            <line class="st133" x1="870.61" y1="621.5" x2="870.58" y2="621.58"/>
+            <line class="st133" x1="862.43" y1="625.69" x2="862.44" y2="625.62"/>
+            <!-- Mixer faceplate -->
+            <rect class="st30" x="297" y="419" width="600" height="324" rx="3" ry="3"/>
+            <rect class="st86" x="297" y="415" width="600" height="324" rx="3" ry="3"/>
+            <rect class="st62" x="297.46" y="415.5" width="599.09" height="1"/>
+            <!-- BEAT SYNC frames -->
+            <rect class="st3" x="173.45" y="292.7" width="45.26" height="177.87" transform="translate(577.71 185.55) rotate(90)"/>
+            <rect class="st129" x="172.8" y="354.2" width="46.57" height="8.48"/>
+            <text class="st59" transform="translate(173.94 361.32)"><tspan x="0" y="0">BEAT SYNC</tspan></text>
+            <rect class="st3" x="879.37" y="292.7" width="45.26" height="177.87" transform="translate(1283.6303 -520.3706) rotate(90)"/>
+            <rect class="st129" x="878.72" y="354.2" width="46.57" height="8.48"/>
+            <text class="st59" transform="translate(879.86 361.32)"><tspan x="0" y="0">BEAT SYNC</tspan></text>
+            <!-- Meter -->
+            <rect class="st97" x="534.87" y="425" width="124.27" height="241" rx="4" ry="4"/>
+            <rect class="st61" x="535.24" y="425.5" width="123.51" height="1"/>
+            <text class="st36" transform="translate(541.01 440.85)"><tspan x="0" y="0">CH A</tspan></text>
+            <text class="st36" transform="translate(578.77 440.85)"><tspan x="0" y="0">MASTER</tspan></text>
+            <text class="st36" transform="translate(631.52 440.85)"><tspan x="0" y="0">CH B</tspan></text>
+            <text class="st49" transform="translate(560.28 455.15)"><tspan x="0" y="0">dBFS</tspan></text>
+            <text class="st27" transform="translate(586.16 455.15)"><tspan x="0" y="0">CLIP</tspan></text>
+            <text class="st49" transform="translate(614.28 455.15)"><tspan x="0" y="0">dBFS</tspan></text>
+            <rect class="st148" x="548.46" y="466" width="7.09" height="188"/>
+            <rect class="st141" x="548.46" y="639" width="7.09" height="14"/>
+            <rect class="st141" x="548.46" y="624" width="7.09" height="13"/>
+            <rect class="st141" x="548.46" y="608" width="7.09" height="14"/>
+            <rect class="st141" x="548.46" y="592" width="7.09" height="14"/>
+            <rect class="st141" x="548.46" y="577" width="7.09" height="13"/>
+            <rect class="st141" x="548.46" y="561" width="7.09" height="14"/>
+            <rect class="st134" x="548.46" y="545" width="7.09" height="14"/>
+            <rect class="st134" x="548.46" y="530" width="7.09" height="13"/>
+            <rect class="st134" x="548.46" y="514" width="7.09" height="14"/>
+            <rect class="st134" x="548.46" y="498" width="7.09" height="14"/>
+            <rect class="st142" x="548.46" y="483" width="7.09" height="13"/>
+            <rect class="st142" x="548.46" y="467" width="7.09" height="14"/>
+            <rect class="st42" x="548.46" y="529" width="7.09" height="1"/>
+            <rect class="st148" x="586.46" y="466" width="7.09" height="188"/>
+            <rect class="st141" x="586.46" y="639" width="7.09" height="14"/>
+            <rect class="st141" x="586.46" y="624" width="7.09" height="13"/>
+            <rect class="st141" x="586.46" y="608" width="7.09" height="14"/>
+            <rect class="st141" x="586.46" y="592" width="7.09" height="14"/>
+            <rect class="st141" x="586.46" y="577" width="7.09" height="13"/>
+            <rect class="st141" x="586.46" y="561" width="7.09" height="14"/>
+            <rect class="st134" x="586.46" y="545" width="7.09" height="14"/>
+            <rect class="st134" x="586.46" y="530" width="7.09" height="13"/>
+            <rect class="st134" x="586.46" y="514" width="7.09" height="14"/>
+            <rect class="st139" x="586.46" y="498" width="7.09" height="14"/>
+            <rect class="st142" x="586.46" y="483" width="7.09" height="13"/>
+            <rect class="st142" x="586.46" y="467" width="7.09" height="14"/>
+            <rect class="st42" x="586.46" y="513" width="7.09" height="1"/>
+            <rect class="st148" x="600.46" y="466" width="7.09" height="188"/>
+            <rect class="st141" x="600.46" y="639" width="7.09" height="14"/>
+            <rect class="st141" x="600.46" y="624" width="7.09" height="13"/>
+            <rect class="st141" x="600.46" y="608" width="7.09" height="14"/>
+            <rect class="st141" x="600.46" y="592" width="7.09" height="14"/>
+            <rect class="st141" x="600.46" y="577" width="7.09" height="13"/>
+            <rect class="st141" x="600.46" y="561" width="7.09" height="14"/>
+            <rect class="st134" x="600.46" y="545" width="7.09" height="14"/>
+            <rect class="st134" x="600.46" y="530" width="7.09" height="13"/>
+            <rect class="st134" x="600.46" y="514" width="7.09" height="14"/>
+            <rect class="st142" x="600.46" y="498" width="7.09" height="14"/>
+            <rect class="st142" x="600.46" y="483" width="7.09" height="13"/>
+            <rect class="st142" x="600.46" y="467" width="7.09" height="14"/>
+            <rect class="st42" x="600.46" y="513" width="7.09" height="1"/>
+            <rect class="st148" x="637.75" y="466" width="8.5" height="188"/>
+            <rect class="st142" x="637.75" y="639" width="8.5" height="14"/>
+            <rect class="st142" x="637.75" y="624" width="8.5" height="13"/>
+            <rect class="st142" x="637.75" y="608" width="8.5" height="14"/>
+            <rect class="st142" x="637.75" y="592" width="8.5" height="14"/>
+            <rect class="st142" x="637.75" y="577" width="8.5" height="13"/>
+            <rect class="st142" x="637.75" y="561" width="8.5" height="14"/>
+            <rect class="st142" x="637.75" y="545" width="8.5" height="14"/>
+            <rect class="st142" x="637.75" y="530" width="8.5" height="13"/>
+            <rect class="st142" x="637.75" y="514" width="8.5" height="14"/>
+            <rect class="st142" x="637.75" y="498" width="8.5" height="14"/>
+            <rect class="st142" x="637.75" y="483" width="8.5" height="13"/>
+            <rect class="st142" x="637.75" y="467" width="8.5" height="14"/>
+            <rect class="st42" x="637.75" y="529" width="8.5" height="1"/>
+            <text class="st47" transform="translate(564.81 469.5)"><tspan x="0" y="0">+6</tspan></text>
+            <text class="st58" transform="translate(567.95 500.83)"><tspan x="0" y="0">0</tspan></text>
+            <text class="st47" transform="translate(564.75 532.17)"><tspan x="0" y="0">−6</tspan></text>
+            <text class="st47" transform="translate(562.02 563.5)"><tspan x="0" y="0">−12</tspan></text>
+            <text class="st47" transform="translate(561.98 594.83)"><tspan x="0" y="0">−18</tspan></text>
+            <text class="st47" transform="translate(561.86 626.17)"><tspan x="0" y="0">−24</tspan></text>
+            <text class="st47" transform="translate(561.92 657.5)"><tspan x="0" y="0">−30</tspan></text>
+            <text class="st47" transform="translate(618.81 469.5)"><tspan x="0" y="0">+6</tspan></text>
+            <text class="st58" transform="translate(621.95 500.83)"><tspan x="0" y="0">0</tspan></text>
+            <text class="st47" transform="translate(618.75 532.17)"><tspan x="0" y="0">−6</tspan></text>
+            <text class="st47" transform="translate(616.02 563.5)"><tspan x="0" y="0">−12</tspan></text>
+            <text class="st47" transform="translate(615.98 594.83)"><tspan x="0" y="0">−18</tspan></text>
+            <text class="st47" transform="translate(615.85 626.17)"><tspan x="0" y="0">−24</tspan></text>
+            <text class="st47" transform="translate(615.91 657.5)"><tspan x="0" y="0">−30</tspan></text>
+            <!-- TEMPO B: well, comb, slot, legends -->
+            <rect class="st92" x="1114.76" y="435" width="60" height="206" rx="4" ry="4"/>
+            <rect x="1115.26" y="436" width="59" height="1"/>
+            <rect class="st63" x="1115.26" y="639" width="59" height="1"/>
+            <rect class="st71" x="1127.76" y="452.5" width="9" height="1"/>
+            <rect class="st71" x="1152.76" y="452.5" width="9" height="1"/>
+            <rect class="st68" x="1131.76" y="463.13" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="463.13" width="5" height="1"/>
+            <rect class="st68" x="1131.76" y="473.75" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="473.75" width="5" height="1"/>
+            <rect class="st68" x="1131.76" y="484.38" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="484.38" width="5" height="1"/>
+            <rect class="st71" x="1127.76" y="495" width="9" height="1"/>
+            <rect class="st71" x="1152.76" y="495" width="9" height="1"/>
+            <rect class="st68" x="1131.76" y="505.63" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="505.63" width="5" height="1"/>
+            <rect class="st68" x="1131.76" y="516.25" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="516.25" width="5" height="1"/>
+            <rect class="st68" x="1131.76" y="526.88" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="526.88" width="5" height="1"/>
+            <rect class="st71" x="1127.76" y="537.5" width="9" height="1"/>
+            <rect class="st71" x="1152.76" y="537.5" width="9" height="1"/>
+            <rect class="st68" x="1131.76" y="548.13" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="548.13" width="5" height="1"/>
+            <rect class="st68" x="1131.76" y="558.75" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="558.75" width="5" height="1"/>
+            <rect class="st68" x="1131.76" y="569.38" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="569.38" width="5" height="1"/>
+            <rect class="st71" x="1127.76" y="580" width="9" height="1"/>
+            <rect class="st71" x="1152.76" y="580" width="9" height="1"/>
+            <rect class="st68" x="1131.76" y="590.63" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="590.63" width="5" height="1"/>
+            <rect class="st68" x="1131.76" y="601.25" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="601.25" width="5" height="1"/>
+            <rect class="st68" x="1131.76" y="611.88" width="5" height="1"/>
+            <rect class="st68" x="1152.76" y="611.88" width="5" height="1"/>
+            <rect class="st71" x="1127.76" y="622.5" width="9" height="1"/>
+            <rect class="st71" x="1152.76" y="622.5" width="9" height="1"/>
+            <rect class="st115" x="1139.76" y="441" width="10" height="194" rx="2" ry="2"/>
+            <rect class="st63" x="1144.01" y="441" width="1.5" height="194"/>
+            <rect class="st29" x="1115.26" y="563.27" width="59" height="1"/>
+            <text class="st48" transform="translate(1126.045 658.85)"><tspan x="0" y="0">TEMPO</tspan></text>
+            <text class="st51" transform="translate(1164.7301 446.35)"><tspan x="0" y="0">−</tspan></text>
+            <text class="st51" transform="translate(1164.7301 639.35)"><tspan x="0" y="0">+</tspan></text>
+            <!-- TEMPO A: well, comb, slot, legends -->
+            <rect class="st92" x="19.24" y="435" width="60" height="206" rx="4" ry="4"/>
+            <rect x="19.74" y="436" width="59" height="1"/>
+            <rect class="st63" x="19.74" y="639" width="59" height="1"/>
+            <rect class="st71" x="32.24" y="452.5" width="9" height="1"/>
+            <rect class="st71" x="57.24" y="452.5" width="9" height="1"/>
+            <rect class="st68" x="36.24" y="463.13" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="463.13" width="5" height="1"/>
+            <rect class="st68" x="36.24" y="473.75" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="473.75" width="5" height="1"/>
+            <rect class="st68" x="36.24" y="484.38" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="484.38" width="5" height="1"/>
+            <rect class="st71" x="32.24" y="495" width="9" height="1"/>
+            <rect class="st71" x="57.24" y="495" width="9" height="1"/>
+            <rect class="st68" x="36.24" y="505.63" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="505.63" width="5" height="1"/>
+            <rect class="st68" x="36.24" y="516.25" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="516.25" width="5" height="1"/>
+            <rect class="st68" x="36.24" y="526.88" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="526.88" width="5" height="1"/>
+            <rect class="st71" x="32.24" y="537.5" width="9" height="1"/>
+            <rect class="st71" x="57.24" y="537.5" width="9" height="1"/>
+            <rect class="st68" x="36.24" y="548.13" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="548.13" width="5" height="1"/>
+            <rect class="st68" x="36.24" y="558.75" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="558.75" width="5" height="1"/>
+            <rect class="st68" x="36.24" y="569.38" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="569.38" width="5" height="1"/>
+            <rect class="st71" x="32.24" y="580" width="9" height="1"/>
+            <rect class="st71" x="57.24" y="580" width="9" height="1"/>
+            <rect class="st68" x="36.24" y="590.63" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="590.63" width="5" height="1"/>
+            <rect class="st68" x="36.24" y="601.25" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="601.25" width="5" height="1"/>
+            <rect class="st68" x="36.24" y="611.88" width="5" height="1"/>
+            <rect class="st68" x="57.24" y="611.88" width="5" height="1"/>
+            <rect class="st71" x="32.24" y="622.5" width="9" height="1"/>
+            <rect class="st71" x="57.24" y="622.5" width="9" height="1"/>
+            <rect class="st115" x="44.24" y="441" width="10" height="194" rx="2" ry="2"/>
+            <rect class="st63" x="48.49" y="441" width="1.5" height="194"/>
+            <text class="st46" transform="translate(30.87 658.85)"><tspan x="0" y="0">TEMPO</tspan></text>
+            <text class="st51" transform="translate(69.21 446.35)"><tspan x="0" y="0">−</tspan></text>
+            <text class="st51" transform="translate(69.21 639.35)"><tspan x="0" y="0">+</tspan></text>
+            <!-- LEVEL A: scale and slot -->
+            <rect class="st63" x="330.43" y="645" width="59" height="1"/>
+            <rect class="st71" x="326.79" y="453" width="66.28" height="1"/>
+            <text class="st55" transform="translate(308.21 456.5)"><tspan x="0" y="0">10</tspan></text>
+            <rect class="st69" x="326.79" y="470.45" width="66.28" height="1"/>
+            <rect class="st71" x="326.79" y="487.91" width="66.28" height="1"/>
+            <text class="st55" transform="translate(315.07 491.95)"><tspan x="0" y="0">8</tspan></text>
+            <rect class="st69" x="326.79" y="505.36" width="66.28" height="1"/>
+            <rect class="st71" x="326.79" y="522.82" width="66.28" height="1"/>
+            <text class="st55" transform="translate(315.07 526.77)"><tspan x="0" y="0">6</tspan></text>
+            <rect class="st69" x="326.79" y="540.27" width="66.28" height="1"/>
+            <rect class="st71" x="326.79" y="557.73" width="66.28" height="1"/>
+            <text class="st55" transform="translate(315.07 561.77)"><tspan x="0" y="0">4</tspan></text>
+            <rect class="st69" x="326.79" y="575.18" width="66.28" height="1"/>
+            <rect class="st71" x="326.79" y="592.64" width="66.28" height="1"/>
+            <text class="st55" transform="translate(315.07 596.77)"><tspan x="0" y="0">2</tspan></text>
+            <rect class="st69" x="326.79" y="610.09" width="66.28" height="1"/>
+            <rect class="st71" x="326.79" y="627.55" width="66.28" height="1"/>
+            <text class="st55" transform="translate(315.07 631.59)"><tspan x="0" y="0">0</tspan></text>
+            <rect class="st115" x="354.93" y="441" width="10" height="200" rx="2" ry="2"/>
+            <rect class="st63" x="359.18" y="441" width="1.5" height="200"/>
+            <!-- LEVEL B: scale and slot -->
+            <rect class="st63" x="804.57" y="645" width="59" height="1" transform="translate(1668.1386 1291) rotate(-180)"/>
+            <rect class="st71" x="800.93" y="453" width="66.28" height="1" transform="translate(1668.1386 907) rotate(-180)"/>
+            <text class="st55" transform="translate(872.83 456.5)"><tspan x="0" y="0">10</tspan></text>
+            <rect class="st69" x="800.93" y="470.45" width="66.28" height="1" transform="translate(1668.1386 941.9091) rotate(-180)"/>
+            <rect class="st71" x="800.93" y="487.91" width="66.28" height="1" transform="translate(1668.1386 976.8182) rotate(-180)"/>
+            <text class="st55" transform="translate(872.94 491.95)"><tspan x="0" y="0">8</tspan></text>
+            <rect class="st69" x="800.93" y="505.36" width="66.28" height="1" transform="translate(1668.1386 1011.7273) rotate(-180)"/>
+            <rect class="st71" x="800.93" y="522.82" width="66.28" height="1" transform="translate(1668.1386 1046.6364) rotate(-180)"/>
+            <text class="st55" transform="translate(873.07 526.77)"><tspan x="0" y="0">6</tspan></text>
+            <rect class="st69" x="800.93" y="540.27" width="66.28" height="1" transform="translate(1668.1386 1081.5455) rotate(-180)"/>
+            <rect class="st71" x="800.93" y="557.73" width="66.28" height="1" transform="translate(1668.1386 1116.4545) rotate(-180)"/>
+            <text class="st55" transform="translate(873.31 561.77)"><tspan x="0" y="0">4</tspan></text>
+            <rect class="st69" x="800.93" y="575.18" width="66.28" height="1" transform="translate(1668.1386 1151.3636) rotate(-180)"/>
+            <rect class="st71" x="800.93" y="592.64" width="66.28" height="1" transform="translate(1668.1386 1186.2727) rotate(-180)"/>
+            <text class="st55" transform="translate(872.88 596.77)"><tspan x="0" y="0">2</tspan></text>
+            <rect class="st69" x="800.93" y="610.09" width="66.28" height="1" transform="translate(1668.1386 1221.1818) rotate(-180)"/>
+            <rect class="st71" x="800.93" y="627.55" width="66.28" height="1" transform="translate(1668.1386 1256.0909) rotate(-180)"/>
+            <text class="st55" transform="translate(872.97 631.59)"><tspan x="0" y="0">0</tspan></text>
+            <rect class="st115" x="829.07" y="441" width="10" height="200" rx="2" ry="2" transform="translate(1668.1386 1082) rotate(-180)"/>
+            <rect class="st63" x="833.32" y="441" width="1.5" height="200" transform="translate(1668.1386 1082) rotate(-180)"/>
+            <!-- EQ brackets and FX wells -->
+            <path class="st15" d="M422,431.5h-9.5v159h9.5"/>
+            <rect class="st129" x="402" y="501" width="20" height="20"/>
+            <text class="st50" transform="translate(405.28 514.5)"><tspan x="0" y="0">EQ</tspan></text>
+            <rect class="st145" x="420" y="607" width="102" height="62" rx="5" ry="5"/>
+            <rect class="st147" x="420" y="607" width="102" height="62" rx="5" ry="5"/>
+            <rect class="st21" x="420" y="607" width="102" height="62" rx="5" ry="5"/>
+            <path class="st15" d="M771,431.5h9.5v159h-9.5"/>
+            <rect class="st129" x="771" y="501" width="20" height="20"/>
+            <text class="st50" transform="translate(773.28 514.5)"><tspan x="0" y="0">EQ</tspan></text>
+            <rect class="st145" x="671" y="607" width="102" height="62" rx="5" ry="5"/>
+            <rect class="st147" x="671" y="607" width="102" height="62" rx="5" ry="5"/>
+            <rect class="st21" x="671" y="607" width="102" height="62" rx="5" ry="5"/>
+            <!-- Crossfader comb, channel and A/B -->
+            <text class="st38" transform="translate(447.1 787.9)"><tspan class="st116" x="0" y="0">‹</tspan><tspan class="st118" x="7.73" y="-1">A</tspan></text>
+            <rect class="st76" x="480" y="750.16" width="234" height="19.84"/>
+            <rect class="st76" x="480" y="794" width="234" height="19.84"/>
+            <rect class="st96" x="480" y="776" width="234" height="12" rx="3" ry="3"/>
+            <text class="st38" transform="translate(730 786.9)"><tspan class="st119" x="0" y="0">B</tspan><tspan class="st117" x="9.06" y="1">›</tspan></text>
+            <!-- LOOP legends -->
+            <text class="st59" transform="translate(264.56 754.4)"><tspan x="0" y="0">LOOP</tspan></text>
+            <text class="st59" transform="translate(1063.5585 754.4041)"><tspan x="0" y="0">LOOP</tspan></text>
+          </g>
+          <g id="dyn"></g>
+        </svg>
+        <div class="over" id="over"><div class="targets" id="targets"></div></div>
+        <img class="drawing" src="stage-two-decks%20FA.svg" alt="">
       </div>
     </div>
     <section class="notes">
-      <h2>WHAT THE DECKS ADD</h2>
+      <h2>FROM THE DRAWING</h2>
       <ul>
-        <li><b>Foot row widened.</b> The beat-jump group is now 44 · 178 · 44 with 4 pt gaps — 274, the whole width before the channel CUE — so every length cell is 44 × 44. The channel CUE narrowed 78 → 70 and sits 4 pt right, which keeps its centre on LEVEL's at 331. Nothing else moved: same 1174 × 476 grid, same controls and states.</li>
-        <li><b>Panel.</b> Flat matte black with a fine vertical brush, hairline edges, a raised mixer faceplate and cross-head screws. Every surface is a flat fill — the only gradients left are the lit keys, the AUTO chip and the printed textures (brush, stipple, jog grooves). Legends are silkscreen: 11 pt condensed, letter-spaced, no UI box.</li>
-        <li><b>Deck keys are caps.</b> Bevel, engraved legend, an unlit LED in the key's colour — and the agreed elliptical gradient only when the key is lit, with a bloom in that colour.</li>
-        <li><b>Chips.</b> Recessed caps: printed legend, segment-style value, and the fill as a flat tint with a bright level edge. Green, yellow and AUTO keep their meanings.</li>
-        <li><b>Faders.</b> Toothed metal wells, silver caps with grip grooves, LEVEL's 10 … 0 printed on the panel outside and TEMPO's comb either side of its slot, orange 0 line.</li>
-        <li><b>Platter.</b> The CDJ-900's dimpled aluminium ring and metal hub around the cue display, rubber face with its grooves. CUE · PLAY · loop are illuminated keys with LED rings.</li>
-        <li><b>Meter.</b> A flat inset window, segments lit with a little bloom, CH A · MASTER · CH B and the dBFS scale printed under it.</li>
+        <li><b>Layout.</b> Everything below the song windows is <code>stage-two-decks FA.svg</code>. The static art is the drawing's own SVG; the controls are drawn to its coordinates. <b>Drawing (O)</b> lays the drawing over the mockup at 50%, then as a difference, then off.</li>
+        <li><b>Two looks per control.</b> Deck A shows one state and deck B the other, as drawn. Tap a control to change it, or <b>Swap states (S)</b> to flip every key, loop, PLAY, AUTO TRIM and LOCK LOWS at once.</li>
+        <li><b>Keys.</b> MASTER TEMPO red fill / red outline; SYNC white / dark; MASTER orange gradient / orange outline (only one deck is master); HOT CUE one look; channel CUE orange gradient / outline; LOCK LOWS red outline, red fill when on.</li>
+        <li><b>Chips.</b> EQ grey, filled from the foot; FX blue, filled from OFF at the centre ticks; TRIM green: outline and centre band when set by hand, green fill when AUTO. CUE/MST fills orange by the CUE share; PHONES orange from the foot; MASTER LEVEL yellow from the foot.</li>
+        <li><b>Transport.</b> CUE ring orange when lit, grey when not (tap to change); PLAY green ring with ❙❙ while playing, grey ring with ▶ when stopped; loop blue when on, grey when off.</li>
+        <li><b>Faders.</b> LEVEL on the drawing's 10 … 0 scale with its lit slot; TEMPO ±16 % on the comb, − at the top as on a CDJ; crossfader with the drawn cap.</li>
       </ul>
-      <h2>ON THE IPAD</h2>
+      <h2>THE POPUPS (DEXSLIDERLAB, 10 NOV TUNING)</h2>
       <ul>
-        <li><b>Real targets.</b> Pointer events with capture: a drag follows the finger and never jumps; the faders and crossfader are true sliders, EQ chips drag, keys latch.</li>
-        <li><b>44 pt minimum.</b> The 78 × 40 deck keys carry 3 pt of invisible hit padding, so their target is 46 high. <b>Targets (T)</b> draws every hit area with its size; anything under 44 × 44 is red.</li>
-        <li><b>Fingers, not cursors.</b> No hover-only states, no double-tap zoom or delayed taps (<code>touch-action</code>), no text selection or callout on the panel.</li>
-        <li><b>Everything is 44 or more.</b> 47 targets measured, the smallest now the beat-jump cells at exactly 44 × 44; their strip has no top and bottom borders so the cells, not the frame, own the 44 pt. <b>Targets (T)</b> draws them all — nothing is red.</li>
+        <li><b>Chips open on the finger.</b> TRIM, HI, MID, LOW, FX, CUE/MST, PHONES and MASTER LEVEL open an 80 × 140 bar with the number above it, and six meter rungs (2 green, 3 yellow, 1 red, 1.5 dB apart) for the deck or the master. It closes 0.13 s after the finger lifts.</li>
+        <li><b>Relative drag.</b> Touching changes nothing, only moving does; the bar's 140 pt covers the whole range. Move sideways for FINE ½ · ¼ · ⅒. Pulled past an end, the bar stretches.</li>
+        <li><b>Resets and detents.</b> Double-tap TRIM for AUTO, an EQ for flat, FX for OFF, CUE/MST for 50/50. FX and CUE/MST stick gently at OFF and 50/50. LEVEL, TEMPO, PHONES and MASTER have no double-tap.</li>
+        <li><b>FX list.</b> Hold a finger still on FX for 0.5 s: FILTER · REVERB · DELAY · GATER come up with the current one under the finger. Slide and lift to take one, or lift and tap.</li>
+        <li><b>LEVEL and TEMPO.</b> Caps on tracks, dragged relatively. LEVEL shows its % and the master rungs above it while touched; TEMPO its % and BPM, with a gentle stop at 0.</li>
+        <li><b>Several fingers.</b> Every finger keeps its own control, so two faders or a fader and a chip move together.</li>
       </ul>
     </section>
   </div>
 
   <script>
-    /* ---------- the grid (chassis points) ---------- */
-    const W = 1174, H = 476, EDGE = 18;
-    const TOP = { keyY: 14, keyH: 40, keyW: 78, keyGap: 8, chipY: 9 };
-    const CHIP = { w: 90, h: 50 };
-    const BODY = 76;                       // the shared top line
-    const COL = { A: 403, B: W - 403 - CHIP.w };   // chip columns
-    const CHIPS_Y = { hi: 76, mid: 137, low: 198, fx: 264, foot: 330 };
-    const FOOT = { y: 333, h: 44 };        // 44 pt keys on the foot row, centred on the chips' 355
-    const FACE = { x: 259, y: 66, w: W - 2 * 259, h: 324 };
-    const LEVEL = { cx: 331, y: BODY, w: 60, h: 172 };
-    const TEMPO = { x: EDGE, y: BODY, w: 60, h: 206 };
-    const PLATTER = { cx: 214, cy: 196, size: 262 };
-    const METER = { x: 505, y: BODY, w: 164, h: 238, barTop: 118, barBottom: 306,
-      ladder: [-30, -27, -24, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6], amber: 6, red: 10,
-      still: { A: -2.0, L: -3.8, R: -4.3, B: -90 }, hold: { A: -1.0, L: -2.8, R: -3.2, B: -90 } };
-    const ROW = { y: 400, key: 66 };       // CUE · PLAY · loop
-    const XF = { x: 470, w: 234, cy: 433 };
-    const CAP = 28, SLOT = 4;              // fader cap and its inset
-
-    const at = (x, y, w, h) => `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
-    const mx = (x, w) => W - x - w;        // mirror a box for deck B
-
-    const ICON = {
-      play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>',
-      pause: '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
-      back: '<svg viewBox="0 0 24 24"><path d="M17 5.5v13L6 12z"/></svg>',
-      fwd: '<svg viewBox="0 0 24 24"><path d="M7 5.5v13L18 12z"/></svg>'
+    /* ---------- state: the moment the drawing shows ---------- */
+    const S = {
+      A: { mt: true, sync: false, master: true, chCue: true, tCue: true, playing: true, loopOn: true, loop: 64, jump: 1,
+           bpm: 133.0, tempo: 0, level: 0.8285, trim: 1.0, trimAuto: false, auto: 0.4,
+           hi: 1, mid: 1, low: 0.62, fx: 0, effect: 'filter', meter: -2.0 },
+      B: { mt: false, sync: true, master: false, chCue: false, tCue: false, playing: false, loopOn: false, loop: 16, jump: 1,
+           bpm: 130.0, tempo: 2.31, level: 0.8285, trim: 1.2, trimAuto: true, auto: 1.2,
+           hi: 1, mid: 1, low: 0.62, fx: 40, effect: 'gater', meter: -4.0 },
+      M: { master: 0.8, cueMix: 0.5, phones: 0.62, lockLows: false, xf: 0.5 }
     };
-
-    /* What the stage shows: the same moment as the song windows above. */
-    const DECK = {
-      A: { accent: 'var(--a)', mt: true, sync: false, master: true, tempo: 0, level: 0.78, cue: false, playing: true, jump: 1, loop: 8, loopOn: true,
-           trim: { title: 'TRIM', value: '+1.0', fill: 54, auto: 44, kind: 'green' }, eq: { hi: 100, mid: 100, low: 62 }, foot: { title: 'CUE/MST', value: '50/50' } },
-      B: { accent: 'var(--b)', mt: false, sync: true, master: false, tempo: 2.31, level: 0.78, cue: true, playing: false, jump: 1, loop: 16, loopOn: false,
-           trim: { title: 'AUTO TRIM', value: '+1.2', fill: 55, kind: 'auto' }, eq: { hi: 100, mid: 100, low: 62 }, foot: { title: 'PHONES', value: '60%' } }
-    };
-    let XF_POS = 0.5;
-    const LOOPS = [1, 2, 4, 8, 16, 32];
+    const LOOPS = [1, 2, 4, 8, 16, 32, 64];
     const JUMPS = [1, 4, 16, 32];
+    const EFFECTS = ['filter', 'reverb', 'delay', 'gater'];
 
-    /* ---------- parts ---------- */
-    function chip(x, y, title, value, opts = {}) {
-      const fill = opts.fill ?? 0;
-      const fx = opts.fx ? `<i class="mark l" style="--at:calc(50% - 1px)"></i><i class="mark" style="--at:calc(50% - 1px)"></i>` : '';
-      const auto = opts.auto != null ? `<i class="mark" style="--at:calc(${opts.auto}% - 1px)"></i>` : '';
-      const attrs = [
-        opts.ctl ? `data-ctl="${opts.ctl}"` : '',
-        opts.adjust ? `data-adjust data-value="${parseInt(value, 10)}"` : '',
-        opts.toggle ? 'data-toggle role="button" aria-pressed="false" tabindex="0"' : ''
-      ].join(' ');
-      return `<div class="chip at ${opts.kind || ''}" ${attrs} style="${at(x, y, CHIP.w, CHIP.h)}">
-        <i class="fill" style="--fill:${opts.fx ? 0 : fill}%"></i>${fx}${auto}<b>${title}</b><span>${value}</span></div>`;
+    /* ---------- the drawing's coordinates ---------- */
+    const KEY = { y: 365.99, w: 76.54, h: 34.02, mtW: 59.27 };
+    const KEYS = {
+      A: { mt: 28.73, sync: 114.73, master: 200.73, hot: 298.73 },
+      B: { sync: 820.73, master: 906.73, hot: 1008.73, mt: 1106.73 }
+    };
+    const COL = { A: 426, B: 677 };
+    const ROW = { trim: 358, hi: 425, mid: 486, low: 547, fx: 613, foot: 679 };
+    const MASTER_CHIP = { x: 551.64, y: 357.91, w: 90.71, h: 48.19 };
+    const CH_CUE = { A: 332.73, B: 784.5, y: 686.99 };
+    const LOWS = { x: 558.73, y: 686.99 };
+    const LEVEL = { A: 359.93, B: 834.07, zero: 627.55, run: 174.55, foot: 641 };
+    const TEMPO = { A: 19.24, B: 1114.76, y: 435, w: 60, h: 206, zero: 537.5, half: 85 };
+    const XF = { x: 480, w: 234, cy: 782, half: 16.28 };
+    const TRANSPORT = { A: { cue: 61, play: 135, loop: 186 }, B: { cue: 861, play: 935, loop: 985 }, cy: 782 };
+    const JUMP = { A: 21, B: 899, y: 682 };
+    const BOUNDS = { x: 10, y: 10, w: 1174, h: 814 };
+
+    /* ---------- the slider lab: tuning and specs ---------- */
+    const T = {
+      barWidth: 80, barHeight: 140, numberSize: 46, rungHeight: 16, rungGap: 4,
+      fineStart: 50, fineStep: 50, rubberBand: 0.30, holdAfterRelease: 0.13, doubleTap: 0.25,
+      redDB: 0, rungStepDB: 1.5, longPress: 0.5, detentPoints: 14, tapSlop: 6, margin: 8
+    };
+    const minus = '−';
+    const tenths = (v) => { const t = Math.round(v * 10); const s = (Math.abs(t) / 10).toFixed(1); return t === 0 ? s : (t > 0 ? '+' : minus) + s; };
+    const decibels = (v) => Math.round(v * 10) === 0 ? '0' : tenths(v);
+    const pct = (v) => Math.round(v * 100);
+
+    const SPEC = {
+      trim: (k) => ({ range: [-12, 12], step: 0.1, reset: S[k].auto, mark: S[k].auto, meter: k, fmt: 'db' }),
+      hi: (k) => ({ range: [0, 1], reset: 1, meter: k, fmt: 'eq' }),
+      mid: (k) => ({ range: [0, 1], reset: 1, meter: k, fmt: 'eq' }),
+      low: (k) => ({ range: [0, 1], reset: 1, meter: k, fmt: 'eq' }),
+      fx: (k) => ({ range: [-100, 100], step: 1, reset: 0, origin: 0, detent: 0, meter: k, fmt: 'fx', effect: S[k].effect }),
+      level: () => ({ range: [0, 1], meter: 'master', fmt: 'pct' }),
+      tempo: (k) => ({ range: [-16, 16], step: 0.1, invert: true, origin: 0, detent: 0, meter: null, fmt: 'tempo', bpm: S[k].bpm }),
+      cueMix: () => ({ range: [0, 1], reset: 0.5, detent: 0.5, meter: null, fmt: 'blend' }),
+      phones: () => ({ range: [0, 1], meter: null, fmt: 'pct' }),
+      master: () => ({ range: [0, 1], meter: 'master', fmt: 'pct' })
+    };
+    const span = (s) => s.range[1] - s.range[0];
+    const clampV = (s, v) => Math.min(s.range[1], Math.max(s.range[0], v));
+    const snap = (s, v) => { if (!s.step) return v; const r = Math.round(v / s.step) * s.step; return Math.abs(r) < 1e-9 ? 0 : +r.toFixed(4); };
+    const fillOf = (s, v) => { const up = (clampV(s, v) - s.range[0]) / span(s); return s.invert ? 1 - up : up; };
+    function readout(s, v) {
+      v = clampV(s, v);
+      switch (s.fmt) {
+        case 'db': return decibels(v);
+        case 'pct': return pct(v) + '%';
+        case 'eq': return v <= 0.005 ? 'KILL' : pct(v) + '%';
+        case 'tempo': return tenths(v) + '%';
+        case 'blend': { const p = pct(v); return p === 50 ? '50/50' : p < 50 ? 'CUE ' + (100 - p) : 'MST ' + p; }
+        case 'fx': { const w = Math.round(v); return w === 0 ? 'OFF' : (w > 0 ? '+' : minus) + Math.abs(w) + '%'; }
+      }
+    }
+    function caption(s, v) {
+      if (s.fmt === 'tempo') return (s.bpm * (1 + snap(s, clampV(s, v)) / 100)).toFixed(1) + ' BPM';
+      if (s.fmt === 'fx') { const w = Math.round(clampV(s, v)); return s.effect.toUpperCase() + (w === 0 ? '' : w > 0 ? ' HP' : ' LP'); }
+      return '';
+    }
+    const fineLabel = (f) => f >= 1 ? null : 'FINE ' + (f === 0.5 ? '½' : f === 0.25 ? '¼' : '⅒');
+    const fineFactor = (dx) => { const d = Math.abs(dx); return d < T.fineStart ? 1 : d < T.fineStart + T.fineStep ? 0.5 : d < T.fineStart + 2 * T.fineStep ? 0.25 : 0.1; };
+    const rubber = (o, dim, c) => { if (!dim || !c) return 0; const p = Math.abs(o); const s = (1 - 1 / (p * c / dim + 1)) * dim; return o < 0 ? -s : s; };
+
+    /* Values live in S; a control id is "A.trim", "M.phones", … */
+    const getV = (id) => { const [k, r] = id.split('.'); return S[k][r]; };
+    function setV(id, v) { const [k, r] = id.split('.'); S[k][r] = v; if (r === 'trim') S[k].trimAuto = false; }
+    const specOf = (id) => { const [k, r] = id.split('.'); return SPEC[r](k); };
+
+    /* ---------- meters: a pretend signal, so the rungs move ---------- */
+    let jitter = { A: 0, B: 0, L: 0, R: 0 };
+    function deckDB(k) {
+      const d = S[k];
+      if (!d.playing) return -90;
+      const eq = 20 * Math.log10(Math.max(0.001, (d.hi + d.mid + 2 * d.low) / 4));
+      return d.meter + (d.trim - (k === 'A' ? 1.0 : 1.2)) + eq * 0.5 + jitter[k];
+    }
+    function masterDB(side) {
+      const amp = ['A', 'B'].reduce((sum, k) => {
+        const db = deckDB(k); if (db <= -89) return sum;
+        const xf = k === 'A' ? Math.min(1, 2 * (1 - S.M.xf)) : Math.min(1, 2 * S.M.xf);
+        return sum + Math.pow(10, db / 20) * Math.pow(S[k].level / 0.8285, 2) * xf;
+      }, 0);
+      if (amp <= 0) return -90;
+      return 20 * Math.log10(amp) + 20 * Math.log10(S.M.master / 0.8) - 1.8 + jitter[side];
+    }
+    const meterValue = (key) => {
+      const level = key === 'A' || key === 'B' ? deckDB(key) : masterDB(key);
+      return { level, hold: level + 1.0 };
+    };
+    const thresholds = Array.from({ length: 6 }, (_, i) => T.redDB - (5 - i) * T.rungStepDB);
+    const reached = (db) => { let n = 0; thresholds.forEach((t, i) => { if (db >= t) n = i + 1; }); return n; };
+    const TONES = ['g', 'g', 'y', 'y', 'y', 'r'];
+    function rungColumn(value) {
+      const lit = reached(value.level), held = reached(value.hold) - 1;
+      return `<div class="col">${[5, 4, 3, 2, 1, 0].map((i) =>
+        `<s class="${TONES[i]} ${i < lit || i === held ? '' : 'off'}"></s>`).join('')}</div>`;
+    }
+    function rungs(meter) {
+      if (!meter) return '';
+      if (meter === 'master') return rungColumn(meterValue('L')) + rungColumn(meterValue('R'));
+      return rungColumn(meterValue(meter));
     }
 
-    function pills(key) {
-      const d = DECK[key];
-      const order = key === 'A' ? ['mt', 'sync', 'master', 'hot'] : ['sync', 'master', 'hot', 'mt'];
-      const left = key === 'A' ? EDGE : W - EDGE - (4 * TOP.keyW + 3 * TOP.keyGap);
-      const label = { mt: '<span>MASTER</span><span>TEMPO</span>', sync: 'SYNC', master: 'MASTER', hot: 'HOT<br>CUE' };
-      const cls = { mt: 'mt', sync: 'sync', master: 'master', hot: '' };
-      const on = { mt: d.mt, sync: d.sync, master: d.master, hot: false };
-      return order.map((k, i) => `<div class="pill at ${cls[k]} ${on[k] ? 'on' : ''}"
-        data-toggle data-ctl="key-${key.toLowerCase()}-${k}" ${k === 'hot' ? 'data-momentary' : ''}
-        role="button" aria-pressed="${on[k]}"
-        style="${at(left + i * (TOP.keyW + TOP.keyGap), TOP.keyY, TOP.keyW, TOP.keyH)}"><i class="led"></i>${label[k]}</div>`).join('');
+    /* ---------- drawing the controls ---------- */
+    const f2 = (v) => +(+v).toFixed(2);
+
+    /* A deck key in either look. kind: sync · master · mt · hot · cue · lows */
+    function key(ctl, kind, x, y, lit, lines) {
+      const w = kind === 'mt' ? KEY.mtW : KEY.w, h = KEY.h, cx = f2(x + w / 2);
+      const off = { sync: 'st113', master: 'st112', cue: 'st112', mt: 'st111', lows: 'st111', hot: 'st114' }[kind];
+      const on = { sync: 'kWhite', master: 'kOrange', cue: 'kOrange', mt: 'kRed', lows: 'kRed' }[kind];
+      const body = lit
+        ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" style="fill:url(#${on});stroke:#000;stroke-width:1.25px"/>`
+        : `<rect class="${off}" x="${x}" y="${y}" width="${w}" height="${h}" rx="5"/>`;
+      const hl = kind === 'mt'
+        ? `<rect class="${lit ? 'st70' : 'st66'}" x="${f2(x + 1.14)}" y="${f2(y + 1.28)}" width="${f2(w - 2.28)}" height=".85"/>`
+        : `<rect class="${lit ? 'st70' : 'st66'}" x="${f2(x + 1.47)}" y="${f2(y + 1.28)}" width="${f2(w - 2.95)}" height=".85"/>`;
+      const led = lit && (kind === 'master' || kind === 'cue') ? `<circle class="st41" cx="${f2(x + 70.27)}" cy="${f2(y + 4.01)}" r="2"/>` : '';
+      const textClass = {
+        sync: lit ? 'st103' : 'st104', master: lit ? 'st103' : 'st100', cue: lit ? 'st103' : 'st100',
+        mt: lit ? 'st101' : 'st99', lows: 'st98', hot: 'st34'
+      }[kind];
+      const ink = kind === 'lows' && lit ? ' style="fill:#000"' : '';
+      const text = lines.length === 1
+        ? `<text class="${textClass}" x="${cx}" y="${f2(y + 22.32)}" text-anchor="middle"${ink}>${lines[0]}</text>`
+        : `<text class="${textClass}" x="${cx}" y="${f2(y + 16.31)}" text-anchor="middle"${ink}>${lines[0]}</text>
+           <text class="${textClass}" x="${cx}" y="${f2(y + 29)}" text-anchor="middle"${ink}>${lines[1]}</text>`;
+      /* 34 pt keys get 5 pt of invisible padding above and below: a 44 pt target */
+      return `<g data-ctl="${ctl}" role="button" aria-pressed="${!!lit}">${body}${hl}${led}${text}
+        <rect class="hit" x="${x}" y="${f2(y - 5)}" width="${w}" height="${f2(h + 10)}"/></g>`;
     }
 
-    /* The CDJ-900's jog: a dimpled aluminium ring around a rubber face and a
-       metal hub, with the cue display in the middle. */
-    function platter(key) {
-      const d = DECK[key];
-      const cx = key === 'A' ? PLATTER.cx : W - PLATTER.cx;
-      /* 34 dimples on a ring that is 11 units wide: 8.2 apart, 6 across, so
-         they nearly touch the way they do on the 900's machined band. */
-      const dimples = Array.from({ length: 34 }, (_, i) => {
-        const a = (i * (360 / 34) - 90) * Math.PI / 180;
-        const x = 50 + Math.cos(a) * 44.6, y = 50 + Math.sin(a) * 44.6;
-        return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="3.05" fill="#3d3e44" stroke="#9a9ba1" stroke-width=".4" stroke-opacity=".3"/>`;
-      }).join('');
-      const ticks = Array.from({ length: 40 }, (_, i) => `<path d="M50 7V11 M50 13V16 M50 18V21" transform="rotate(${i * 9} 50 50)"/>`).join('');
-      return `<div class="at" style="${at(cx - PLATTER.size / 2, PLATTER.cy - PLATTER.size / 2, PLATTER.size, PLATTER.size)};--accent:${d.accent}"
-                 data-ctl="jog-${key.toLowerCase()}">
-        <div class="platter">
-          <div class="jog-face"></div>
-          <svg class="jog-ring" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="50" r="44.6" fill="none" stroke="#5b5c62" stroke-width="11"/>
-            <circle cx="50" cy="50" r="49.3" fill="none" stroke="#050506" stroke-width="1.4"/>
-            <circle cx="50" cy="50" r="39.2" fill="none" stroke="#000" stroke-width="1.6" opacity=".9"/>
-            <circle cx="50" cy="50" r="49.8" fill="none" stroke="rgba(255,255,255,.22)" stroke-width=".5"/>
-            ${dimples}
-            <circle cx="50" cy="50" r="23" fill="#4e4f55"/>
-            <circle cx="50" cy="50" r="23" fill="none" stroke="#25262b" stroke-width=".8"/>
-            <circle cx="50" cy="50" r="21.6" fill="none" stroke="rgba(255,255,255,.12)" stroke-width=".5"/>
-          </svg>
-          <div class="platter-display"><svg viewBox="0 0 100 100">
-            <defs><mask id="gap-${key}"><rect width="100" height="100" fill="white"/><path d="M50 50 L42.154 -49.692 A100 100 0 0 1 73.345 -47.237 Z" fill="black"/></mask></defs>
-            <circle class="p-edge" cx="50" cy="50" r="48"/><g class="p-ticks" mask="url(#gap-${key})">${ticks}</g>
-            <circle class="p-accent" cx="50" cy="50" r="24"/><circle class="p-inner" cx="50" cy="50" r="19"/><circle class="p-hub" cx="50" cy="50" r="15"/>
-          </svg></div>
-        </div></div>`;
+    function deckKeys(k) {
+      const d = S[k], X = KEYS[k];
+      return key(`mt:${k}`, 'mt', X.mt, KEY.y, d.mt, ['MASTER', 'TEMPO'])
+        + key(`sync:${k}`, 'sync', X.sync, KEY.y, d.sync, ['SYNC'])
+        + key(`master:${k}`, 'master', X.master, KEY.y, d.master, ['MASTER'])
+        + key(`hot:${k}`, 'hot', X.hot, KEY.y, false, ['HOT CUE'])
+        + key(`chcue:${k}`, 'cue', CH_CUE[k], CH_CUE.y, d.chCue, ['CUE']);
     }
 
-    /* A cap's top for a position 0 (foot) … 1 (top) on a fader of height h. */
-    const capTop = (h, pos) => SLOT + (1 - pos) * (h - 8 - CAP);
+    /* the chip's shell, highlight and two lines of text */
+    const shell = (x, y) => `<rect class="st94" x="${x}" y="${y}" width="90" height="50" rx="6"/>`;
+    const sheen = (x, y) => `<rect class="st62" x="${f2(x + 1.5)}" y="${f2(y + 1.5)}" width="87" height="1"/>`;
+    const words = (x, y, title, value, tc = 'st43', vc = 'st44') =>
+      `<text class="${tc}" x="${x + 45}" y="${y + 20}" text-anchor="middle">${title}</text>
+       <text class="${vc}" x="${x + 45}" y="${y + 41}" text-anchor="middle">${value}</text>`;
 
-    function tempoFader(key) {
-      const d = DECK[key];
-      const x = key === 'A' ? TEMPO.x : mx(TEMPO.x, TEMPO.w);
-      const pos = 0.5 - d.tempo / 32;              // up is slower, ±16 %
-      const travel = TEMPO.h - 8 - CAP;
-      const ticks = Array.from({ length: 17 }, (_, i) => {
-        const y = SLOT + 14 + i * travel / 16;
-        const major = i % 4 === 0;
-        const len = major ? 9 : 5;
-        return `<i class="${major ? 'major' : ''}" style="left:${30 - 8 - len}px;width:${len}px;top:${y.toFixed(1)}px"></i>
-                <i class="${major ? 'major' : ''}" style="left:${30 + 8}px;width:${len}px;top:${y.toFixed(1)}px"></i>`;
-      }).join('');
-      return `<div class="vf at" style="${at(x, TEMPO.y, TEMPO.w, TEMPO.h)}"
-                  data-ctl="tempo-${key}" data-fader="tempo" data-deck="${key}"
-                  role="slider" tabindex="0" aria-label="Tempo, deck ${key}" aria-valuemin="-16" aria-valuemax="16">
-          <span class="bezel"></span>
-          <div class="ticks">${ticks}</div><span class="slot"></span>
-          <span class="zero" style="top:${TEMPO.h / 2}px"></span>
-          <span class="cap" style="top:${capTop(TEMPO.h, pos).toFixed(1)}px"></span>
-        </div>
-        <span class="print at" style="${at(x, TEMPO.y + TEMPO.h + 8, TEMPO.w, 12)}">TEMPO</span>
-        <span class="scale at" style="${at(x + (key === 'A' ? 1 : TEMPO.w - 12), TEMPO.y + 2, 11, 11)};text-align:center">−</span>
-        <span class="scale at" style="${at(x + (key === 'A' ? 1 : TEMPO.w - 12), TEMPO.y + TEMPO.h - 13, 11, 11)};text-align:center">+</span>`;
+    /* EQ (grey) and PHONES (orange): filled from the foot */
+    function footChip(id, x, y, title, v, tone) {
+      const fh = f2(Math.min(48.75, 50 * v));
+      const [fill, line] = tone === 'orange' ? ['st28', 'st7'] : ['st26', 'st2'];
+      return `<g data-ctl="chip:${id}">${shell(x, y)}
+        ${fh > 0 ? `<rect class="${fill}" x="${x + 1}" y="${f2(y + 50 - fh)}" width="88" height="${fh}"/>` : ''}
+        <rect class="${line}" x="${f2(x + 1.21)}" y="${f2(y + 1.25)}" width="87.5" height="47.5" rx="5"/>
+        ${sheen(x, y)}${words(x, y, title, readout(specOf(id), v))}</g>`;
     }
 
-    function levelFader(key) {
-      const d = DECK[key];
-      const x = key === 'A' ? LEVEL.cx - LEVEL.w / 2 : mx(LEVEL.cx - LEVEL.w / 2, LEVEL.w);
-      const top = capTop(LEVEL.h, d.level);
-      const travel = LEVEL.h - 8 - CAP;
-      /* Pioneer's 10 … 0 scale on the outside of the fader. */
-      const scale = Array.from({ length: 11 }, (_, i) => {
-        const n = 10 - i;
-        const y = LEVEL.y + SLOT + 14 + i * travel / 10;
-        const tickX = key === 'A' ? x - 13 : x + LEVEL.w + 3;
-        const numX = key === 'A' ? x - 32 : x + LEVEL.w + 19;
-        const even = n % 2 === 0;
-        return `<i class="at" style="left:${tickX}px;top:${y.toFixed(1)}px;width:10px;height:1px;background:rgba(255,255,255,${even ? .46 : .22})"></i>
-          ${even ? `<span class="scale at" style="${at(numX, y - 5, 13, 10)};text-align:${key === 'A' ? 'right' : 'left'}">${n}</span>` : ''}`;
-      }).join('');
-      return `<div class="vf at" style="${at(x, LEVEL.y, LEVEL.w, LEVEL.h)}"
-                  data-ctl="level-${key}" data-fader="level" data-deck="${key}"
-                  role="slider" tabindex="0" aria-label="Channel level, deck ${key}" aria-valuemin="0" aria-valuemax="100">
-          <span class="bezel"></span>
-          <span class="slot"></span>
-          <span class="lit" style="height:${(LEVEL.h - SLOT - top - 14).toFixed(1)}px"></span>
-          <span class="cap" style="top:${top.toFixed(1)}px"></span>
-        </div>${scale}
-        <span class="print at" style="${at(x, LEVEL.y + LEVEL.h + 8, LEVEL.w, 12)}">LEVEL</span>`;
+    /* FX (blue) and hand-set TRIM (green): a band from OFF/0 at the centre ticks */
+    function centreChip(id, x, y, title, value, frac, tone) {
+      const [line, tick, band] = tone === 'blue' ? ['st19', 'st122', 'st53'] : ['st20', 'st77', 'st56'];
+      const bh = f2(Math.abs(frac) * 24);
+      const by = frac >= 0 ? f2(y + 25 - bh) : y + 25;
+      return `<g data-ctl="chip:${id}">${shell(x, y)}
+        <rect class="${line}" x="${f2(x + 1.25)}" y="${f2(y + 1.25)}" width="87.5" height="47.5" rx="5"/>
+        ${sheen(x, y)}
+        <rect class="${tick}" x="${x + 3}" y="${y + 24}" width="9" height="2"/>
+        <rect class="${tick}" x="${x + 78}" y="${y + 24}" width="9" height="2"/>
+        ${bh > 0 ? `<rect class="${band}" x="${x + 1}" y="${by}" width="88" height="${bh}"/>` : ''}
+        ${words(x, y, title, value, 'st102', 'st25')}</g>`;
     }
 
-    function channel(key) {
-      const d = DECK[key];
-      const cx = COL[key];
-      const eqTop = CHIPS_Y.hi, eqBottom = CHIPS_Y.low + CHIP.h;
-      /* EQ bracket on the outside of the column, in the gap to LEVEL. */
-      const bx = key === 'A' ? cx - 18 : cx + CHIP.w + 8;
-      const levelX = key === 'A' ? LEVEL.cx : W - LEVEL.cx;
-      return `
-        ${chip(cx, CHIPS_Y.hi, 'HI', d.eq.hi + '%', { fill: d.eq.hi, kind: 'green', ctl: `eq-hi-${key}`, adjust: true })}
-        ${chip(cx, CHIPS_Y.mid, 'MID', d.eq.mid + '%', { fill: d.eq.mid, kind: 'green', ctl: `eq-mid-${key}`, adjust: true })}
-        ${chip(cx, CHIPS_Y.low, 'LOW', d.eq.low + '%', { fill: d.eq.low, kind: 'green', ctl: `eq-low-${key}`, adjust: true })}
-        <div class="bracket at ${key.toLowerCase()}" style="${at(bx, eqTop + 6, 10, eqBottom - eqTop - 12)}"></div>
-        <span class="bracket-label at" style="${at(key === 'A' ? bx - 10 : bx, (eqTop + eqBottom) / 2 - 10, 20, 20)}">EQ</span>
-        <div class="stipple at" style="${at(cx - 6, CHIPS_Y.fx - 6, CHIP.w + 12, CHIP.h + 12)}"></div>
-        ${chip(cx, CHIPS_Y.fx, 'FILTER', 'OFF', { fx: true, kind: 'green', ctl: `filter-${key}`, toggle: true })}
-        ${chip(cx, CHIPS_Y.foot, d.foot.title, d.foot.value, { fill: key === 'A' ? 50 : 60, ctl: `foot-${key}` })}
-        ${levelFader(key)}
-        <div class="key cue at ${d.cue ? 'on' : ''}" data-toggle data-ctl="cue-${key}" role="button" aria-pressed="${d.cue}"
-             style="${at(levelX - 35, FOOT.y, 70, FOOT.h)}">CUE</div>`;
+    function trimChip(k) {
+      const d = S[k], x = COL[k], y = ROW.trim, id = `${k}.trim`;
+      if (d.trimAuto) {
+        return `<g data-ctl="chip:${id}"><rect x="${x}" y="${y}" width="90" height="50" rx="6" style="fill:url(#kAuto${k});stroke:#000"/>
+          <rect class="st20" x="${f2(x + 1.25)}" y="${f2(y + 1.25)}" width="87.5" height="47.5" rx="5"/>
+          ${sheen(x, y)}${words(x, y, 'AUTO TRIM', decibels(d.trim), 'st103', 'st54')}</g>`;
+      }
+      return centreChip(id, x, y, 'TRIM', decibels(d.trim), d.trim / 12, 'green');
     }
 
-    function meter() {
-      const { x, y, w, h, barTop, barBottom, ladder } = METER;
-      const span = barBottom - barTop;
-      const yOf = (db) => barBottom - ((db + 30) / 36) * span;
-      const cols = [['A', 522], ['L', 581], ['R', 593], ['B', 652]];
-      const bar = (id, cx) => {
-        const level = METER.still[id], hold = METER.hold[id];
-        const rungOf = (v) => ladder.slice(0, -1).reduce((f, low, i) => (v >= low ? i : f), -1);
-        const lit = rungOf(level), held = rungOf(hold);
-        const rungs = ladder.slice(0, -1).map((low, i) => {
-          const t = Math.round(yOf(ladder[i + 1]) - barTop), b = Math.round(yOf(low) - barTop);
-          const ink = i >= METER.red ? 'r' : i >= METER.amber ? 'a' : 'g';
-          return `<s class="rung ${ink} ${i <= lit ? 'on' : ''} ${i === held && held > lit ? 'held' : ''}" style="top:${t + 1}px;height:${b - t - 2}px"></s>`;
-        }).join('');
-        const aim = Math.round(yOf(id === 'A' || id === 'B' ? -6 : -3) - barTop);
-        return `<div class="meter-v at" style="${at(cx - 5, barTop, 10, span)}">${rungs}<i class="aim" style="top:${aim}px"></i></div>`;
-      };
-      const nums = [552, 622].map((cx) => [6, 0, -6, -12, -18, -24, -30].map((db) =>
-        `<span class="m-num at ${db === 0 ? 'zero' : ''}" style="${at(cx - 13, yOf(db) - 5, 26, 10)}">${db > 0 ? '+' + db : String(db).replace('-', '−')}</span>`).join('')).join('');
-      return `<div class="meter-face at" style="${at(x, y, w, h)}"></div>
-        <span class="m-title at" style="${at(522 - 24, y + 7, 48, 12)}">CH A</span>
-        <span class="m-title at" style="${at(587 - 30, y + 7, 60, 12)}">MASTER</span>
-        <span class="m-title at" style="${at(652 - 24, y + 7, 48, 12)}">CH B</span>
-        <span class="m-unit at" style="${at(552 - 16, y + 23, 32, 10)}">dBFS</span>
-        <span class="m-clip at" style="${at(587 - 18, y + 23, 36, 10)}">CLIP</span>
-        <span class="m-unit at" style="${at(622 - 16, y + 23, 32, 10)}">dBFS</span>
-        ${cols.map(([id, cx]) => bar(id, cx)).join('')}${nums}`;
+    function fxChip(k) {
+      const d = S[k], s = specOf(`${k}.fx`);
+      return centreChip(`${k}.fx`, COL[k], ROW.fx, d.effect.toUpperCase(), readout(s, d.fx), d.fx / 100, 'blue');
     }
 
-    function deckRows(key) {
-      const d = DECK[key];
-      /* 44 · 178 · 44 with 4 pt gaps: 274, the whole width before the channel
-         CUE, so each of the four length cells is 44 × 44. */
-      const jx = key === 'A' ? EDGE : W - EDGE - 274;
-      const rx = key === 'A' ? EDGE : W - EDGE - 338;
-      return `
-        <div class="key jstep at" data-jumpstep="${key}:-1" data-ctl="jump-back-${key}" style="${at(jx, FOOT.y, 44, FOOT.h)}">${ICON.back}</div>
-        <div class="jlen at" data-strip="${key}" style="${at(jx + 48, FOOT.y, 178, FOOT.h)}">${JUMPS.map((n) => `<i data-jumpcell="${key}:${n}" data-ctl="jump-${key}-${n}" class="${n === d.jump ? 'on' : ''}">${n}</i>`).join('')}</div>
-        <div class="key jstep at" data-jumpstep="${key}:1" data-ctl="jump-fwd-${key}" style="${at(jx + 230, FOOT.y, 44, FOOT.h)}">${ICON.fwd}</div>
-        <div class="big cue at ${d.cue ? 'on' : ''}" data-toggle data-ctl="cue-big-${key}" role="button" aria-pressed="${d.cue}" style="${at(rx, ROW.y, ROW.key, ROW.key)}">CUE</div>
-        <div class="big play at ${d.playing ? 'playing' : ''}" data-play="${key}" data-ctl="play-${key}" role="button" aria-pressed="${d.playing}"
-             style="${at(rx + ROW.key + 8, ROW.y, ROW.key, ROW.key)}">${d.playing ? ICON.pause : ICON.play}</div>
-        <div class="loopbar at ${d.loopOn ? 'on' : ''}" data-ctl="loop-${key}" style="${at(rx + 2 * ROW.key + 26, ROW.y + 7, 180, 52)}">
-          <i data-loop="${key}:-1">‹</i><i class="n" data-loop="${key}:0">${d.loop}</i><i data-loop="${key}:1">›</i></div>`;
+    /* CUE/MST: split, the orange fill is the CUE share */
+    function cueMixChip() {
+      const x = COL.A, y = ROW.foot, v = S.M.cueMix, cue = 100 - pct(v), mst = pct(v);
+      const fw = f2(88 * cue / 100);
+      return `<g data-ctl="chip:M.cueMix">${shell(x, y)}
+        ${fw > 0 ? `<rect class="st28" x="${x + 1}" y="${y}" width="${fw}" height="50"/>` : ''}
+        <rect class="st7" x="${f2(x + 1.21)}" y="${f2(y + 1.25)}" width="87.5" height="47.5" rx="5"/>
+        ${sheen(x, y)}
+        <text class="st43" x="${f2(x + 23.4)}" y="${y + 20}" text-anchor="middle">CUE</text>
+        <text class="st43" x="${f2(x + 68.9)}" y="${y + 20}" text-anchor="middle">MST</text>
+        <text class="st44" x="${f2(x + 23.4)}" y="${y + 41}" text-anchor="middle">${cue}</text>
+        <text class="st44" x="${f2(x + 68.9)}" y="${y + 41}" text-anchor="middle">${mst}</text></g>`;
+    }
+
+    function masterChip() {
+      const { x, y, w, h } = MASTER_CHIP, v = S.M.master, fh = f2(h * v), cx = f2(x + w / 2);
+      return `<g data-ctl="chip:M.master">
+        <rect class="st123" x="${x}" y="${y}" width="${w}" height="${h}" rx="3"/>
+        ${fh > 0 ? `<rect class="st80" x="${x}" y="${f2(y + h - fh)}" width="90.36" height="${fh}"/>` : ''}
+        <text class="st43" x="${cx}" y="372.36" text-anchor="middle" style="font-size:14px">MASTER</text>
+        <text class="st43" x="${cx}" y="386.36" text-anchor="middle" style="font-size:14px">LEVEL</text>
+        <text class="st74" x="${cx}" y="401.52" text-anchor="middle">${pct(v)}%</text></g>`;
+    }
+
+    function channel(k) {
+      const d = S[k], x = COL[k];
+      return trimChip(k)
+        + footChip(`${k}.hi`, x, ROW.hi, 'HI', d.hi, 'grey')
+        + footChip(`${k}.mid`, x, ROW.mid, 'MID', d.mid, 'grey')
+        + footChip(`${k}.low`, x, ROW.low, 'LOW', d.low, 'grey')
+        + fxChip(k);
+    }
+
+    /* LEVEL: the drawn cap on the 10 … 0 scale, the slot lit below it */
+    function levelFader(k) {
+      const cx = LEVEL[k], c = f2(LEVEL.zero - S[k].level * LEVEL.run), top = f2(c - 16.28), left = f2(cx - 30);
+      return `<g data-ctl="fader:${k}.level">
+        <rect class="hit" x="${f2(cx - 33)}" y="436" width="66" height="210"/>
+        <rect class="st65" x="${f2(cx - 2)}" y="${f2(c - 2)}" width="4" height="${f2(LEVEL.foot - c + 2)}"/>
+        <g transform="translate(${left} ${top})">
+          <rect class="st81" width="60" height="32.56" rx="3.24"/>
+          <rect class="st109" x=".85" y=".99" width="58.3" height="30.58" rx="2.32"/>
+          <rect class="st45" x=".5" y="31.4" width="59" height="1.16"/>
+          <rect class="st79" y="15.5" width="60" height="1.57"/>
+          <rect class="st35" y="16.88" width="60" height="1.16"/>
+          <ellipse class="st78" cx="1.87" cy="1.35" rx=".38" ry=".44"/>
+          <ellipse class="st78" cx="58.03" cy="1.29" rx=".38" ry=".44"/>
+        </g></g>`;
+    }
+
+    /* TEMPO: the drawn cap, − (slower) at the top, ±16 % across the comb */
+    function tempoFader(k) {
+      const x = TEMPO[k], c = TEMPO.zero + (S[k].tempo / 16) * TEMPO.half, top = f2(c - 20.725);
+      return `<g data-ctl="fader:${k}.tempo">
+        <rect class="hit" x="${x}" y="${TEMPO.y}" width="${TEMPO.w}" height="${TEMPO.h}"/>
+        <g transform="translate(${f2(x + 2.12)} ${top})">
+          <rect width="55.77" height="41.45" rx="3.91" style="fill:url(#kCap);stroke:#000;stroke-width:.54px"/>
+          <path d="M.47,10.66h1.42c.1,0,.18-.05.18-.12v-9.74c-.58.13-1.74,1.84-1.78,2.7v7.04C.29,10.61,.37,10.66,.47,10.66Z" style="fill:url(#kCapHi);opacity:.4"/>
+        </g></g>`;
     }
 
     function crossfader() {
-      const left = 29 + XF_POS * (XF.w - 58);
-      return `<span class="xside at" style="${at(XF.x - 30, XF.cy - 7, 24, 14)};text-align:right">‹A</span>
-        <div class="xf at" data-ctl="crossfader" style="${at(XF.x, XF.cy - 22, XF.w, 44)}">
-          <span class="comb" style="top:1px"></span><span class="comb" style="bottom:1px"></span>
-          <span class="channel"></span><span class="thumb" style="left:${left.toFixed(1)}px"></span>
-        </div>
-        <span class="xside at" style="${at(XF.x + XF.w + 6, XF.cy - 7, 24, 14)}">B›</span>`;
+      const cx = f2(XF.x + XF.half + S.M.xf * (XF.w - 2 * XF.half));
+      return `<g data-ctl="xf">
+        <rect class="hit" x="${XF.x - 6}" y="750" width="${XF.w + 12}" height="64"/>
+        <g transform="translate(${cx} ${XF.cy})">
+          <rect class="st83" x="-16.28" y="-26.02" width="32.56" height="52.04" rx="3.01"/>
+          <rect class="st108" x="-15.29" y="-25.28" width="30.58" height="50.56" rx="2.16"/>
+          <rect class="st79" x="-.785" y="-26.02" width="1.57" height="52.04"/>
+          <rect class="st35" x="-1.76" y="-26.02" width="1.16" height="52.04"/>
+          <circle class="st78" cx="14.21" cy="-24.95" r=".44"/>
+          <circle class="st78" cx="-14.27" cy="-24.98" r=".44"/>
+        </g></g>`;
     }
 
-    function screws() {
-      return [[7, 7], [W - 13, 7], [7, H - 13], [W - 13, H - 13]]
-        .map(([x, y]) => `<i class="screw at" style="${at(x, y, 6, 6)}"></i>`).join('');
+    const ring = (cx, cls) => `<circle class="${cls}" cx="${cx}" cy="${TRANSPORT.cy}" r="33"/>`;
+    function transport(k) {
+      const d = S[k], P = TRANSPORT[k], cy = TRANSPORT.cy;
+      const play = d.playing
+        ? `<rect class="st77" x="${P.play - 6.5}" y="${cy - 7.58}" width="4.33" height="15.17" rx="1.08"/>
+           <rect class="st77" x="${f2(P.play + 2.17)}" y="${cy - 7.58}" width="4.33" height="15.17" rx="1.08"/>`
+        : `<path class="st77" d="M${f2(P.play - 4.33)},${f2(cy - 7.04)}v14.08l11.91-7.04Z"/>`;
+      return `<g data-ctl="tcue:${k}" role="button">${ring(P.cue, d.tCue ? 'st124' : 'st137')}
+          <text class="${d.tCue ? 'st31' : 'st72'}" x="${f2(P.cue - 18.25)}" y="787.66">CUE</text></g>
+        <g data-ctl="play:${k}" role="button" aria-pressed="${d.playing}">${ring(P.play, d.playing ? 'st136' : 'st137')}${play}</g>`;
     }
 
-    function guides() {
-      const hs = [[34, 'top row', 1], [BODY, 'tops 76'], [CHIPS_Y.low + CHIP.h, 'EQ · LEVEL foot 248'], [METER.y + METER.h, 'FX · meter foot 314'],
-                  [355, 'foot row', 1], [XF.cy, 'transport', 1]];
-      const vs = [[EDGE], [W - EDGE], [COL.A], [COL.A + CHIP.w], [COL.B], [COL.B + CHIP.w], [METER.x], [METER.x + METER.w],
-                  [W / 2, 1], [LEVEL.cx, 1], [W - LEVEL.cx, 1], [FACE.x], [W - FACE.x]];
-      const gaps = [[354 + 24.5], [493 + 24.5], [632 + 24.5], [771 + 24.5]];
-      return `<div class="guides">
-        ${hs.map(([y, t, c]) => `<i class="h ${c ? 'c' : ''}" style="top:${y}px"></i><span class="tag ${c ? 'c' : ''}" style="left:${c ? 1110 : 1080}px;top:${y}px">${t}</span>`).join('')}
-        ${vs.map(([x, c]) => `<i class="v ${c ? 'c' : ''}" style="left:${x}px"></i>`).join('')}
-        ${gaps.map(([x]) => `<span class="tag" style="left:${x}px;top:34px">49</span>`).join('')}
-        <span class="tag" style="left:${COL.A + 45}px;top:131.5px">11</span><span class="tag" style="left:${COL.A + 45}px;top:192.5px">11</span>
-        <span class="tag" style="left:${COL.A + 45}px;top:256px">16</span><span class="tag" style="left:${COL.A + 45}px;top:322px">16</span>
-      </div>`;
+    function loop(k) {
+      const d = S[k], x = TRANSPORT[k].loop, y = 761;
+      const [box, mid, arrow, num] = d.loopOn ? ['st125', 'st121', 'st57', 'st32'] : ['st137', 'st137', 'st52', 'st39'];
+      return `<g data-ctl="loopdn:${k}" role="button"><rect class="${box}" x="${x}" y="${y}" width="54" height="43" rx="4"/>
+          <text class="${arrow}" x="${x + 27}" y="787.59" text-anchor="middle">‹</text><rect class="hit" x="${x}" y="${y - .5}" width="54" height="44"/></g>
+        <g data-ctl="loopn:${k}" role="button" aria-pressed="${d.loopOn}"><rect class="${mid}" x="${x + 60}" y="${y}" width="60" height="43" rx="4"/>
+          <text class="${num}" x="${x + 90}" y="791.46" text-anchor="middle">${d.loop}</text><rect class="hit" x="${x + 60}" y="${y - .5}" width="60" height="44"/></g>
+        <g data-ctl="loopup:${k}" role="button"><rect class="${box}" x="${x + 126}" y="${y}" width="54" height="43" rx="4"/>
+          <text class="${arrow}" x="${x + 153}" y="787.59" text-anchor="middle">›</text><rect class="hit" x="${x + 126}" y="${y - .5}" width="54" height="44"/></g>`;
+    }
+
+    function beatJump(k) {
+      const d = S[k], x = JUMP[k], y = JUMP.y, sx = x + 48;
+      const cells = JUMPS.map((n, i) => {
+        const cx = sx + 1 + i * 44, on = n === d.jump;
+        return `<g data-ctl="jump:${k}:${n}" role="button" aria-pressed="${on}">
+          <rect class="${on ? 'st131' : 'st135'}" x="${cx}" y="${y}" width="43" height="44"/>
+          ${on ? `<rect class="st122" x="${cx}" y="${y + 41}" width="43" height="3"/>` : ''}
+          <text class="${on ? 'st40' : 'st33'}" x="${f2(cx + 21.5)}" y="709.95" text-anchor="middle">${n}</text></g>`;
+      }).join('');
+      const dividers = [1, 2, 3].map((i) => `<rect x="${sx + i * 44}" y="${y}" width="1" height="44"/>`).join('');
+      return `<g data-ctl="jback:${k}" role="button"><rect class="st84" x="${x}" y="${y}" width="44" height="44" rx="4"/>
+          <path class="st126" d="M${x + 27},697.5v13l-11-6.5Z"/></g>
+        <rect class="st93" x="${sx}" y="${y}" width="178" height="44" rx="4"/>${cells}${dividers}
+        <g data-ctl="jfwd:${k}" role="button"><rect class="st84" x="${x + 230}" y="${y}" width="44" height="44" rx="4"/>
+          <path class="st126" d="M${x + 247},697.5v13l11-6.5Z"/></g>`;
     }
 
     function render() {
-      document.getElementById('chassis').innerHTML = `
-        ${platter('A')}${platter('B')}
-        <div class="face at" style="${at(FACE.x, FACE.y, FACE.w, FACE.h)}"></div>
-        ${pills('A')}${pills('B')}
-        ${chip(COL.A, TOP.chipY, DECK.A.trim.title, DECK.A.trim.value, { fill: DECK.A.trim.fill, auto: DECK.A.trim.auto, kind: DECK.A.trim.kind })}
-        ${chip((W - CHIP.w) / 2, TOP.chipY, 'MASTER', '70%', { fill: 70, kind: 'yellow', ctl: 'master-lvl', adjust: true })}
-        ${chip(COL.B, TOP.chipY, DECK.B.trim.title, DECK.B.trim.value, { fill: DECK.B.trim.fill, kind: DECK.B.trim.kind })}
-        ${tempoFader('A')}${tempoFader('B')}
-        ${channel('A')}${channel('B')}
-        ${meter()}
-        <div class="key dot at" data-toggle data-ctl="link-lows" role="button" aria-pressed="false" style="${at(W / 2 - 34, FOOT.y, 68, FOOT.h)}">LINK<span style="margin-top:-2px">LOWS</span></div>
-        ${deckRows('A')}${deckRows('B')}
-        ${crossfader()}
-        ${screws()}
-        ${guides()}
-        <div class="targets" id="targets"></div>`;
+      document.getElementById('dyn').innerHTML =
+        deckKeys('A') + deckKeys('B')
+        + channel('A') + channel('B')
+        + masterChip() + cueMixChip()
+        + footChip('M.phones', COL.B, ROW.foot, 'PHONES', S.M.phones, 'orange')
+        + key('lows', 'lows', LOWS.x, LOWS.y, S.M.lockLows, ['LOCK', 'LOWS'])
+        + levelFader('A') + levelFader('B') + tempoFader('A') + tempoFader('B')
+        + crossfader()
+        + transport('A') + transport('B') + loop('A') + loop('B') + beatJump('A') + beatJump('B');
+      if (document.body.classList.contains('show-targets')) drawTargets();
     }
 
-    /* ---------- touch: faders, chips, keys ---------- */
-    const chassis = () => document.getElementById('chassis');
+    /* ---------- touch ---------- */
+    const svg = document.getElementById('stage');
+    const over = document.getElementById('over');
+    const point = (e) => {
+      const r = svg.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * 1194 / r.width, y: (e.clientY - r.top) * 834 / r.height };
+    };
+    const now = () => performance.now() / 1000;
+    const pointers = new Map();     // pointerId → what that finger holds
+    const lastTap = new Map();      // chip id → time of the last tap
+    const panels = new Map();       // chip id → open panel
+    let picker = null;              // the FX list, while up
 
-    /* The local position of a pointer in an element's own (unscaled) points,
-       so the maths never depends on the page's transform scale. */
-    function localPoint(el, e) {
-      const r = el.getBoundingClientRect();
-      return {
-        x: (e.clientX - r.left) / (r.width / el.offsetWidth),
-        y: (e.clientY - r.top) / (r.height / el.offsetHeight)
+    /* the drag law (SliderDrag.swift): relative, fine sideways, detent, overshoot */
+    function makeDrag(spec, value, p, travel) {
+      const dw = spec.detent == null ? 0 : T.detentPoints / travel * span(spec);
+      const toRaw = (v) => { if (!dw) return v; return v > spec.detent ? v + dw / 2 : v < spec.detent ? v - dw / 2 : spec.detent; };
+      const d = { spec, start: p, last: p, raw: toRaw(clampV(spec, value)), factor: 1, moved: false, dw, travel };
+      d.output = () => {
+        if (!dw) return d.raw;
+        const h = dw / 2;
+        return d.raw > spec.detent + h ? d.raw - h : d.raw < spec.detent - h ? d.raw + h : spec.detent;
       };
+      d.value = () => snap(spec, clampV(spec, d.output()));
+      d.move = (q) => {
+        d.factor = fineFactor(q.x - d.start.x);
+        const dir = spec.invert ? -1 : 1;
+        d.raw -= (q.y - d.last.y) / travel * span(spec) * d.factor * dir;
+        d.last = q;
+        if (Math.hypot(q.x - d.start.x, q.y - d.start.y) > T.tapSlop) d.moved = true;
+      };
+      d.overshoot = () => { const o = d.output(); const past = (o - clampV(spec, o)) / span(spec) * travel; return spec.invert ? -past : past; };
+      return d;
     }
 
-    function setCap(el, pos) {
-      const h = el.offsetHeight, travel = h - 8 - CAP;
-      const top = SLOT + (1 - pos) * travel;
-      el.querySelector('.cap').style.top = top.toFixed(1) + 'px';
-      const lit = el.querySelector('.lit');
-      if (lit) lit.style.height = Math.max(0, h - SLOT - top - 14).toFixed(1) + 'px';
-      el.dataset.pos = pos;
+    /* the chip's frame on the stage */
+    function chipRect(id) {
+      if (id === 'M.master') return { ...MASTER_CHIP };
+      if (id === 'M.cueMix') return { x: COL.A, y: ROW.foot, w: 90, h: 50 };
+      if (id === 'M.phones') return { x: COL.B, y: ROW.foot, w: 90, h: 50 };
+      const [k, r] = id.split('.');
+      return { x: COL[k], y: ROW[r], w: 90, h: 50 };
     }
 
-    function bindFaders() {
-      chassis().querySelectorAll('[data-fader]').forEach((el) => {
-        const kind = el.dataset.fader, key = el.dataset.deck;
-        const put = (pos) => {
-          pos = Math.min(1, Math.max(0, pos));
-          setCap(el, pos);
-          if (kind === 'tempo') {
-            DECK[key].tempo = +((0.5 - pos) * 32).toFixed(2);
-            el.setAttribute('aria-valuenow', DECK[key].tempo);
-          } else {
-            DECK[key].level = pos;
-            el.setAttribute('aria-valuenow', Math.round(pos * 100));
-          }
-        };
-        const fromPointer = (e) => {
-          const h = el.offsetHeight, travel = h - 8 - CAP;
-          const top = Math.min(SLOT + travel, Math.max(SLOT, localPoint(el, e).y - CAP / 2));
-          put(1 - (top - SLOT) / travel);
-        };
-        let dragging = false;
-        el.addEventListener('pointerdown', (e) => {
-          dragging = true; el.setPointerCapture(e.pointerId); fromPointer(e); e.preventDefault();
-        });
-        el.addEventListener('pointermove', (e) => { if (dragging) { fromPointer(e); e.preventDefault(); } });
-        const stop = (e) => {
-          dragging = false;
-          try { el.releasePointerCapture(e.pointerId); } catch (_) {}
-        };
-        el.addEventListener('pointerup', stop);
-        el.addEventListener('pointercancel', () => { dragging = false; });
-        /* set from the state the stage is showing, which also seeds data-pos */
-        put(kind === 'tempo' ? 0.5 - DECK[key].tempo / 32 : DECK[key].level);
-        /* a fader on a keyboard: arrows move it, Home and End are its ends */
-        el.addEventListener('keydown', (e) => {
-          const seeded = +el.dataset.pos;
-          const cur = Number.isFinite(seeded) ? seeded : 0.5;
-          const step = e.shiftKey ? 0.01 : 0.04;
-          if (e.key === 'ArrowUp' || e.key === 'ArrowRight') put(cur + step);
-          else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') put(cur - step);
-          else if (e.key === 'Home') put(1);
-          else if (e.key === 'End') put(0);
-          else return;
-          e.preventDefault();
-        });
+    const clamp = (v, lo, hi) => hi < lo ? lo : Math.min(hi, Math.max(lo, v));
+    function headerHeight(meter) { return (meter ? 6 * T.rungHeight + 5 * T.rungGap + 8 : 0) + Math.round(T.numberSize * 1.08) + 18 + 8; }
+
+    /* PanelPlacer.place, on the finger */
+    function placePanel(finger, fill, meter) {
+      const header = headerHeight(meter), width = Math.max(T.barWidth, 72), height = header + T.barHeight;
+      const top = clamp(finger.y - header - T.barHeight * (1 - fill), BOUNDS.y + T.margin, BOUNDS.y + BOUNDS.h - T.margin - height);
+      const x = clamp(finger.x - width / 2, BOUNDS.x + T.margin, BOUNDS.x + BOUNDS.w - T.margin - width);
+      return { header: { x, y: top, w: width, h: header }, bar: { x: x + (width - T.barWidth) / 2, y: top + header, w: T.barWidth, h: T.barHeight } };
+    }
+
+    const box = (el, r) => { el.style.left = r.x + 'px'; el.style.top = r.y + 'px'; el.style.width = r.w + 'px'; el.style.height = r.h + 'px'; };
+
+    function openPanel(id, finger) {
+      closePanelNow(id);
+      const spec = specOf(id), v = getV(id);
+      const layout = placePanel(finger, fillOf(spec, v), spec.meter);
+      const el = document.createElement('div');
+      el.className = 'panel';
+      el.innerHTML = `<div class="bd"></div><div class="ph"></div><div class="pb"><i class="pf"></i></div>`;
+      over.appendChild(el);
+      const p = { id, el, layout, origin: chipRect(id), drag: null, closing: false };
+      panels.set(id, p);
+      box(el.querySelector('.pb'), p.origin);
+      drawPanel(p);
+      el.getBoundingClientRect();                 // start from the chip
+      el.classList.add('open');
+      drawPanel(p);
+      p.liveTimer = setTimeout(() => el.classList.add('live'), 190);
+      return p;
+    }
+
+    function drawPanel(p) {
+      const spec = specOf(p.id), v = getV(p.id), el = p.el, open = el.classList.contains('open') && !p.closing;
+      const { header, bar } = p.layout;
+      let b = bar;
+      if (open && p.drag) {
+        const st = rubber(p.drag.overshoot(), T.barHeight, T.rubberBand);
+        if (st) {
+          const sq = 1 - Math.min(Math.abs(st) / T.barHeight, 0.4) * 0.3, w = bar.w * sq;
+          b = { x: bar.x + (bar.w - w) / 2, y: st > 0 ? bar.y - st : bar.y, w, h: bar.h + Math.abs(st) };
+        }
+      }
+      const lift = Math.max(0, bar.y - b.y), drop = Math.max(0, (b.y + b.h) - (bar.y + bar.h));
+      const bd = el.querySelector('.bd');
+      box(bd, { x: header.x - 14, y: header.y - 14 - lift, w: header.w + 28, h: header.h + bar.h + lift + drop + 28 });
+      const ph = el.querySelector('.ph');
+      box(ph, { x: header.x, y: header.y - lift, w: header.w, h: header.h });
+      const fine = p.drag ? fineLabel(p.drag.factor) : null;
+      let cap = caption(spec, v);
+      if (p.id.endsWith('.trim')) { const a = spec.mark; cap = Math.abs(v - a) < 0.05 ? 'AUTO' : 'AUTO ' + decibels(a); }
+      ph.innerHTML = (spec.meter ? `<div class="rungs" style="width:${T.barWidth * 0.64}px">${rungs(spec.meter)}</div><div style="height:8px"></div>` : '')
+        + `<div class="pnum">${readout(spec, v)}</div><div class="pcap ${fine ? 'fine' : ''}">${fine || cap}</div>`;
+      const pb = el.querySelector('.pb');
+      box(pb, open ? b : p.origin);
+      const fill = fillOf(spec, v), base = spec.origin == null ? 0 : fillOf(spec, spec.origin);
+      const h = open ? b.h : p.origin.h;
+      const pf = pb.querySelector('.pf');
+      pf.style.bottom = (h * Math.min(fill, base)) + 'px';
+      pf.style.height = (h * Math.abs(fill - base)) + 'px';
+      pb.querySelectorAll('.pm').forEach((m) => m.remove());
+      [spec.origin == null ? null : base, spec.mark == null ? null : fillOf(spec, spec.mark)].forEach((at) => {
+        if (at == null) return;
+        const m = document.createElement('i'); m.className = 'pm'; m.style.bottom = ((h - 3) * at) + 'px'; pb.appendChild(m);
       });
+    }
 
-      /* crossfader */
-      const xf = chassis().querySelector('.xf');
-      if (xf) {
-        const thumb = xf.querySelector('.thumb'), w = XF.w;
-        const put = (pos) => {
-          XF_POS = Math.min(1, Math.max(0, pos));
-          thumb.style.left = (29 + XF_POS * (w - 58)).toFixed(1) + 'px';
-        };
-        let dragging = false;
-        const from = (e) => put((localPoint(xf, e).x - 29) / (w - 58));
-        xf.addEventListener('pointerdown', (e) => { dragging = true; xf.setPointerCapture(e.pointerId); from(e); e.preventDefault(); });
-        xf.addEventListener('pointermove', (e) => { if (dragging) { from(e); e.preventDefault(); } });
-        const stop = (e) => { dragging = false; try { xf.releasePointerCapture(e.pointerId); } catch (_) {} };
-        xf.addEventListener('pointerup', stop);
-        xf.addEventListener('pointercancel', () => { dragging = false; });
+    function closePanel(id, delay = T.holdAfterRelease) {
+      const p = panels.get(id); if (!p) return;
+      clearTimeout(p.closeTimer);
+      p.closeTimer = setTimeout(() => {
+        p.closing = true;
+        p.el.classList.remove('live', 'open');
+        drawPanel(p);
+        setTimeout(() => { if (panels.get(id) === p) panels.delete(id); p.el.remove(); }, 200);
+      }, delay * 1000);
+    }
+    function closePanelNow(id) {
+      const p = panels.get(id); if (!p) return;
+      clearTimeout(p.closeTimer); clearTimeout(p.liveTimer); p.el.remove(); panels.delete(id);
+    }
+
+    /* LEVEL and TEMPO readouts */
+    const readouts = new Map();
+    function showReadout(id, drag) {
+      const [k, r] = id.split('.');
+      let el = readouts.get(id);
+      if (!el) { el = document.createElement('div'); el.className = 'readout'; over.appendChild(el); readouts.set(id, el); }
+      const spec = specOf(id), v = getV(id), fine = fineLabel(drag.factor);
+      if (r === 'level') {
+        el.style.left = LEVEL[k] + 'px'; el.style.top = '431px';
+        el.innerHTML = `<div class="rungs" style="width:49px">${rungs('master')}</div>
+          <div class="rn">${readout(spec, v)}</div>${fine ? `<div class="rc fine">${fine}</div>` : ''}`;
+      } else {
+        el.style.left = (TEMPO[k] + TEMPO.w / 2) + 'px'; el.style.top = (TEMPO.y - 8) + 'px';
+        el.innerHTML = `<div class="rt">${readout(spec, v)}</div><div class="rc ${fine ? 'fine' : ''}">${fine || caption(spec, v)}</div>`;
+      }
+      requestAnimationFrame(() => el.classList.add('on'));
+    }
+    function hideReadout(id) {
+      const el = readouts.get(id); if (!el) return;
+      el.classList.remove('on');
+    }
+
+    /* the FX list (PickerPlacer) */
+    function openPicker(k, finger, pointerId) {
+      const current = EFFECTS.indexOf(S[k].effect), width = 121, pitch = 56, total = EFFECTS.length * pitch - 6;
+      const top = clamp(finger.y - current * pitch - 25, BOUNDS.y + T.margin, BOUNDS.y + BOUNDS.h - T.margin - total);
+      const left = clamp(finger.x - width / 2, BOUNDS.x + T.margin, BOUNDS.x + BOUNDS.w - T.margin - width);
+      const el = document.createElement('div');
+      el.className = 'picker';
+      el.innerHTML = `<div class="bd" style="left:${left - 8}px;top:${top - 8}px;width:${width + 16}px;height:${total + 16}px"></div>`
+        + EFFECTS.map((e, i) => `<div class="row ${i === current ? 'cur lit' : ''}" data-pick="${i}"
+            style="left:${left}px;top:${top + i * pitch}px;width:${width}px;height:50px">${e.toUpperCase()}</div>`).join('');
+      over.appendChild(el);
+      picker = { k, el, rows: EFFECTS.map((_, i) => ({ y: top + i * pitch, x: left, w: width })), lit: current, pointerId, slid: false, start: finger };
+    }
+    function pickerHover(p) {
+      const i = picker.rows.findIndex((r) => p.y >= r.y - 3 && p.y < r.y + 53 && p.x >= r.x - 40 && p.x <= r.x + r.w + 40);
+      if (Math.hypot(p.x - picker.start.x, p.y - picker.start.y) > T.tapSlop) picker.slid = true;
+      if (i >= 0 && i !== picker.lit) {
+        picker.lit = i;
+        picker.el.querySelectorAll('.row').forEach((r, n) => r.classList.toggle('lit', n === i));
       }
     }
+    function takeEffect(i) {
+      if (!picker) return;
+      S[picker.k].effect = EFFECTS[i];
+      closePicker();
+      render();
+    }
+    function closePicker() { if (picker) { picker.el.remove(); picker = null; } }
 
-    /* EQ and level chips: a vertical drag on the cap, 0 … 100. */
-    function bindChips() {
-      chassis().querySelectorAll('[data-adjust]').forEach((el) => {
-        const span = el.querySelector('span'), fill = el.querySelector('.fill');
-        let startY = 0, startValue = 0;
-        const show = (v) => {
-          v = Math.min(100, Math.max(0, Math.round(v)));
-          span.textContent = v + '%';
-          fill.style.setProperty('--fill', v + '%');
-          el.dataset.value = v;
-        };
-        el.addEventListener('pointerdown', (e) => {
-          el.setPointerCapture(e.pointerId);
-          startY = e.clientY;
-          startValue = +(el.dataset.value || 0);
-          e.preventDefault();
-        });
-        el.addEventListener('pointermove', (e) => {
-          if (!el.hasPointerCapture(e.pointerId)) return;
-          show(startValue + (startY - e.clientY) * 0.7);
-          e.preventDefault();
-        });
-        el.addEventListener('keydown', (e) => {
-          const cur = +(el.dataset.value || 0);
-          if (e.key === 'ArrowUp') show(cur + (e.shiftKey ? 1 : 5));
-          else if (e.key === 'ArrowDown') show(cur - (e.shiftKey ? 1 : 5));
-          else return;
-          e.preventDefault();
-        });
-        el.addEventListener('pointerup', (e) => {
-          try { el.releasePointerCapture(e.pointerId); } catch (_) {}
-        });
-      });
+    /* taps on keys */
+    function tap(ctl) {
+      const [what, k, n] = ctl.split(':');
+      const d = S[k];
+      switch (what) {
+        case 'mt': d.mt = !d.mt; break;
+        case 'sync': d.sync = !d.sync; break;
+        case 'master': {                       // one master at a time
+          const on = !d.master; S.A.master = S.B.master = false; d.master = on; break;
+        }
+        case 'hot': break;                     // opens the hot cue sheet in the app
+        case 'chcue': d.chCue = !d.chCue; break;
+        case 'lows': S.M.lockLows = !S.M.lockLows; break;
+        case 'tcue': d.tCue = !d.tCue; break;
+        case 'play': d.playing = !d.playing; break;
+        case 'loopn': d.loopOn = !d.loopOn; break;
+        case 'loopdn': case 'loopup': {
+          const i = LOOPS.indexOf(d.loop) + (what === 'loopup' ? 1 : -1);
+          d.loop = LOOPS[clamp(i, 0, LOOPS.length - 1)]; d.loopOn = true; break;
+        }
+        case 'jump': d.jump = +n; break;
+        case 'jback': case 'jfwd': {
+          const i = JUMPS.indexOf(d.jump) + (what === 'jfwd' ? 1 : -1);
+          d.jump = JUMPS[clamp(i, 0, JUMPS.length - 1)]; break;
+        }
+      }
+      render();
     }
 
-    /* Every key that latches. Delegated, so a re-render needs no rebinding. */
-    function bindKeys() {
-      const root = chassis();
-
-      root.addEventListener('click', (e) => {
-        const t = e.target.closest('[data-toggle],[data-play],[data-loop],[data-jumpstep],[data-jumpcell]');
-        if (!t) return;
-
-        if (t.dataset.toggle !== undefined && !t.hasAttribute('data-momentary')) {
-          const on = t.classList.toggle('on');
-          t.setAttribute('aria-pressed', String(on));
-          if (t.classList.contains('chip')) {
-            const span = t.querySelector('span');
-            if (span && /^(OFF|ON)$/.test(span.textContent.trim())) span.textContent = on ? 'ON' : 'OFF';
-          }
-          return;
+    svg.addEventListener('pointerdown', (e) => {
+      const p = point(e);
+      if (picker && !pointers.has(picker.pointerId)) { closePicker(); return; }   // a tap outside the list
+      const t = e.target.closest('[data-ctl]');
+      if (!t) return;
+      const ctl = t.dataset.ctl;
+      try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault();
+      if (ctl.startsWith('chip:')) {
+        const id = ctl.slice(5), spec = specOf(id);
+        const drag = makeDrag(spec, getV(id), p, T.barHeight);
+        const panel = openPanel(id, p);
+        panel.drag = drag;
+        const hold = { kind: 'chip', id, drag, panel, t0: now() };
+        if (id.endsWith('.fx')) {
+          hold.press = setTimeout(() => {
+            if (drag.moved) return;
+            closePanelNow(id);
+            hold.kind = 'picker';
+            openPicker(id[0], p, e.pointerId);
+          }, T.longPress * 1000);
         }
+        pointers.set(e.pointerId, hold);
+      } else if (ctl.startsWith('fader:')) {
+        const id = ctl.slice(6), [, r] = id.split('.');
+        const travel = r === 'level' ? LEVEL.run : 2 * TEMPO.half;
+        const drag = makeDrag(specOf(id), getV(id), p, travel);
+        pointers.set(e.pointerId, { kind: 'fader', id, drag });
+        showReadout(id, drag);
+      } else if (ctl === 'xf') {
+        const put = (q) => { S.M.xf = clamp((q.x - XF.x - XF.half) / (XF.w - 2 * XF.half), 0, 1); render(); };
+        pointers.set(e.pointerId, { kind: 'xf', put });
+        put(p);
+      } else {
+        pointers.set(e.pointerId, { kind: 'tap', ctl, start: p });
+      }
+    });
 
-        if (t.dataset.play) {
-          const key = t.dataset.play, d = DECK[key];
-          d.playing = !d.playing;
-          t.classList.toggle('playing', d.playing);
-          t.setAttribute('aria-pressed', String(d.playing));
-          t.innerHTML = d.playing ? ICON.pause : ICON.play;
-          return;
-        }
+    svg.addEventListener('pointermove', (e) => {
+      const h = pointers.get(e.pointerId); if (!h) return;
+      const p = point(e);
+      if (h.kind === 'chip') {
+        h.drag.move(p);
+        if (h.drag.moved) clearTimeout(h.press);
+        const v = h.drag.value();
+        if (v !== getV(h.id)) { setV(h.id, v); render(); }
+        drawPanel(h.panel);
+      } else if (h.kind === 'fader') {
+        h.drag.move(p);
+        const v = h.drag.value();
+        if (v !== getV(h.id)) { setV(h.id, v); render(); }
+        showReadout(h.id, h.drag);
+      } else if (h.kind === 'xf') {
+        h.put(p);
+      } else if (h.kind === 'picker') {
+        pickerHover(p);
+      } else if (h.kind === 'tap') {
+        if (Math.hypot(p.x - h.start.x, p.y - h.start.y) > 20) h.cancelled = true;
+      }
+    });
 
-        if (t.dataset.loop) {
-          const [key, dir] = t.dataset.loop.split(':');
-          const bar = t.closest('.loopbar'), n = bar.querySelector('.n');
-          if (dir === '0') {
-            const on = bar.classList.toggle('on');
-            DECK[key].loopOn = on;
-            return;
-          }
-          const i = LOOPS.indexOf(DECK[key].loop);
-          DECK[key].loop = LOOPS[Math.min(LOOPS.length - 1, Math.max(0, i + (+dir)))];
-          n.textContent = DECK[key].loop;
-          bar.classList.add('on');
-          DECK[key].loopOn = true;
-          return;
+    function release(e) {
+      const h = pointers.get(e.pointerId); if (!h) return;
+      pointers.delete(e.pointerId);
+      try { svg.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (h.kind === 'chip') {
+        clearTimeout(h.press);
+        if (!h.drag.moved) {                  // a tap: a second within the window resets
+          const spec = specOf(h.id), last = lastTap.get(h.id);
+          if (last && now() - last < T.doubleTap && spec.reset != null) {
+            setV(h.id, spec.reset);
+            if (h.id.endsWith('.trim')) S[h.id[0]].trimAuto = true;
+            lastTap.delete(h.id);
+            render(); drawPanel(h.panel);
+          } else lastTap.set(h.id, now());
         }
+        h.panel.drag = null;
+        closePanel(h.id);
+      } else if (h.kind === 'fader') {
+        hideReadout(h.id);
+      } else if (h.kind === 'picker') {
+        if (picker && picker.slid) takeEffect(picker.lit);
+        else if (picker) picker.el.classList.add('static');   // lift without sliding: tap one
+      } else if (h.kind === 'tap' && !h.cancelled && e.type === 'pointerup') {
+        tap(h.ctl);
+      }
+    }
+    svg.addEventListener('pointerup', release);
+    svg.addEventListener('pointercancel', release);
+    over.addEventListener('pointerdown', (e) => {
+      const r = e.target.closest('[data-pick]');
+      if (r) { e.preventDefault(); takeEffect(+r.dataset.pick); }
+    });
 
-        if (t.dataset.jumpcell) {
-          const [key, n] = t.dataset.jumpcell.split(':');
-          [...t.parentElement.children].forEach((c) => c.classList.toggle('on', c === t));
-          DECK[key].jump = +n;
-          return;
-        }
+    /* the meters breathe while a panel or readout is up */
+    setInterval(() => {
+      jitter = { A: (Math.random() - 0.5) * 1.2, B: (Math.random() - 0.5) * 1.2, L: (Math.random() - 0.5) * 1.2, R: (Math.random() - 0.5) * 1.2 };
+      panels.forEach((p) => { if (!p.closing) drawPanel(p); });
+      pointers.forEach((h) => { if (h.kind === 'fader') showReadout(h.id, h.drag); });
+    }, 66);
 
-        if (t.dataset.jumpstep) {
-          const [key, step] = t.dataset.jumpstep.split(':');
-          const strip = root.querySelector(`.jlen[data-strip="${key}"]`);
-          const cells = [...strip.children];
-          let i = cells.findIndex((c) => c.classList.contains('on'));
-          i = Math.max(0, Math.min(cells.length - 1, (i < 0 ? 0 : i) + (+step)));
-          cells.forEach((c, n) => c.classList.toggle('on', n === i));
-          DECK[key].jump = JUMPS[i];
-        }
+    /* ---------- study tools ---------- */
+    function swapStates() {
+      ['A', 'B'].forEach((k) => {
+        const d = S[k];
+        ['mt', 'sync', 'chCue', 'tCue', 'playing', 'loopOn', 'trimAuto'].forEach((f) => { d[f] = !d[f]; });
+        if (d.trimAuto) d.trim = d.auto;
       });
-
-      /* HOT CUE is momentary: lit under the finger, off on release. */
-      root.querySelectorAll('[data-momentary]').forEach((el) => {
-        el.addEventListener('pointerdown', () => el.classList.add('on'));
-        ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) =>
-          el.addEventListener(ev, () => el.classList.remove('on')));
-      });
+      [S.A.master, S.B.master] = [S.B.master, S.A.master];
+      S.M.lockLows = !S.M.lockLows;
+      document.getElementById('swapBtn').classList.toggle('on');
+      render();
     }
 
-    /* ---------- study overlays ---------- */
-    function toggleGuides() {
-      document.body.classList.toggle('show-guides');
-      document.getElementById('guidesBtn').classList.toggle('on', document.body.classList.contains('show-guides'));
+    const OVERLAYS = ['', 'overlay-half', 'overlay-diff'];
+    let overlay = 0;
+    function cycleOverlay() {
+      document.body.classList.remove(...OVERLAYS.filter(Boolean));
+      overlay = (overlay + 1) % OVERLAYS.length;
+      if (OVERLAYS[overlay]) document.body.classList.add(OVERLAYS[overlay]);
+      const b = document.getElementById('overlayBtn');
+      b.classList.toggle('on', overlay > 0);
+      b.textContent = ['Drawing (O)', 'Drawing 50% (O)', 'Drawing diff (O)'][overlay];
     }
 
     function drawTargets() {
-      const ipad = document.getElementById('ipad'), ch = chassis(), box = document.getElementById('targets');
-      if (!document.body.classList.contains('show-targets')) { box.innerHTML = ''; return; }
-      const s = ipad.getBoundingClientRect().width / ipad.offsetWidth;
-      const cr = ch.getBoundingClientRect();
-      box.innerHTML = [...ch.querySelectorAll('[data-ctl]')].map((el) => {
-        const r = el.getBoundingClientRect();
-        const pad = el.classList.contains('pill') ? 3 : 0;
-        const x = (r.left - cr.left) / s - pad, y = (r.top - cr.top) / s - pad;
-        const w = r.width / s + 2 * pad, h = r.height / s + 2 * pad;
-        const bad = w < 44 - 0.5 || h < 44 - 0.5;
-        const size = `${Math.round(w)}×${Math.round(h)}`;
-        return `<i class="${bad ? 'bad' : ''}" style="${at(x, y, w, h)}"></i>
-                <b class="${bad ? 'bad' : ''}" style="left:${x + w / 2}px;top:${y + h / 2}px">${size}</b>`;
+      const boxEl = document.getElementById('targets');
+      if (!document.body.classList.contains('show-targets')) { boxEl.innerHTML = ''; return; }
+      boxEl.innerHTML = [...document.querySelectorAll('#dyn [data-ctl]')].map((g) => {
+        const b = g.getBBox();
+        const bad = b.width < 43.5 || b.height < 43.5;
+        return `<i class="${bad ? 'bad' : ''}" style="left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px"></i>
+          <b class="${bad ? 'bad' : ''}" style="left:${b.x + b.width / 2}px;top:${b.y + b.height / 2}px">${Math.round(b.width)}×${Math.round(b.height)}</b>`;
       }).join('');
     }
-
     function toggleTargets() {
       document.body.classList.toggle('show-targets');
       document.getElementById('targetsBtn').classList.toggle('on', document.body.classList.contains('show-targets'));
       drawTargets();
     }
 
-    /* ---------- page ---------- */
     function fit() {
       const ipad = document.getElementById('ipad'), frame = document.getElementById('frame');
-      /* A 1194 pt iPad gets the stage at 1:1, so a 44 pt target is 44 pt under
-         the finger; smaller windows scale down from there. */
-      const s = Math.min(1, window.innerWidth / 1194);
+      /* a 1194 pt iPad gets the stage at 1:1; smaller windows scale down */
+      const s = Math.min(1, (window.innerWidth - 40) / 1194);
       ipad.style.transform = `scale(${s})`;
       frame.style.width = 1194 * s + 'px';
       frame.style.height = 834 * s + 'px';
@@ -1041,16 +2254,17 @@
 
     window.addEventListener('keydown', (e) => {
       if (e.target.matches('input, textarea')) return;
-      if (e.key === 'g' || e.key === 'G') toggleGuides();
+      if (e.key === 'o' || e.key === 'O') cycleOverlay();
+      if (e.key === 's' || e.key === 'S') swapStates();
       if (e.key === 't' || e.key === 'T') toggleTargets();
     });
-    window.addEventListener('resize', () => { fit(); drawTargets(); });
+    window.addEventListener('resize', fit);
     const q = new URLSearchParams(location.search);
     render();
-    bindFaders(); bindChips(); bindKeys();
     fit();
-    if (q.has('guides')) toggleGuides();
+    if (q.has('swap')) swapStates();
     if (q.has('targets')) toggleTargets();
+    if (q.has('overlay')) { cycleOverlay(); if (q.get('overlay') === 'diff') cycleOverlay(); }
   </script>
 </body>
 </html>
