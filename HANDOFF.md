@@ -63,7 +63,7 @@ Bose has to be paired again.
   native tests plus Mac/iPad builds). GitHub's macOS runner ships an older Xcode than this
   Mac, so native code must compile on both SDKs. CI passed on `d60a6b6`; it was still
   running on `21213e5` (the transport work, pushed 13 November) at closeout, so check it.
-- **Tests:** `swift test`, 13 November 2026 (14 Nov added the PHONES render test and set-history tests; 189 in the last full run, 0 failures): 346 tests (187 audio, 70 core, 47 engine,
+- **Tests:** `swift test`, 13 November 2026 (14 Nov added the PHONES render test and the set-history tests; all passed): 346 tests (187 audio, 70 core, 47 engine,
   42 console), 0 failures, 6 optional skips.
 
 ### The engine (6 November 2026)
