@@ -24,6 +24,8 @@ public final class NativeMixer: ObservableObject {
     @Published public var splitCue = true { didSet { applyRouting() } }
     /// The cue bus blend: 0 is the master alone, 1 the CUE'd decks alone.
     @Published public var cueMix = 0.85 { didSet { applyRouting() } }
+    /// PHONES: the headphones' level, 0 … 1, a plain gain on the cue output; the master never hears it.
+    @Published public var phones = 1.0 { didSet { applyRouting() } }
     /// The output layout the engine feeds: 2, or 4 when the hardware has them.
     @Published public private(set) var outputChannels: AVAudioChannelCount = 2
     @Published public private(set) var error: MixerProblem? { didSet { if error != nil { errorRevision &+= 1 } } }
@@ -155,6 +157,7 @@ public final class NativeMixer: ObservableObject {
         if split != splitCue { splitCue = split; return }
         let mix = Float(min(1, max(0, cueMix.isFinite ? cueMix : 0.85))), cueA: Float = a.headphoneCue ? 1 : 0, cueB: Float = b.headphoneCue ? 1 : 0
         dex_engine_set_route(core.raw, Int32(split ? DEX_ROUTE_SPLIT : DEX_ROUTE_MULTICHANNEL), mix, cueA, cueB)
+        dex_engine_set_phones(core.raw, Float(min(1, max(0, phones.isFinite ? phones : 1))))
     }
     private func installObservers() {
         let observed = ControlHandle(object: engine)

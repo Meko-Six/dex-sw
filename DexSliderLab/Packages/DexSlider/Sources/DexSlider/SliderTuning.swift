@@ -88,6 +88,9 @@ public struct SliderTuning: Codable, Sendable, Equatable {
     public var readoutNumberSize = 26.0
     /// TEMPO's percentage and BPM stay up; off shows them only while touched.
     public var tempoReadoutAlways = false
+    /// The stage draws TEMPO's readout above the fader, as it does LEVEL's, for a host
+    /// that draws its own faders (Dex). Off, `SliderFader` draws it.
+    public var tempoReadoutAbove = false
     // FX.
     /// Up is the high-pass side (thinner); off, up is low-pass.
     public var fxUpIsHighPass = true
@@ -170,6 +173,7 @@ public struct SliderTuning: Codable, Sendable, Equatable {
         readoutBeside = read(.readoutBeside, base.readoutBeside)
         readoutNumberSize = read(.readoutNumberSize, base.readoutNumberSize)
         tempoReadoutAlways = read(.tempoReadoutAlways, base.tempoReadoutAlways)
+        tempoReadoutAbove = read(.tempoReadoutAbove, base.tempoReadoutAbove)
         fxUpIsHighPass = read(.fxUpIsHighPass, base.fxUpIsHighPass)
         longPress = read(.longPress, base.longPress)
         detentPoints = read(.detentPoints, base.detentPoints)

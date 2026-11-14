@@ -148,6 +148,7 @@ final class OutputRouterUnit: AUAudioUnit, @unchecked Sendable {
     func set(split: Bool, cueMix: Float, cueA: Float, cueB: Float) {
         dex_router_set(storage.pointer, Int32(split ? DEX_ROUTE_SPLIT : DEX_ROUTE_MULTICHANNEL), cueMix, cueA, cueB)
     }
+    func set(phones: Float) { dex_router_set_phones(storage.pointer, phones) }
     func snap() { dex_router_snap(storage.pointer) }
     /// Forgets the transient peak guard, keeping the controls. Safe while rendering.
     override func reset() {

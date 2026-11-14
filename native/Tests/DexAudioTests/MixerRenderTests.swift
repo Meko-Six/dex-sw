@@ -234,6 +234,21 @@ final class MixerRenderTests: XCTestCase {
         XCTAssertEqual(out[2][512], 0); XCTAssertEqual(out[3][512], 0)
     }
 
+    func testPhonesTurnsDownTheCueAndNeverTheMaster() throws {
+        var out = try routed(channels: 4) { $0.set(split: false, cueMix: 1, cueA: 1, cueB: 0); $0.set(phones: 0.5); $0.snap() }
+        XCTAssertEqual(out.map { $0[512] }, [0.4, 0.2, 0.15, 0.05])
+        out = try routed(channels: 2) { $0.set(split: true, cueMix: 1, cueA: 1, cueB: 0); $0.set(phones: 0.5); $0.snap() }
+        XCTAssertEqual(out[0][512], 0.3, accuracy: 1e-6, "mono master, untouched")
+        XCTAssertEqual(out[1][512], 0.1, accuracy: 1e-6, "mono cue at half")
+        // A change glides rather than steps, as the cue mix does.
+        out = try routed(channels: 4, frames: 9_600) {
+            $0.set(split: false, cueMix: 1, cueA: 1, cueB: 0); $0.snap(); $0.set(phones: 0)
+        }
+        XCTAssertEqual(out[2][9_599], 0, accuracy: 1e-5)
+        XCTAssertEqual(out[0][9_599], 0.4, accuracy: 1e-6)
+        for frame in 1..<out[2].count { XCTAssertLessThan(abs(out[2][frame] - out[2][frame - 1]), 0.003) }
+    }
+
     func testSplitCuePutsMonoMasterLeftAndMonoCueRight() throws {
         for channels: AVAudioChannelCount in [2, 4] {
             let out = try routed(channels: channels) { $0.set(split: true, cueMix: 1, cueA: 1, cueB: 0); $0.snap() }

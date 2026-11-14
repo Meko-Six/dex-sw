@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "DexNative",
-    platforms: [.macOS(.v13), .iOS(.v16)],
+    platforms: [.macOS(.v15), .iOS(.v18)],
     products: [
         .library(name: "DexCore", targets: ["DexCore"]),
         .library(name: "DexAudio", targets: ["DexAudio"]),
@@ -14,6 +14,10 @@ let package = Package(
         .executable(name: "DexWaveProfile", targets: ["DexWaveProfile"]),
         .executable(name: "DexEngineBench", targets: ["DexEngineBench"]),
         .library(name: "DexEngineBenchKit", targets: ["DexEngineBenchKit"])
+    ],
+    dependencies: [
+        // The chip sliders, tuned in DexSliderLab and shared as they are.
+        .package(path: "../DexSliderLab/Packages/DexSlider")
     ],
     targets: [
         .target(name: "DexCore"),
@@ -42,7 +46,7 @@ let package = Package(
         .target(name: "DexEngineBenchKit", dependencies: ["CDexEngine"]),
         .executableTarget(name: "DexEngineBench", dependencies: ["DexEngineBenchKit"]),
         .target(name: "DexAudio", dependencies: ["DexCore", "CDexDSP", "CDexEngine"]),
-        .target(name: "DexConsole", dependencies: ["DexCore"]),
+        .target(name: "DexConsole", dependencies: ["DexCore", .product(name: "DexSlider", package: "DexSlider")], resources: [.copy("Art")]),
         .executableTarget(name: "DexApp", dependencies: ["DexCore", "DexAudio", "DexConsole"]),
         .executableTarget(name: "DexAnalysisBench", dependencies: ["DexAudio"]),
         .executableTarget(name: "DexConsoleSnapshot", dependencies: ["DexConsole"]),

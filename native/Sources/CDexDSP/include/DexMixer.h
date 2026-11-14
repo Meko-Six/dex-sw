@@ -44,6 +44,8 @@ typedef struct DexRouterState DexRouterState;
 DexRouterState *dex_router_create(double sampleRate, UInt32 maximumFrames);
 void dex_router_destroy(DexRouterState *state);
 void dex_router_set(DexRouterState *state, int mode, float cueMix, float cueA, float cueB);
+/// The headphones' level, 0 … 1: a gain on the cue output only, gliding like the cue mix.
+void dex_router_set_phones(DexRouterState *state, float level);
 void dex_router_snap(DexRouterState *state);
 /// Clears the cue's peak guard at the start of the next block. Any thread; the controls stay.
 void dex_router_reset(DexRouterState *state);

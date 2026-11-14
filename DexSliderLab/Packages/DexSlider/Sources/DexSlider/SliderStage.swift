@@ -33,6 +33,17 @@ public struct SliderStage<Content: View>: View {
                     .transition(.opacity)
                     .zIndex(4)
             }
+            // Over a host's own controls (Dex's), what's drawn on top must take the touch:
+            // these shields keep a tap on the list or a panel from reaching what lies under
+            // it, and leave it to the stage's gesture, which routes it to the bank.
+            ForEach(shields, id: \.self) { frame in
+                Color.clear
+                    .contentShape(Rectangle())
+                    .frame(width: frame.width, height: frame.height)
+                    .position(x: frame.midX, y: frame.midY)
+                    .zIndex(5)
+                    .accessibilityHidden(true)
+            }
         }
         .coordinateSpace(.named(sliderStageSpace))
         .contentShape(Rectangle())
@@ -47,5 +58,11 @@ public struct SliderStage<Content: View>: View {
                 .onEnded { events in bank.handle(events, ended: true) }
         )
         .sensoryFeedback(.alignment, trigger: bank.ticks)
+    }
+
+    /// The effect lists, and the open panels' bars, with the slop the bank allows them.
+    private var shields: [CGRect] {
+        bank.pickers.values.map { $0.frame.insetBy(dx: -8, dy: -8) }
+            + bank.panels.values.filter { !$0.closing }.map { $0.layout.bar.insetBy(dx: -8, dy: -8) }
     }
 }

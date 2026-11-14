@@ -286,8 +286,10 @@ public struct ConsoleState: Equatable, Sendable {
     public var meters = Meters.silent
     /// Master output, 0 … 1 (unity).
     public var masterVolume = 1.0
-    /// The headphones' blend, cued deck (0) to master (1).
+    /// The headphones' blend as the engine takes it: master (0) to the cued decks (1).
     public var cueMix = 0.5
+    /// PHONES: the headphones' level, 0 … 1.
+    public var phones = 1.0
     public var help: HelpTopic?
     public var mixPop: MixPop?
     /// The deck whose beat grid sheet is up.
@@ -340,6 +342,7 @@ public struct ConsoleActions {
     public var dismissAlert: () -> Void = {}
     public var setMasterVolume: (Double) -> Void = { _ in }
     public var setCueMix: (Double) -> Void = { _ in }
+    public var setPhones: (Double) -> Void = { _ in }
     public var closeGrid: () -> Void = {}
     /// Deck, the new grid, and the other readings when they change with it.
     public var setGrid: (String, ConsoleState.Grid, [ConsoleState.Library.Alternate]?) -> Void = { _, _, _ in }

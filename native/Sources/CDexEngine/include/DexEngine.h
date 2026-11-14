@@ -137,6 +137,8 @@ void dex_engine_set_volume(DexEngine *engine, float volume);
 void dex_engine_set_tone(DexEngine *engine, int deck, float low, float mid, float high, float trim);
 void dex_engine_set_sweep(DexEngine *engine, int deck, float knob);
 void dex_engine_set_route(DexEngine *engine, int mode, float cueMix, float cueA, float cueB);
+/// PHONES: the headphones' level, 0 … 1, on the cue output only.
+void dex_engine_set_phones(DexEngine *engine, float level);
 /// Jumps all levels to their targets with no glide. Before the first block, or in a test.
 void dex_engine_snap_levels(DexEngine *engine);
 

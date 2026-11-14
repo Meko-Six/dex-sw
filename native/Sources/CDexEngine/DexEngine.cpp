@@ -1242,6 +1242,7 @@ void dex_engine_set_volume(DexEngine *e, float volume) { e->volumeTarget.store(v
 void dex_engine_set_tone(DexEngine *e, int deck, float low, float mid, float high, float trim) { dex_isolator_set(e->decks[deck].isolator, low, mid, high, trim); }
 void dex_engine_set_sweep(DexEngine *e, int deck, float knob) { dex_isolator_set_sweep(e->decks[deck].isolator, knob); }
 void dex_engine_set_route(DexEngine *e, int mode, float cueMix, float cueA, float cueB) { dex_router_set(e->router, mode, cueMix, cueA, cueB); }
+void dex_engine_set_phones(DexEngine *e, float level) { dex_router_set_phones(e->router, level); }
 void dex_engine_snap_levels(DexEngine *e) {
     for (Deck &d : e->decks) {
         d.gain = d.levelTarget.load(std::memory_order_relaxed) * d.crossfadeTarget.load(std::memory_order_relaxed);

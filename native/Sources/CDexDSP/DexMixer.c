@@ -233,6 +233,8 @@ void dex_cue_tap_read(DexCueTap *tap, UInt32 frames, AudioBufferList *audio) {
 struct DexRouterState {
     _Atomic int mode;
     _Atomic float target[3]; // cue mix, cue A, cue B
+    _Atomic float phonesTarget; // the headphones' level, a plain gain on the cue only
+    float phones;
     _Atomic bool resetPending; // the render thread owns the peak guard, so it clears it
     _Atomic UInt32 pullFailures[ROUTER_INPUTS];
     float value[3];
@@ -267,6 +269,8 @@ DexRouterState *dex_router_create(double rate, UInt32 maximumFrames) {
     st->cueRelease = smoothing(0.15, rate);
     float initial[3] = {0.85f, 0, 0};
     for (int i = 0; i < 3; ++i) { atomic_init(&st->target[i], initial[i]); st->value[i] = initial[i]; }
+    atomic_init(&st->phonesTarget, 1.0f);
+    st->phones = 1;
     return st;
 }
 
@@ -282,8 +286,13 @@ void dex_router_set(DexRouterState *st, int mode, float cueMix, float cueA, floa
     for (int i = 0; i < 3; ++i) atomic_store_explicit(&st->target[i], values[i], memory_order_relaxed);
 }
 
+void dex_router_set_phones(DexRouterState *st, float level) {
+    atomic_store_explicit(&st->phonesTarget, level, memory_order_relaxed);
+}
+
 void dex_router_snap(DexRouterState *st) {
     for (int i = 0; i < 3; ++i) st->value[i] = atomic_load_explicit(&st->target[i], memory_order_relaxed);
+    st->phones = atomic_load_explicit(&st->phonesTarget, memory_order_relaxed);
     st->folded = st->value[1] > 0 || st->value[2] > 0 ? 1 : 0;
 }
 
@@ -328,6 +337,7 @@ void dex_router_process(DexRouterState *st, UInt32 frames, const bool *pulled, A
     int mode = atomic_load_explicit(&st->mode, memory_order_relaxed);
     float target[3];
     for (int i = 0; i < 3; ++i) target[i] = atomic_load_explicit(&st->target[i], memory_order_relaxed);
+    float phonesTarget = atomic_load_explicit(&st->phonesTarget, memory_order_relaxed);
     UInt32 channels = output->mNumberBuffers;
     float foldTarget = target[1] > 0 || target[2] > 0 ? 1 : 0;
     const AudioBufferList *master = st->inputs[0], *a = st->inputs[1], *b = st->inputs[2];
@@ -349,7 +359,9 @@ void dex_router_process(DexRouterState *st, UInt32 frames, const bool *pulled, A
         float cuePeak = fmaxf(fabsf(cue[0]), fabsf(cue[1]));
         st->cueGain = glide(st->cueGain, 1, st->cueRelease);
         if (cuePeak * st->cueGain > 1) st->cueGain = 1 / cuePeak;
-        cue[0] *= st->cueGain; cue[1] *= st->cueGain;
+        // PHONES turns the headphones down after the guard, so it never touches the master.
+        st->phones = glide(st->phones, phonesTarget, st->mixGlide);
+        cue[0] *= st->cueGain * st->phones; cue[1] *= st->cueGain * st->phones;
         for (UInt32 c = 0; c < channels; ++c) {
             float *out = (float *)output->mBuffers[c].mData;
             if (!out) continue;

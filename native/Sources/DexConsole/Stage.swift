@@ -1,4 +1,5 @@
 import SwiftUI
+import DexSlider
 
 /// The console's fixed stage, in points: the 11" iPad Pro canvas less the
 /// mockup's bezel. Matches `src/renderer/console/layout.ts`.
@@ -10,8 +11,8 @@ public enum Stage {
 
     /// A deck's platter on the stage, for panels that sit over it.
     public static func platter(_ deck: String, stretch: CGFloat = 0) -> CGRect {
-        // The chassis and its 1 pt top line end the stage.
-        return Layout.platterRect(deck).offsetBy(dx: 0, dy: height + stretch - 475)
+        // The chassis ends the stage.
+        return Layout.platterRect(deck).offsetBy(dx: 0, dy: height + stretch - Layout.height)
     }
 
     /// Uniform scale to fit `size`, and the stretch (in stage points) that
@@ -32,6 +33,8 @@ public struct ConsoleStage: View {
     let libraryStart: LibraryView
     let snapshot: Bool
     @StateObject private var touches = ControlTouches()
+    /// The chips and the LEVEL and TEMPO faders: DexSliderLab's bank, which routes their touches.
+    @State private var bank = SliderBank(tuning: Chassis.tuning)
 
     /// `snapshot` draws platform views (fields, scrolling) as plain views, for `ImageRenderer`.
     public init(state: ConsoleState, actions: ConsoleActions = ConsoleActions(), stretch: CGFloat = 0,
@@ -109,6 +112,9 @@ public struct ConsoleStage: View {
     }
 
     private var console: some View {
+        // The slider stage takes the touches on the chips and faders and draws their
+        // panels over the whole console, so a panel can rise over the track windows.
+        SliderStage(bank: bank) {
         VStack(spacing: 0) {
             Head(state: state, actions: actions)
             // Library open: the zoom lanes fold away.
@@ -116,10 +122,12 @@ public struct ConsoleStage: View {
                 .frame(height: state.libraryOpen ? 0 : 162 + stretch, alignment: .top)
                 .clipped()
             TrackWindows(state: state, actions: actions)
-            Chassis(state: state, actions: actions)
+            Chassis(state: state, actions: actions, bank: bank)
         }
         .frame(width: Stage.width, height: Stage.height + stretch, alignment: .top)
         .background(Palette.stage)
+        }
+        .frame(width: Stage.width, height: Stage.height + stretch)
     }
 
     /// A tap outside the sheet closes it.

@@ -63,7 +63,7 @@ Bose has to be paired again.
   native tests plus Mac/iPad builds). GitHub's macOS runner ships an older Xcode than this
   Mac, so native code must compile on both SDKs. CI passed on `d60a6b6`; it was still
   running on `21213e5` (the transport work, pushed 13 November) at closeout, so check it.
-- **Tests:** `swift test`, 13 November 2026: 346 tests (187 audio, 70 core, 47 engine,
+- **Tests:** `swift test`, 13 November 2026 (14 Nov added the PHONES render test): 346 tests (187 audio, 70 core, 47 engine,
   42 console), 0 failures, 6 optional skips.
 
 ### The engine (6 November 2026)
@@ -203,6 +203,47 @@ audio.
 
 Tools: BSD `sed` has no `\b`, so a substitution using it silently does nothing, and
 zsh's builtin `log` shadows the tool, so use `/usr/bin/log`.
+
+## Stage two from the user's drawing — 14 November 2026
+
+**Start here for the console's look.** Everything below the track windows is now the user's
+Illustrator drawing, `mockup/stage-two-decks FA.svg`, by way of the mockup
+`mockup/stage-two-decks.html` (the reference; commit 1ce2466), ported to the app the same day.
+
+- **How it's drawn.** The drawing's static art (fascia, platters, faceplate, fader scales, meter
+  frame, legends) is two vector PDFs in `native/Sources/DexConsole/Art/`, printed from the mockup
+  by `npx electron mockup/build-stage-art.mjs`: re-run it after any change to the drawing.
+  Everything that moves is drawn over it in `Chassis.swift` at the drawing's own coordinates
+  (`Layout`: drawing x − 10, y − 348) in the drawing's styles: keys, chips, LEVEL and TEMPO caps,
+  crossfader, transport, beat jump, the platter displays' marks and the meter rungs. The old
+  chassis's parts the popovers still use moved to `MixerParts.swift`.
+- **The chips and faders are DexSliderLab's**, through its package (`DexSliderLab/Packages/DexSlider`,
+  now a dependency of DexConsole): one `SliderBank` in `ConsoleStage`, its `SliderStage` wrapped
+  round the whole console so panels can rise over the track windows. `BankSync` in `Chassis.swift`
+  keeps it and the console in step. The tuning is the user's 10 November iPad tuning, with the
+  faders' travel set to the drawing's (LEVEL 174.55 pt, TEMPO 170 pt).
+- **Package changes made for the app:** TEMPO's readout above the fader (`tempoReadoutAbove`),
+  `removeFrame` (chips hidden while the library is up), shields so a tap on the effect list or an
+  open panel can't reach a control under it (the crossfader took one in the simulator), and a tap
+  that arrives already ended still counts. The lab's own behaviour is unchanged.
+- **Minimum OS is now iPadOS 18 / macOS 15** (the user's choice, 14 Nov), for the package.
+- **PHONES is new in the engine:** a plain gain on the cue output after its peak guard, gliding
+  like the cue mix; the master never hears it (`dex_router_set_phones`,
+  `testPhonesTurnsDownTheCueAndNeverTheMaster`). Not yet heard.
+- **FX:** the list offers FILTER, REVERB, DELAY and GATER (the user's choice); only FILTER makes a
+  sound. Choosing another effect sets the filter to off; the chip keeps its name and amount.
+- **Mapped onto what was there:** MASTER TEMPO is the old KEY lock; LOCK LOWS the old LINK LOWS;
+  CUE/MST the cue mix (the engine's 1 is all cue, the chip's left side). The kill pads, FILTER /
+  TRIM / band / master popovers are no longer reachable from the chassis (the code stays, and the
+  snapshot demos still draw them).
+- **Choices made in the port, to check with the user:** transport CUE lights whenever a track is
+  loaded (the drawing's two looks, lit and unlit; the app had it always lit); the crossfader
+  jumps to the finger, as in the mockup (it was a relative drag); the ◀ ▶ keys jump by the
+  selected bars as before (the mockup stepped the size); the platter display's gap is four marks,
+  as drawn (it was two); a touched platter no longer shows its rim under the mixer.
+- **Checked:** snapshot renders against the mockup; in the iPad simulator, a chip drag, the
+  readouts, two fingers at once (LEVEL A with HI B), keys, LOCK LOWS, the crossfader, and the
+  effect list by hold, then tap. Mac and iPad builds pass. **Not tried on the real iPad.**
 
 ## Architecture audit and fixes — 12–13 November 2026
 
@@ -374,6 +415,10 @@ header's status pill and CAN'T LOAD alert are described (`console.status`,
 ## Awaiting the user
 
 None of this has been tried or heard by the user, except where it says otherwise. **Never report any of it as passed.**
+
+- **The stage-two console on the iPad** (14 Nov): the chips and their panels by finger, two
+  hands at once, the effect list, PHONES on headphones, and the port's own choices listed under
+  Stage two (transport CUE's light, the crossfader jumping to the finger, the four-mark gap).
 
 - **AUTO trim listening check:** pairs at AUTO, judged matched or not, by ear (the meters
   show peaks, not loudness). Luga vs A Brief History Of Goa Trance (4.3 dB apart untrimmed:

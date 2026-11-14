@@ -118,6 +118,7 @@ final class ConsoleModel: ObservableObject {
         next.linkLows = linkLows
         next.masterVolume = Double(mixer.volume)
         next.cueMix = mixer.cueMix
+        next.phones = mixer.phones
         next.sheet = sheet
         next.help = help
         next.mixPop = mixPop
@@ -322,6 +323,7 @@ final class ConsoleModel: ObservableObject {
         actions.dismissAlert = { [weak self] in self?.dismissAlert() }
         actions.setMasterVolume = { [weak self] in self?.mixer.volume = Float(min(1, max(0, $0))) }
         actions.setCueMix = { [weak self] in self?.mixer.cueMix = min(1, max(0, $0)) }
+        actions.setPhones = { [weak self] in self?.mixer.phones = min(1, max(0, $0)) }
         actions.closeGrid = { [weak self] in self?.update { $0.gridDeck = nil; $0.help = nil } }
         actions.gridWave = { [weak self] id, start, perColumn, columns in
             guard let url = self?.deck(id).fileURL else { return nil }

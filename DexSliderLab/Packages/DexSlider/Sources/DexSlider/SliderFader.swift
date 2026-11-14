@@ -140,17 +140,24 @@ struct FaderReadout: View {
 
     var body: some View {
         let tuning = bank.tuning
-        if id.role != .tempo, tuning.levelReadout, let frame = bank.frame(id),
+        let tempo = id.role == .tempo
+        if tempo ? tuning.tempoReadoutAbove : tuning.levelReadout, let frame = bank.frame(id),
            let control = bank.controls[id], let touch = bank.faders[id] {
             VStack(spacing: 4) {
                 meter(control.spec, tuning)
                 Text(control.spec.readout(control.value))
-                    .font(SliderTheme.cond(tuning.readoutNumberSize))
+                    .font(SliderTheme.cond(tempo ? 24 : tuning.readoutNumberSize))
                     .foregroundStyle(SliderTheme.text)
                 if let fine = FineSpeed.label(touch.factor) {
                     Text(fine)
-                        .font(SliderTheme.cond(13, "DemiBold"))
+                        .font(SliderTheme.cond(tempo ? 14 : 13, "DemiBold"))
                         .foregroundStyle(SliderTheme.mark)
+                        .padding(.top, tempo ? -2 : 0)
+                } else if tempo, let caption = control.spec.caption(control.value) {
+                    Text(caption)
+                        .font(SliderTheme.cond(14, "DemiBold"))
+                        .foregroundStyle(SliderTheme.dim)
+                        .padding(.top, -2)
                 }
             }
             .lineLimit(1)

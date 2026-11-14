@@ -147,6 +147,8 @@ public final class SliderBank {
     // MARK: Geometry
 
     public func setFrame(_ frame: CGRect, for id: SliderID) { frames[id] = frame }
+    /// Takes a control off the stage (hidden, say), so touches no longer find it.
+    public func removeFrame(_ id: SliderID) { frames[id] = nil }
     public func frame(_ id: SliderID) -> CGRect? { frames[id] }
     public func setBounds(_ bounds: CGRect) { self.bounds = bounds }
 
@@ -178,6 +180,11 @@ public final class SliderBank {
                     touchDown(key, at: event.location, time: event.timestamp)
                 }
             default:
+                // A tap quick enough can arrive already ended, with no `.active` before it:
+                // it still lands, then lifts, so taps on the list and double-taps count.
+                if touches[key] == nil, !strays.contains(key) {
+                    touchDown(key, at: event.location, time: event.timestamp)
+                }
                 touchUp(key, at: event.location, time: event.timestamp)
             }
         }
