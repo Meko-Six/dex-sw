@@ -10,7 +10,7 @@ actually does in Dex today. Generated from [`mockup/controls.json`](../mockup/co
 | **PARTIAL** | The app has part of it, or does it with a different gesture or name. |
 | **PLANNED** | Drawn for the layout study. Nothing behind it in Dex. |
 
-**100 controls** — 83 live, 5 partial, 12 planned.
+**105 controls** — 83 live, 10 partial, 12 planned.
 
 ## Using the mockup
 
@@ -191,7 +191,12 @@ The crate. A full-width sheet over both decks.
 | 93 | **Camelot key** | LIVE | Camelot code (8A, 4B…) in the wheel's colour: minor keys on the pastel A ring, major on the saturated B ring. Keys are detected on import ("Find keys" backfills older tracks). Tap one to filter the list to that key plus its harmonic matches (±1 on the wheel and the relative major / minor), or switch the filter bar to that key only. Also on each deck card and in the deck panel. | — | `src/renderer/ui/CamelotBadge.tsx` |
 | 94 | **column sort** | LIVE | Tap a column header — track, key, BPM, time or grid — to sort by it; tap again to reverse. Key sorts round the Camelot wheel (1A, 1B, 2A…), so harmonic neighbours sit together. Unsorted, the library runs by name and a playlist in its own order. | — | `src/renderer/ui/LibrarySheet.tsx` |
 | 99 | **playlist column** | LIVE | Left of the list: All tracks, then each playlist with its count. + makes one, double-click renames, ✕ then Delete? removes it (tracks stay in the library). Drag rows onto a playlist to add them. | — | `src/renderer/ui/LibrarySheet.tsx` |
-| 100 | **Playlists (in track details)** | LIVE | In track details, click a playlist to add or take out the track. Create playlists with + in the library sidebar. | — | `native/Sources/DexConsole/Library.swift` |
+| 100 | **This set** | PARTIAL | Under All tracks: the tracks the crowd has heard this set (30 s on the master), in order, with the time each went out. Their music note turns orange everywhere until NEW SET. Native app only; Electron is frozen. | — | `native/Sources/DexConsole/Library.swift` |
+| 101 | **Past sets** | PARTIAL | Each earlier set by the day it started, with its count; opens it like This set. Native app only. | — | `native/Sources/DexConsole/Library.swift` |
+| 102 | **New set** | PARTIAL | In This set: asks for a second tap, then clears the played marks and starts a new set; the old one joins Past sets. Native app only. | — | `native/Sources/DexConsole/Library.swift` |
+| 103 | **Save as playlist** | PARTIAL | In a set: makes a playlist of its tracks, each once, in the order played. Native app only. | — | `native/Sources/DexConsole/Library.swift` |
+| 104 | **rating stars** | PARTIAL | Five stars in each library row (RATING sorts most stars first) and in each deck's title bar; tap a star to rate, tap the top lit one to clear. Native app only. | — | `native/Sources/DexConsole/Library.swift` |
+| 105 | **Playlists (in track details)** | LIVE | In track details, click a playlist to add or take out the track. Create playlists with + in the library sidebar. | — | `native/Sources/DexConsole/Library.swift` |
 
 ## Shortcuts on the drawn controls
 

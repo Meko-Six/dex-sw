@@ -1112,6 +1112,56 @@ window.DEX_CONTROLS = {
       "n": 99
     },
     {
+      "id": "lib.thisset",
+      "group": "library",
+      "label": "This set",
+      "kind": "button",
+      "status": "partial",
+      "does": "Under All tracks: the tracks the crowd has heard this set (30 s on the master), in order, with the time each went out. Their music note turns orange everywhere until NEW SET. Native app only; Electron is frozen.",
+      "source": "native/Sources/DexConsole/Library.swift",
+      "n": 100
+    },
+    {
+      "id": "lib.pastset",
+      "group": "library",
+      "label": "Past sets",
+      "kind": "button",
+      "status": "partial",
+      "does": "Each earlier set by the day it started, with its count; opens it like This set. Native app only.",
+      "source": "native/Sources/DexConsole/Library.swift",
+      "n": 101
+    },
+    {
+      "id": "lib.newset",
+      "group": "library",
+      "label": "New set",
+      "kind": "button",
+      "status": "partial",
+      "does": "In This set: asks for a second tap, then clears the played marks and starts a new set; the old one joins Past sets. Native app only.",
+      "source": "native/Sources/DexConsole/Library.swift",
+      "n": 102
+    },
+    {
+      "id": "lib.saveset",
+      "group": "library",
+      "label": "Save as playlist",
+      "kind": "button",
+      "status": "partial",
+      "does": "In a set: makes a playlist of its tracks, each once, in the order played. Native app only.",
+      "source": "native/Sources/DexConsole/Library.swift",
+      "n": 103
+    },
+    {
+      "id": "lib.rating",
+      "group": "library",
+      "label": "rating stars",
+      "kind": "block",
+      "status": "partial",
+      "does": "Five stars in each library row (RATING sorts most stars first) and in each deck's title bar; tap a star to rate, tap the top lit one to clear. Native app only.",
+      "source": "native/Sources/DexConsole/Library.swift",
+      "n": 104
+    },
+    {
       "id": "lib.playlist",
       "group": "library",
       "label": "Playlists (in track details)",
@@ -1119,7 +1169,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "In track details, click a playlist to add or take out the track. Create playlists with + in the library sidebar.",
       "source": "native/Sources/DexConsole/Library.swift",
-      "n": 100
+      "n": 105
     }
   ]
 }
