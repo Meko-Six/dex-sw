@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# git never runs pre-commit for merge commits, and a non-ff `git pull` is a
+# merge. Delegate so there is one definition of the rule.
+#
+# On failure git does not abort the merge: it leaves MERGE_HEAD in place. The
+# message from pre-commit says so, and `git merge --abort` clears it.
+set -uo pipefail
+
+exec "$(dirname "$0")/pre-commit"

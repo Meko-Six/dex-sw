@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Refuse any commit that would add agent transcripts.
+#
+# .cloud-attachments/ holds imported conversation logs: local artifacts that
+# must never enter history. .gitignore stops a plain `git add -A`; this catches
+# the explicit/forced adds that ignore rules and text-matching permission rules
+# miss. pre-merge-commit runs this same file, because git never runs
+# pre-commit for merge commits.
+set -uo pipefail
+
+# ACMR: a deletion (D) must pass, that is how the directory gets untracked.
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- .cloud-attachments)
+[ -z "$staged" ] && exit 0
+
+{
+  echo "refusing to commit agent transcripts:"
+  printf '%s\n' "$staged" | sed 's/^/  /'
+  echo
+  echo "They are local artifacts, not sources."
+  echo "  in a merge:  git merge --abort"
+  echo "  otherwise:   git restore --staged .cloud-attachments"
+} >&2
+exit 1
