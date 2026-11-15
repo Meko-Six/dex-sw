@@ -150,6 +150,7 @@
     .targets i.bad { border-color: #ff5a3c; background: rgba(255, 90, 60, .12); }
     .targets b.bad { background: #ff5a3c; color: #210400; }
   </style>
+  <link rel="stylesheet" href="grid-sheet.css">
 </head>
 <body>
   <div class="bar">
@@ -159,6 +160,9 @@
     <button id="overlayBtn" onclick="cycleOverlay()">Drawing (O)</button>
     <button id="swapBtn" onclick="swapStates()">Swap states (S)</button>
     <button id="targetsBtn" onclick="toggleTargets()">Targets (T)</button>
+    <button id="gridABtn" onclick="toggleGrid('A')">Grid A (G)</button>
+    <button id="gridBBtn" onclick="toggleGrid('B')">Grid B</button>
+    <button id="altsBtn" onclick="cycleAlts()">Other tempos: off</button>
   </div>
   <div class="wrap">
     <div class="frame" id="frame">
@@ -1564,6 +1568,13 @@
         <li><b>Transport.</b> CUE ring orange when lit, grey when not (tap to change); PLAY green ring with ❙❙ while playing, grey ring with ▶ when stopped; loop blue when on, grey when off.</li>
         <li><b>Faders.</b> LEVEL on the drawing's 10 … 0 scale with its lit slot; TEMPO ±16 % on the comb, − at the top as on a CDJ; crossfader with the drawn cap.</li>
       </ul>
+      <h2>THE BEAT GRID SHEET</h2>
+      <ul>
+        <li><b>Opens from the song window's grid key</b>, which is in the picture above the stage; here <b>Grid A (G)</b> and <b>Grid B</b> open it. Brought over whole from the xdj-mixer-alt mockup (<code>grid-sheet.js</code>, <code>grid-sheet.css</code>), with the (i) instructions.</li>
+        <li><b>Waveform in the deck's colour.</b> The whole signal darkest and outermost, its real lowest to highest, so the attack is exact; MID (220 Hz–3.5 kHz) inside it in the deck colour; HIGH palest in the middle. Same crossovers as the lane waveforms. Kicks read dark, hats and claps pale.</li>
+        <li><b>White lines</b>, a heavier white line and bar number on each downbeat, so neither deck's colour hides them. The red playhead moves with the audio.</li>
+        <li><b>Other tempos</b> cycles deck A's alternate readings: off, shown, and shown with the tempo flagged as unsure (amber).</li>
+      </ul>
       <h2>THE POPUPS (DEXSLIDERLAB, 10 NOV TUNING)</h2>
       <ul>
         <li><b>Chips open on the finger.</b> TRIM, HI, MID, LOW, FX, CUE/MST, PHONES and MASTER LEVEL open an 80 × 140 bar with the number above it, and six meter rungs (2 green, 3 yellow, 1 red, 1.5 dB apart) for the deck or the master. It closes 0.13 s after the finger lifts.</li>
@@ -1576,6 +1587,7 @@
     </section>
   </div>
 
+  <script src="grid-sheet.js"></script>
   <script>
     /* ---------- state: the moment the drawing shows ---------- */
     const S = {
@@ -2321,6 +2333,24 @@
       drawTargets();
     }
 
+    /* ---------- the beat grid sheet (grid-sheet.js) ---------- */
+    function toggleGrid(k) {
+      if (GridSheet.isOpen() === k) GridSheet.close(); else GridSheet.open(k);
+    }
+    const ALT_MODES = [null, 'alts', 'unsure'];
+    let altMode = 0;
+    function cycleAlts() {
+      altMode = (altMode + 1) % ALT_MODES.length;
+      GridSheet.alternates(ALT_MODES[altMode]);
+      const b = document.getElementById('altsBtn');
+      b.classList.toggle('on', altMode > 0);
+      b.textContent = 'Other tempos: ' + ['off', 'on', 'unsure'][altMode];
+    }
+    document.addEventListener('gridsheet', () => {
+      document.getElementById('gridABtn').classList.toggle('on', GridSheet.isOpen() === 'A');
+      document.getElementById('gridBBtn').classList.toggle('on', GridSheet.isOpen() === 'B');
+    });
+
     function fit() {
       const ipad = document.getElementById('ipad'), frame = document.getElementById('frame');
       /* a 1194 pt iPad gets the stage at 1:1; smaller windows scale down */
@@ -2335,6 +2365,8 @@
       if (e.key === 'o' || e.key === 'O') cycleOverlay();
       if (e.key === 's' || e.key === 'S') swapStates();
       if (e.key === 't' || e.key === 'T') toggleTargets();
+      if (e.key === 'g' || e.key === 'G') { if (GridSheet.isOpen()) GridSheet.close(); else GridSheet.open('A'); }
+      if (e.key === 'Escape' && GridSheet.isOpen()) GridSheet.close();
     });
     window.addEventListener('resize', fit);
     const q = new URLSearchParams(location.search);
@@ -2343,6 +2375,8 @@
     if (q.has('swap')) swapStates();
     if (q.has('targets')) toggleTargets();
     if (q.has('overlay')) { cycleOverlay(); if (q.get('overlay') === 'diff') cycleOverlay(); }
+    if (q.get('alts') === 'unsure') { cycleAlts(); cycleAlts(); } else if (q.has('alts')) cycleAlts();
+    if (q.has('grid')) GridSheet.open(q.get('grid'));
   </script>
 </body>
 </html>

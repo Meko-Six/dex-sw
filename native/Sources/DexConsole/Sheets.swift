@@ -693,7 +693,7 @@ struct GridSheet: View {
         GeometryReader { geometry in
             let width = geometry.size.width, height = geometry.size.height
             ZStack(alignment: .topLeading) {
-                GridWaveCanvas(columns: columns(width), width: width, height: height)
+                GridWaveCanvas(columns: columns(width), ink: GridWaveCanvas.ink(deck.id), height: height)
                 if let shown { lines(shown, width: width, height: height) }
                 let now = (((demo ? 24 : deck.position) - start) / span * 100 * 100).rounded() / 100
                 if now >= 0, now <= 100 {
@@ -713,9 +713,9 @@ struct GridSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 3))
     }
 
-    /// Lowest and highest per column, at two columns a point: the audio when
-    /// it has been read for this zoom, the stored envelope until then.
-    private func columns(_ width: CGFloat) -> [(Float, Float)] {
+    /// Two columns a point: the audio when it has been read for this zoom,
+    /// the stored envelope until then.
+    private func columns(_ width: CGFloat) -> [GridWaveColumn] {
         let count = Int(width * 2), perColumn = span / Double(max(1, count))
         if demo {
             let audio = deck.id == "A" ? (bpm: 133.0, offsetMs: 489.9) : (bpm: 130.0, offsetMs: 247.3)
@@ -749,11 +749,11 @@ struct GridSheet: View {
             ForEach(beats, id: \.0) { beat, pct in
                 let downbeat = ((beat % 4) + 4) % 4 == 0
                 let x = width * pct / 100
-                Color(.sRGB, red: 1, green: 176 / 255, blue: 32 / 255, opacity: downbeat ? 1 : 0.85)
+                Color.white.opacity(downbeat ? 1 : 0.7)
                     .frame(width: downbeat ? 2 : 1, height: height).offset(x: x)
                 if downbeat {
                     Text(String(Int((Double(beat) / 4).rounded(.down)) + 1))
-                        .font(.custom("Menlo-Bold", fixedSize: 12)).foregroundStyle(Palette.led)
+                        .font(.custom("Menlo-Bold", fixedSize: 12)).foregroundStyle(Color.white)
                         .padding(.horizontal, 3).frame(height: 16)
                         .background(RoundedRectangle(cornerRadius: 3).fill(Color.black.opacity(0.62)))
                         .offset(x: x + 4, y: 3)
@@ -934,21 +934,48 @@ private struct GridPlayhead: View {
     }
 }
 
-/// `#gcanvas`: one column per half point, its lowest to its highest sample.
-private struct GridWaveCanvas: View {
-    let columns: [(Float, Float)]
-    let width: CGFloat
+/// `#gcanvas`: one column per half point, in shades of the deck's colour. The whole
+/// signal, its real lowest to highest, outermost and darkest; MID inside it in the
+/// deck colour; HIGH palest in the middle, both mirrored about the middle.
+struct GridWaveCanvas: View {
+    let columns: [GridWaveColumn]
+    /// The deck colour, 0–255.
+    let ink: (Double, Double, Double)
     let height: CGFloat
+
+    static func ink(_ deck: String) -> (Double, Double, Double) { deck == "B" ? (0xFF, 0x8A, 0x1F) : (0x27, 0x6F, 0xFF) }
+    static let midGain: Float = 1.2, highGain: Float = 0.9
+
+    /// The deck colour moved `amount` of the way to `to`.
+    private func shade(_ to: (Double, Double, Double), _ amount: Double) -> Color {
+        Color(.sRGB, red: (ink.0 + (to.0 - ink.0) * amount) / 255, green: (ink.1 + (to.1 - ink.1) * amount) / 255,
+              blue: (ink.2 + (to.2 - ink.2) * amount) / 255)
+    }
 
     var body: some View {
         Canvas { context, _ in
+            guard !columns.isEmpty else { return }
             let middle = height / 2, reach = middle - 6
-            var path = Path()
-            for (index, column) in columns.enumerated() {
-                let top = middle - CGFloat(column.1) * reach
-                path.addRect(CGRect(x: CGFloat(index) / 2, y: top, width: 0.5, height: max(0.5, CGFloat(column.1 - column.0) * reach)))
+            var outline = Path()
+            outline.move(to: CGPoint(x: 0, y: middle - CGFloat(columns[0].high) * reach))
+            for (index, column) in columns.enumerated() { outline.addLine(to: CGPoint(x: CGFloat(index) / 2, y: middle - CGFloat(column.high) * reach)) }
+            for (index, column) in columns.enumerated().reversed() { outline.addLine(to: CGPoint(x: CGFloat(index) / 2, y: middle - CGFloat(column.low) * reach)) }
+            outline.closeSubpath()
+            context.fill(outline, with: .color(shade((6, 6, 7), 0.45)))
+            func layer(_ value: (GridWaveColumn) -> Float, gain: Float, _ colour: Color) {
+                var path = Path()
+                path.move(to: CGPoint(x: 0, y: middle))
+                for (index, column) in columns.enumerated() {
+                    path.addLine(to: CGPoint(x: CGFloat(index) / 2, y: middle - CGFloat(min(1, value(column) * gain)) * reach))
+                }
+                for (index, column) in columns.enumerated().reversed() {
+                    path.addLine(to: CGPoint(x: CGFloat(index) / 2, y: middle + CGFloat(min(1, value(column) * gain)) * reach))
+                }
+                path.closeSubpath()
+                context.fill(path, with: .color(colour))
             }
-            context.fill(path, with: .color(Color(hex: 0xDFE2E4)))
+            layer(\.mid, gain: Self.midGain, shade(ink, 0))
+            layer(\.top, gain: Self.highGain, shade((255, 255, 255), 0.72))
         }
     }
 }
@@ -960,12 +987,9 @@ struct GridSamples {
     let perColumn: Double
     let values: [Float]
 
-    func columns(from time: Double, count: Int) -> [(Float, Float)] {
+    func columns(from time: Double, count: Int) -> [GridWaveColumn] {
         let first = Int(((time - start) / perColumn).rounded())
-        return (first..<(first + count)).map { index in
-            guard index >= 0, index * 2 + 1 < values.count else { return (0, 0) }
-            return (values[index * 2], values[index * 2 + 1])
-        }
+        return (first..<(first + count)).map { GridWaveBuilder.column(values, $0) }
     }
 }
 
@@ -988,20 +1012,25 @@ enum GridWindow {
     }
 
     /// The stored envelope, drawn evenly about the middle, until the audio has been read.
-    static func envelopeColumns(_ data: WaveformData, start: Double, perColumn: Double, count: Int) -> [(Float, Float)] {
-        var columns = [(Float, Float)](repeating: (0, 0), count: count)
+    /// Its bands are RMS, so √2 brings a steady tone's up to its peak, as the audio's are.
+    static func envelopeColumns(_ data: WaveformData, start: Double, perColumn: Double, count: Int) -> [GridWaveColumn] {
+        var columns = [GridWaveColumn](repeating: .empty, count: count)
         let level = data.level(secondsPerPixel: perColumn)
         let bin = level.secondsPerBin
         for index in 0..<count {
             let time = start + Double(index) * perColumn
             guard time >= 0, let value = level.sample(at: Int(time / bin)) else { continue }
-            columns[index] = (-value.peak, value.peak)
+            columns[index] = GridWaveColumn(low: -value.peak, high: value.peak, mid: value.mid * Float(2).squareRoot(), top: value.high * Float(2).squareRoot())
         }
         return columns
     }
 
-    /// The mockup's synthetic signal (`gridSignal`).
-    static func demoColumns(bpm: Double, offsetMs: Double, start: Double, perColumn: Double, count: Int) -> [(Float, Float)] {
+    /// The mockup's synthetic signal (`gridSignal`), read as `readGridColumns` reads it: at 44.1 kHz
+    /// from 60 ms before the window. The last window is kept, so a redraw doesn't redo it.
+    @MainActor private static var demoMemo: (key: [Double], columns: [GridWaveColumn])?
+    @MainActor static func demoColumns(bpm: Double, offsetMs: Double, start: Double, perColumn: Double, count: Int) -> [GridWaveColumn] {
+        let key = [bpm, offsetMs, start, perColumn, Double(count)]
+        if let demoMemo, demoMemo.key == key { return demoMemo.columns }
         func noise(_ ms: Double) -> Double {
             let x = sin((ms * 8).rounded(.down) * 12.9898) * 43758.5453
             return (x - x.rounded(.down)) * 2 - 1
@@ -1017,13 +1046,16 @@ enum GridWindow {
             let hat = off >= 0 ? 0.3 * exp(-off / 20) * noise(ms) : 0
             return kick + hat + 0.05 * noise(ms)
         }
-        return (0..<count).map { column in
-            var low = 0.0, high = 0.0
-            for sample in 0..<6 {
-                let value = signal((start + (Double(column) + Double(sample) / 6) * perColumn) * 1000)
-                low = min(low, value); high = max(high, value)
-            }
-            return (Float(low), Float(high))
+        let rate = 44_100.0, startMs = start * 1000, spanMs = perColumn * Double(count) * 1000
+        var builder = GridWaveBuilder(rate: rate, columns: count)
+        let first = Int(((startMs - GridWaveBuilder.warmUp * 1000) * rate / 1000).rounded(.down))
+        let last = Int((((startMs + spanMs) * rate / 1000)).rounded(.up))
+        for n in first..<max(first, last) {
+            let ms = Double(n) * 1000 / rate
+            builder.add(ms < 0 ? 0 : signal(ms), column: Int(((ms - startMs) / spanMs * Double(count)).rounded(.down)))
         }
+        let columns = (0..<count).map { GridWaveBuilder.column(builder.values, $0) }
+        demoMemo = (key, columns)
+        return columns
     }
 }

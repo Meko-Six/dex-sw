@@ -1,4 +1,5 @@
 import XCTest
+import DexCore
 @testable import DexConsole
 
 final class GridWindowTests: XCTestCase {
@@ -21,9 +22,10 @@ final class GridWindowTests: XCTestCase {
     }
 
     func testSamplesReadOutTheWindowAndNothingBeyondThem() {
-        let samples = GridSamples(start: 10, perColumn: 1, values: [-1, 1, -2, 2, -3, 3])
-        XCTAssertEqual(samples.columns(from: 11, count: 2).map(\.1), [2, 3])
-        XCTAssertEqual(samples.columns(from: 12, count: 2).map(\.1), [3, 0])
-        XCTAssertEqual(samples.columns(from: 9, count: 2).map(\.1), [0, 1])
+        let samples = GridSamples(start: 10, perColumn: 1, values: [-1, 1, 0.1, 0.2, -2, 2, 0.1, 0.2, -3, 3, 0.1, 0.2])
+        XCTAssertEqual(samples.columns(from: 11, count: 2).map(\.high), [2, 3])
+        XCTAssertEqual(samples.columns(from: 12, count: 2).map(\.high), [3, 0])
+        XCTAssertEqual(samples.columns(from: 9, count: 2).map(\.high), [0, 1])
+        XCTAssertEqual(samples.columns(from: 10, count: 1).first?.top, 0.2)
     }
 }

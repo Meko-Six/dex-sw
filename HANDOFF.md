@@ -50,10 +50,15 @@ Bose has to be paired again.
   reference for parity and as the option for a PC version. Don't delete it. Native Swift
   (`native/`) is the Mac + iPad app, with transport, library and analysis largely done and
   the console ported.
-- **New UI is designed in the HTML mockup** (`mockup/xdj-mixer-alt.html`,
-  `mockup/console.css`), then ported to SwiftUI. Electron has its own frozen copy of the
-  styles, so mockup changes don't reach it. Where the mockup is still ahead (the grid sheet's deck-colour waveform and white lines, ENERGY, a
-  working TAP, ↻ and ✕), the app has to catch up.
+- **New UI is designed in the HTML mockup**, then ported to SwiftUI. **The master layout is
+  `mockup/stage-two-decks.html`** (the user, 15 November): demo and design there. It has the
+  stage below the song windows and, since 15 November, the beat grid sheet
+  (`mockup/grid-sheet.js` / `.css`, opened from its toolbar). Anything else a change needs
+  (song windows, library, other sheets) is brought over from the older
+  `mockup/xdj-mixer-alt.html` + `mockup/console.css` when it's needed; until then those stay
+  the reference for what hasn't moved, and `npm run diff:native` still diffs against them.
+  Electron has its own frozen copy of the styles, so mockup changes don't reach it. Where the
+  mockup is still ahead (ENERGY, a working TAP, ↻ and ✕), the app has to catch up.
 - **The port is exact.** No deviation unless an improvement is raised and agreed first.
   The reference is the mockup (`npm run diff:native`, 42 screens). See
   [native/README.md](native/README.md) for scope and parity gates. Left: keyboard
@@ -597,6 +602,11 @@ None of this has been tried or heard by the user, except where it says otherwise
 - The beat grid sheet (2 November 2026, signed off and ported): a drag moves the
   waveform, not the lines, as Traktor does on iPad. Zoom − + from 8 s to 250 ms,
   ◀ BEAT ▶ and a track strip to move along the track. Re-analyse asks twice.
+  Its waveform (15 November 2026, mocked up and ported) is drawn in shades of the deck's
+  colour, as Traktor shades its own: the whole signal darkest and outermost with its exact
+  sample outline, MID (220 Hz–3.5 kHz) in the deck colour, HIGH palest in the middle
+  (`GridWaveBuilder` in DexCore, used by `GridWaveReader` and the demo). Beat lines and bar
+  numbers are white, so deck B's orange can't hide them.
 - Removing a track from the library is refused while a deck holds it (agreed 2
   November 2026): load another track there first.
 - Layout makes room for new widgets; never cram.
