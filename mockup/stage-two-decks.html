@@ -19,7 +19,8 @@
        a chip opens an 80 × 140 bar on the finger with the number and six meter
        rungs above it; relative drag, sideways for FINE, stretch at the ends,
        double-tap resets, detents; FX holds still for the effect list. LEVEL and
-       TEMPO are caps on tracks, with their readout above while touched. */
+       TEMPO are caps on tracks, with their readout above while touched; a
+       double-tap sends LEVEL to 100%, TEMPO to 0 and the crossfader to the centre. */
     :root {
       --text: #f2f2f4;
       --muted: #a0a0a6;
@@ -1530,8 +1531,10 @@
             <rect class="st21" x="671" y="607" width="102" height="62" rx="5" ry="5"/>
             <!-- Crossfader comb, channel and A/B -->
             <text class="st38" transform="translate(447.1 787.9)"><tspan class="st116" x="0" y="0">‹</tspan><tspan class="st118" x="7.73" y="-1">A</tspan></text>
-            <rect class="st76" x="480" y="750.16" width="234" height="19.84"/>
-            <rect class="st76" x="480" y="794" width="234" height="19.84"/>
+            <!-- The comb: a mark at every 10% of the cap's travel (its line at 0, 50, 100%), so the
+                 middle mark is the true centre, a little brighter. The drawing's repeating pattern
+                 (#comb) ran from x 10 and missed the centre. -->
+            <g><rect x="495.78" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="495.78" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="515.92" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="515.92" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="536.07" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="536.07" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="556.21" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="556.21" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="576.36" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="576.36" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="596.25" y="750.16" width="1.5" height="19.84" style="fill:#fff;opacity:.6"/><rect x="596.25" y="794" width="1.5" height="19.84" style="fill:#fff;opacity:.6"/><rect x="616.64" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="616.64" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="636.79" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="636.79" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="656.93" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="656.93" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="677.08" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="677.08" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="697.22" y="750.16" width="1" height="19.84" style="fill:#fff;opacity:.26"/><rect x="697.22" y="794" width="1" height="19.84" style="fill:#fff;opacity:.26"/></g>
             <rect class="st96" x="480" y="776" width="234" height="12" rx="3" ry="3"/>
             <text class="st38" transform="translate(730 786.9)"><tspan class="st119" x="0" y="0">B</tspan><tspan class="st117" x="9.06" y="1">›</tspan></text>
             <!-- LOOP legends -->
@@ -1623,8 +1626,8 @@
       mid: (k) => ({ range: [0, 1], reset: 1, meter: k, fmt: 'eq' }),
       low: (k) => ({ range: [0, 1], reset: 1, meter: k, fmt: 'eq' }),
       fx: (k) => ({ range: [-100, 100], step: 1, reset: 0, origin: 0, detent: 0, meter: k, fmt: 'fx', effect: S[k].effect }),
-      level: () => ({ range: [0, 1], meter: 'master', fmt: 'pct' }),
-      tempo: (k) => ({ range: [-16, 16], step: 0.1, invert: true, origin: 0, detent: 0, meter: null, fmt: 'tempo', bpm: S[k].bpm }),
+      level: () => ({ range: [0, 1], reset: 1, meter: 'master', fmt: 'pct' }),
+      tempo: (k) => ({ range: [-16, 16], step: 0.1, reset: 0, invert: true, origin: 0, detent: 0, meter: null, fmt: 'tempo', bpm: S[k].bpm }),
       cueMix: () => ({ range: [0, 1], reset: 0.5, detent: 0.5, meter: null, fmt: 'blend' }),
       phones: () => ({ range: [0, 1], meter: null, fmt: 'pct' }),
       master: () => ({ range: [0, 1], meter: 'master', fmt: 'pct' })
@@ -1946,7 +1949,7 @@
     };
     const now = () => performance.now() / 1000;
     const pointers = new Map();     // pointerId → what that finger holds
-    const lastTap = new Map();      // chip id → time of the last tap
+    const lastTap = new Map();      // chip, fader or crossfader id → time of the last tap
     const panels = new Map();       // chip id → open panel
     let picker = null;              // the FX list, while up
 
@@ -2177,13 +2180,18 @@
       } else if (ctl.startsWith('fader:')) {
         const id = ctl.slice(6), [, r] = id.split('.');
         const travel = r === 'level' ? LEVEL.run : 2 * TEMPO.half;
-        const drag = makeDrag(specOf(id), getV(id), p, travel);
-        pointers.set(e.pointerId, { kind: 'fader', id, drag });
+        // A second tap inside the window resets it (LEVEL to 100%, TEMPO to 0); the drag goes on from there.
+        const spec = specOf(id), last = lastTap.get(id), reset = last && now() - last < T.doubleTap && spec.reset != null;
+        if (reset) { setV(id, spec.reset); lastTap.delete(id); render(); }
+        const drag = makeDrag(spec, getV(id), p, travel);
+        pointers.set(e.pointerId, { kind: 'fader', id, drag, reset });
         showReadout(id, drag);
       } else if (ctl === 'xf') {
         const put = (q) => { S.M.xf = clamp((q.x - XF.x - XF.half) / (XF.w - 2 * XF.half), 0, 1); render(); };
-        pointers.set(e.pointerId, { kind: 'xf', put });
-        put(p);
+        // A second tap inside the window centres it; that touch then follows the finger only once it moves.
+        const last = lastTap.get('xf'), reset = last && now() - last < T.doubleTap;
+        pointers.set(e.pointerId, { kind: 'xf', put, start: p, reset, moved: false });
+        if (reset) { S.M.xf = 0.5; lastTap.delete('xf'); render(); } else put(p);
       } else if (ctl.startsWith('tcue:')) {
         const k = ctl.slice(5), d = S[k];          // held: the preview plays from the cue
         d.tCue = true; d.playing = true; d.slide = p.x; d.latched = false;
@@ -2209,7 +2217,8 @@
         if (v !== getV(h.id)) { setV(h.id, v); render(); }
         showReadout(h.id, h.drag);
       } else if (h.kind === 'xf') {
-        h.put(p);
+        if (Math.hypot(p.x - h.start.x, p.y - h.start.y) > 10) h.moved = true;
+        if (!h.reset || h.moved) h.put(p);
       } else if (h.kind === 'cue') {
         const d = S[h.k], P = TRANSPORT[h.k];
         d.slide = p.x;
@@ -2240,7 +2249,10 @@
         h.panel.drag = null;
         closePanel(h.id);
       } else if (h.kind === 'fader') {
+        if (!h.drag.moved && !h.reset) lastTap.set(h.id, now());
         hideReadout(h.id);
+      } else if (h.kind === 'xf') {
+        if (!h.moved && !h.reset) lastTap.set('xf', now());
       } else if (h.kind === 'platter') {
         S[h.k].lifted = false; drawLift();
       } else if (h.kind === 'cue') {

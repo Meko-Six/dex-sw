@@ -115,16 +115,15 @@ public struct SliderSpec: Sendable, Equatable {
         SliderSpec(range: 0...1, reset: 1, meter: .deck(.deck(deck)), format: .eq)
     }
 
-    /// LEVEL: a position, 0 silent to 1 full. No double-tap reset: a stray double-tap
-    /// must never throw a deck to full in the middle of a mix.
+    /// LEVEL: a position, 0 silent to 1 full; double-tap goes to full (the user's call, 15 Nov).
     public static func level(deck: String) -> SliderSpec {
-        SliderSpec(range: 0...1, meter: .master, format: .percent)
+        SliderSpec(range: 0...1, reset: 1, meter: .master, format: .percent)
     }
 
-    /// TEMPO: ±16 % in tenths, up slower, sticking gently at 0. No double-tap reset,
-    /// for the same reason as LEVEL.
+    /// TEMPO: ±16 % in tenths, up slower, sticking gently at 0; double-tap goes back to 0.
+    /// While SYNC holds it, it can't be touched, so a double-tap does nothing.
     public static func tempo(bpm: Double) -> SliderSpec {
-        SliderSpec(range: -16...16, step: 0.1, invert: true, origin: 0, detent: 0,
+        SliderSpec(range: -16...16, step: 0.1, reset: 0, invert: true, origin: 0, detent: 0,
                    meter: .none, format: .tempo(bpm: bpm))
     }
 

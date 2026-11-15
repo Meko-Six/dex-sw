@@ -920,19 +920,37 @@ private struct TransportKeys: View {
     }
 }
 
-/// The crossfader: the cap goes where the finger is, as on a mixer.
+/// The crossfader: the cap goes where the finger is, as on a mixer. A second tap
+/// within the sliders' double-tap window centres it; that touch then follows the
+/// finger only once it moves more than 10 pt.
 private struct Crossfader: View {
     let position: Double
     let set: (Double) -> Void
+    /// When and where the last plain tap lifted.
+    @State private var lastTap: (time: Date, at: CGPoint)?
+    /// The touch now down: where it began, whether it centred the cap, whether it has moved.
+    @State private var touch: (start: CGPoint, reset: Bool, moved: Bool)?
 
     var body: some View {
         let x = Layout.crossfader
         Color.clear
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { gesture in
+                if touch == nil {
+                    let reset = lastTap.map { Date().timeIntervalSince($0.time) < Chassis.tuning.doubleTapWindow
+                        && hypot($0.at.x - gesture.startLocation.x, $0.at.y - gesture.startLocation.y) < 40 } ?? false
+                    touch = (gesture.startLocation, reset, false)
+                    if reset { lastTap = nil; set(0.5) }
+                }
+                guard var now = touch else { return }
+                if hypot(gesture.translation.width, gesture.translation.height) > 10 { now.moved = true; touch = now }
+                guard !now.reset || now.moved else { return }
                 // The view starts 6 pt left of the track.
                 let along = gesture.location.x - 6 - x.half
                 set(min(1, max(0, Double(along / (x.w - 2 * x.half)))))
+            }.onEnded { gesture in
+                if let ended = touch, !ended.moved, !ended.reset { lastTap = (Date(), ended.start) }
+                touch = nil
             })
             .accessibilityElement()
             .accessibilityLabel("Crossfader")

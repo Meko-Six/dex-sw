@@ -267,6 +267,20 @@ Mockup first, then the app; not yet seen by the user in the app.
 - **All tracks and This set** carry the playlists' blue count badge.
 - **ADD FILES / ADD FOLDER** open where the last pick came from (`lastImportDirectory` in UserDefaults).
 
+## Double-tap resets and the crossfader comb — 15 November 2026
+
+The user asked; mocked up in `mockup/stage-two-decks.html`, then ported. Not yet tried by the user.
+
+- **Double-tap:** LEVEL goes to 100%, TEMPO to 0 (not while SYNC holds it), the crossfader to the centre;
+  the chips already reset (EQ flat, FILTER off, TRIM to AUTO, CUE/MST half). **PHONES and MASTER LEVEL
+  still don't reset, the user's choice**, so nothing jumps loud. LEVEL and TEMPO got a `reset` in the
+  DexSlider package's `SliderSpec` (the lab follows); the crossfader's is in `Crossfader` in `Chassis.swift`,
+  same window (`doubleTapWindow`, 0.25 s); that touch follows the finger only once it moves 10 pt.
+- **Crossfader comb:** the drawing's repeating pattern started at x 10 every 19.4 pt, so no mark sat on the
+  centre. Now a mark at every 10% of the cap's travel (its line at 0, 50, 100%), the middle one brighter and
+  1.5 pt wide, in the mockup's art; the PDFs were rebuilt (`npx electron mockup/build-stage-art.mjs`).
+  The user's drawing file is unchanged.
+
 ## Track details redesign and the exit key — 15 November 2026
 
 From the user's drawing, `mockup/song.info.svg` (636 × 400), mocked up then ported; not yet seen by the user in the app.

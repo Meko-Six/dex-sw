@@ -23,8 +23,8 @@ struct SpecTests {
         #expect(spec.fill(0) == 0.5)
     }
 
-    @Test func levelHasNoDoubleTapReset() {
-        #expect(SliderSpec.level(deck: "A").reset == nil)
+    @Test func aDoubleTapSendsLevelToFull() {
+        #expect(SliderSpec.level(deck: "A").reset == 1)
         #expect(SliderSpec.eq(deck: "B").reset == 1)
     }
 }
@@ -83,10 +83,10 @@ struct MasterSectionTests {
         #expect(spec.reset == 0.5)
     }
 
-    @Test func nothingLoudResetsOnADoubleTap() {
+    @Test func theOutputsDontResetOnADoubleTapButTempoGoesToZero() {
         #expect(SliderSpec.phones().reset == nil)
         #expect(SliderSpec.master().reset == nil)
-        #expect(SliderSpec.tempo(bpm: 120).reset == nil)
+        #expect(SliderSpec.tempo(bpm: 120).reset == 0)
     }
 
     @Test func noMeterMeansAShorterPanel() {
@@ -279,13 +279,14 @@ struct RouterTests {
         #expect(bank.value(trim) == -2)
     }
 
-    @Test func doubleTapLevelDoesNothing() {
+    @Test func doubleTapLevelGoesToFull() {
         let bank = bank()
         let level = SliderID("B", .level)
         bank.touchDown(1, at: CGPoint(x: 640, y: 620), time: 10)
         bank.touchUp(1, at: CGPoint(x: 640, y: 620), time: 10.08)
-        bank.touchDown(2, at: CGPoint(x: 640, y: 620), time: 10.2)
         #expect(bank.value(level) == 0)
+        bank.touchDown(2, at: CGPoint(x: 640, y: 620), time: 10.2)
+        #expect(bank.value(level) == 1)
     }
 
     @Test func syncLockRefusesTouches() {

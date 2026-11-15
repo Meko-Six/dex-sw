@@ -391,7 +391,7 @@
       "label": "TEMPO",
       "kind": "slider",
       "status": "live",
-      "does": "On the outer edge of each deck. Tempo ±16%; down is faster, as on a CDJ. Pitch is preserved while KEY is on; turn KEY off for vinyl behaviour. Double-tap resets to 0%. No readout under the fader: the tempo shows in the track window.",
+      "does": "On the outer edge of each deck. Tempo ±16%; down is faster, as on a CDJ. Pitch is preserved while KEY is on; turn KEY off for vinyl behaviour. Double-tap resets to 0% (not while SYNC holds it). No readout under the fader: the tempo shows in the track window.",
       "source": "src/renderer/ui/Console.tsx"
     },
     {
@@ -745,7 +745,7 @@
       "label": "LEVEL fader",
       "kind": "fader",
       "status": "live",
-      "does": "Channel LEVEL, the outermost fader of each channel, on the same law as the bands with 0 dB at the top. Relative drag, double-tap resets. Its index line carries the deck colour.",
+      "does": "Channel LEVEL, the outermost fader of each channel, on the same law as the bands with 0 dB at the top. Relative drag; double-tap goes to 100%. Its index line carries the deck colour.",
       "note": "Drawn as a ghost block in both plans. Adding it needs an engine gain node per deck before it can be a real control.",
       "inPlan": "xdj",
       "source": "src/renderer/ui/Mixer.tsx"
@@ -819,7 +819,7 @@
       "label": "crossfader",
       "kind": "slider",
       "status": "live",
-      "does": "Crossfader at the foot of the mixer. Each deck stays fully open until the centre and fades only across the far half, as a club mixer's cut curve: centred, LEVEL alone sets the mix. Relative drag, double-tap centres it.",
+      "does": "Crossfader at the foot of the mixer. Each deck stays fully open until the centre and fades only across the far half, as a club mixer's cut curve: centred, LEVEL alone sets the mix. The cap goes where the finger is; double-tap centres it. The comb marks every 10% of the travel, the brighter middle mark on the true centre.",
       "source": "native/Sources/DexCore/Transport.swift"
     },
     {
