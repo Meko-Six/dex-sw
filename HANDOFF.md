@@ -332,7 +332,7 @@ Illustrator drawing, `mockup/stage-two-decks FA.svg`, by way of the mockup
   `testPhonesTurnsDownTheCueAndNeverTheMaster`). Not yet heard.
 - **FX:** the list offers FILTER, REVERB, DELAY and GATER (the user's choice); only FILTER makes a
   sound. Choosing another effect sets the filter to off; the chip keeps its name and amount.
-- **Mapped onto what was there:** MASTER TEMPO is the old KEY lock; LOCK LOWS the old LINK LOWS;
+- **Mapped onto what was there:** MASTER TEMPO is the old KEY lock; LINK LOWS (was LOCK LOWS) the old LINK LOWS;
   CUE/MST the cue mix (the engine's 1 is all cue, the chip's left side). The kill pads, FILTER /
   TRIM / band / master popovers are no longer reachable from the chassis (the code stays, and the
   snapshot demos still draw them).
@@ -344,6 +344,24 @@ Illustrator drawing, `mockup/stage-two-decks FA.svg`, by way of the mockup
 - **Checked:** snapshot renders against the mockup; in the iPad simulator, a chip drag, the
   readouts, two fingers at once (LEVEL A with HI B), keys, LOCK LOWS, the crossfader, and the
   effect list by hold, then tap. Mac and iPad builds pass. **Not tried on the real iPad.**
+
+### The cue row and LINK keys (15 November 2026)
+
+From the user's drawing `mockup/headphone cue buttons.svg`, mocked up in
+`stage-two-decks.html` and ported: CUE · CUE/MST · LINK HI · LINK MIDS · LINK LOWS · PHONES · CUE,
+with the drawing's spacing (307.11 pt in, centred between the beat-jump rows; CUE/MST and PHONES
+are 78 pt wide). LINK HI is blue, MIDS orange, LOWS red; lit, each fills with its colour. Every key
+reads LINK (the user: "no more LOCK").
+
+- **A LINK key trades its band:** move one deck's HI, MID or LOW and the other deck's moves the
+  other way by as much (`FaderLaw.linked`; LOCK LOWS did this for LOW only).
+- **Turning a LINK key on sets up the swap** (the user's ask, all three keys): the playing deck's
+  band goes to 100% and the other deck's to 0, so one drag mixes the band across to the new track.
+  Both or neither playing: the MASTER deck keeps it (`FaderLaw.linkKeeper`, my choice). This is a
+  change for LOWS: it now jumps the moment the key goes on.
+- **Checked:** tests (keeper and trade), and a snapshot of the row against the mockup. **Not tried
+  in the running app or on the iPad.** `ConsoleState.links` (a set of bands) and
+  `actions.toggleLink(band)` replace `linkLows` / `toggleLinkLows`.
 
 ## Architecture audit and fixes — 12–13 November 2026
 

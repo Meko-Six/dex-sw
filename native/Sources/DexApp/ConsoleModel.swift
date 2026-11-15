@@ -39,7 +39,8 @@ final class ConsoleModel: ObservableObject {
     private struct Faders { var level = 1.0; var eq = ConsoleState.Bands() }
     private var faders = ["A": Faders(), "B": Faders()]
     private var spanSec = 12.0
-    private var linkLows = false
+    /// The LINK keys that are on, by band: "high", "mid", "low".
+    private var links: Set<String> = []
     private var energyEnabled = false
     private var hotCuesOpen: Set<String> = []
     private var hotCuesDeleting: Set<String> = []
@@ -156,7 +157,7 @@ final class ConsoleModel: ObservableObject {
                                 status: status, saveState: library.saveFailed ? .error : library.saving ? .saving : .saved)
         next.spanSec = spanSec
         next.crossfader = mixer.crossfader
-        next.linkLows = linkLows
+        next.links = links
         next.masterVolume = Double(mixer.volume)
         next.cueMix = mixer.cueMix
         next.phones = mixer.phones
@@ -338,19 +339,35 @@ final class ConsoleModel: ObservableObject {
         var f = faders[id]!
         switch param {
         case "level": f.level = value
-        case "high": f.eq.high = value
-        case "mid": f.eq.mid = value
-        case "low":
-            if linkLows {
+        case "high", "mid", "low":
+            // A linked band trades: the other deck's moves the other way by as much.
+            if links.contains(param) {
                 let other = id == "A" ? "B" : "A"
-                faders[other]!.eq.low = FaderLaw.linkedLow(faders[other]!.eq.low, delta: value - f.eq.low)
+                faders[other]!.eq[param] = FaderLaw.linked(faders[other]!.eq[param], delta: value - f.eq[param])
                 applyFaders(deck(other))
             }
-            f.eq.low = value
+            f.eq[param] = value
         default: return
         }
         faders[id] = f
         applyFaders(deck(id))
+        queueRebuild()
+    }
+
+    /// A LINK key. Turning it on sets up the swap: the playing deck's band to 100% and the
+    /// other's to 0 (the MASTER deck keeps it when both or neither are playing), so one
+    /// drag then mixes the band across.
+    private func toggleLink(_ band: String) {
+        guard ["high", "mid", "low"].contains(band) else { return }
+        if links.remove(band) == nil {
+            links.insert(band)
+            let keep = FaderLaw.linkKeeper(aPlaying: mixer.a.playing, bPlaying: mixer.b.playing, bIsMaster: mixer.b.isMaster)
+            let other = keep == "A" ? "B" : "A"
+            faders[keep]!.eq[band] = 1
+            faders[other]!.eq[band] = 0
+            applyFaders(deck(keep))
+            applyFaders(deck(other))
+        }
         queueRebuild()
     }
 
@@ -406,7 +423,7 @@ final class ConsoleModel: ObservableObject {
         }
         actions.setSpan = { [weak self] in self?.spanSec = min(48, max(3, $0)); self?.queueRebuild() }
         actions.tapArt = { [weak self] in self?.tapArt($0) }
-        actions.toggleLinkLows = { [weak self] in self?.linkLows.toggle(); self?.queueRebuild() }
+        actions.toggleLink = { [weak self] band in self?.toggleLink(band) }
         actions.openTrim = { [weak self] id in self?.setMixerPopover(.trim(id)) }
         actions.openBand = { [weak self] band in self?.setMixerPopover(.band(band)) }
         actions.library = libraryActions()

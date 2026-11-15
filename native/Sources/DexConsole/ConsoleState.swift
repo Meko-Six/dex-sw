@@ -53,6 +53,11 @@ public struct ConsoleState: Equatable, Sendable {
     public struct Bands: Equatable, Sendable {
         public var low, mid, high: Double
         public init(low: Double = 1, mid: Double = 1, high: Double = 1) { self.low = low; self.mid = mid; self.high = high }
+        /// A band by name: "high", "mid" or anything else for LOW.
+        public subscript(band: String) -> Double {
+            get { band == "high" ? high : band == "mid" ? mid : low }
+            set { if band == "high" { high = newValue } else if band == "mid" { mid = newValue } else { low = newValue } }
+        }
     }
     public struct Kills: Equatable, Sendable {
         public var low, mid, high: Bool
@@ -306,7 +311,8 @@ public struct ConsoleState: Equatable, Sendable {
     /// Seconds across a zoom lane.
     public var spanSec: Double = 12
     public var crossfader = 0.5
-    public var linkLows = false
+    /// The LINK keys that are on, by band: "high", "mid", "low".
+    public var links: Set<String> = []
     /// The centre strip's meters when no clock drives them: snapshots and previews.
     public var meters = Meters.silent
     /// Master output, 0 … 1 (unity).
@@ -358,7 +364,8 @@ public struct ConsoleActions {
     /// The cover: open the library, or load the selected track on this deck.
     public var tapArt: (String) -> Void = { _ in }
     public var deck = DeckActions()
-    public var toggleLinkLows: () -> Void = {}
+    /// A LINK key, by band: "high", "mid" or "low".
+    public var toggleLink: (String) -> Void = { _ in }
     public var openTrim: (String) -> Void = { _ in }
     public var openBand: (String) -> Void = { _ in }
     public var setCrossfader: (Double) -> Void = { _ in }

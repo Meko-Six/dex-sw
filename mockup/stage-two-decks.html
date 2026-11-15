@@ -879,6 +879,10 @@
               <stop offset="0" stop-color="#ff7a5c"/><stop offset=".32" stop-color="#f8654a"/><stop offset=".49" stop-color="#f0553d"/>
               <stop offset=".67" stop-color="#e64634"/><stop offset=".81" stop-color="#d93a2b"/><stop offset=".95" stop-color="#cc3024"/>
             </radialGradient>
+            <radialGradient id="kBlue" cx=".5" cy=".5" r=".71">
+              <stop offset="0" stop-color="#6fa0ff"/><stop offset=".46" stop-color="#4f8bff"/><stop offset=".74" stop-color="#357aff"/>
+              <stop offset=".95" stop-color="#276fff"/>
+            </radialGradient>
             <radialGradient id="kWhite" cx=".5" cy=".5" r=".71">
               <stop offset="0" stop-color="#fff"/><stop offset=".46" stop-color="#f3f3f3"/><stop offset=".6" stop-color="#e6e6e6"/>
               <stop offset=".74" stop-color="#d2d2d2"/><stop offset=".78" stop-color="#d1d1d1"/>
@@ -1562,8 +1566,9 @@
       <h2>FROM THE DRAWING</h2>
       <ul>
         <li><b>Layout.</b> Everything below the song windows is <code>stage-two-decks FA.svg</code>. The static art is the drawing's own SVG; the controls are drawn to its coordinates. <b>Drawing (O)</b> lays the drawing over the mockup at 50%, then as a difference, then off.</li>
-        <li><b>Two looks per control.</b> Deck A shows one state and deck B the other, as drawn. Tap a control to change it, or <b>Swap states (S)</b> to flip every key, loop, PLAY, AUTO TRIM and LOCK LOWS at once.</li>
-        <li><b>Keys.</b> MASTER TEMPO red fill / red outline; SYNC white / dark; MASTER orange gradient / orange outline (only one deck is master); HOT CUE one look; channel CUE orange gradient / outline; LOCK LOWS red outline, red fill when on.</li>
+        <li><b>Two looks per control.</b> Deck A shows one state and deck B the other, as drawn. Tap a control to change it, or <b>Swap states (S)</b> to flip every key, loop, PLAY, AUTO TRIM and LINK LOWS at once.</li>
+        <li><b>Keys.</b> MASTER TEMPO red fill / red outline; SYNC white / dark; MASTER orange gradient / orange outline (only one deck is master); HOT CUE one look; channel CUE orange gradient / outline; LINK LOWS red outline, red fill when on; LINK HI blue and LINK MIDS orange the same way.</li>
+        <li><b>Cue row</b> (<code>headphone cue buttons.svg</code>): CUE · CUE/MST · LINK HI · LINK MIDS · LINK LOWS · PHONES · CUE. A linked band trades: drag one deck's HI, MID or LOW and the other deck's moves the other way by as much. Turning on any LINK key first sets the playing deck's band to 100% and the other deck's to 0, ready to mix across (with both or neither playing, the MASTER deck keeps it).</li>
         <li><b>Chips.</b> EQ grey, filled from the foot; FX blue, filled from OFF at the centre ticks; TRIM green: outline and centre band when set by hand, green fill when AUTO. CUE/MST fills orange by the CUE share; PHONES orange from the foot; MASTER LEVEL yellow from the foot.</li>
         <li><b>Transport.</b> CUE ring orange when lit, grey when not (tap to change); PLAY green ring with ❙❙ while playing, grey ring with ▶ when stopped; loop blue when on, grey when off.</li>
         <li><b>Faders.</b> LEVEL on the drawing's 10 … 0 scale with its lit slot; TEMPO ±16 % on the comb, − at the top as on a CDJ; crossfader with the drawn cap.</li>
@@ -1597,7 +1602,7 @@
       B: { mt: false, sync: true, master: false, chCue: false, tCue: false, playing: false, loopOn: false, loop: 16, jump: 1,
            bpm: 130.0, tempo: 2.31, level: 0.8285, trim: 1.2, trimAuto: true, auto: 1.2,
            hi: 1, mid: 1, low: 0.62, fx: 40, effect: 'gater', meter: -4.0 },
-      M: { master: 0.8, cueMix: 0.5, phones: 0.62, lockLows: false, xf: 0.5 }
+      M: { master: 0.8, cueMix: 0.5, phones: 0.62, linkLows: false, linkHi: false, linkMids: false, xf: 0.5 }
     };
     const LOOPS = [1, 2, 4, 8, 16, 32, 64];
     const JUMPS = [1, 4, 16, 32];
@@ -1612,8 +1617,16 @@
     const COL = { A: 426, B: 677 };
     const ROW = { trim: 358, hi: 425, mid: 486, low: 547, fx: 613, foot: 679 };
     const MASTER_CHIP = { x: 551.64, y: 357.91, w: 90.71, h: 48.19 };
-    const CH_CUE = { A: 332.73, B: 784.5, y: 686.99 };
-    const LOWS = { x: 558.73, y: 686.99 };
+    /* The cue row (headphone cue buttons.svg): CUE · CUE/MST · LINK HI · LINK MIDS ·
+       LINK LOWS · PHONES · CUE, placed with the drawing's own spacing, 307.11 pt in. */
+    const CUE_ROW = { x: 307.11, key: 686.99, chip: 679, chipW: 78 };
+    const CH_CUE = { A: 307.73, B: 809.5, y: 686.99 };
+    const LINKS = { hi: 476.73, mids: 558.73, lows: 640.73 };
+    const CUE_CHIPS = { cueMix: 393, phones: 722 };
+    /* Each link's band, its state flag and its key */
+    const LINK_BANDS = { hi: { band: 'hi', flag: 'linkHi', lines: ['LINK', 'HI'] },
+                         mids: { band: 'mid', flag: 'linkMids', lines: ['LINK', 'MIDS'] },
+                         lows: { band: 'low', flag: 'linkLows', lines: ['LINK', 'LOWS'] } };
     const LEVEL = { A: 359.93, B: 834.07, zero: 627.55, run: 174.55, foot: 641 };
     const TEMPO = { A: 19.24, B: 1114.76, y: 435, w: 60, h: 206, zero: 537.5, half: 85 };
     const XF = { x: 480, w: 234, cy: 782, half: 16.28 };
@@ -1670,7 +1683,28 @@
 
     /* Values live in S; a control id is "A.trim", "M.phones", … */
     const getV = (id) => { const [k, r] = id.split('.'); return S[k][r]; };
-    function setV(id, v) { const [k, r] = id.split('.'); S[k][r] = v; if (r === 'trim') S[k].trimAuto = false; }
+    function setV(id, v) {
+      const [k, r] = id.split('.');
+      // A linked band trades: the other deck's moves the other way by as much.
+      const link = Object.values(LINK_BANDS).find((l) => l.band === r && S.M[l.flag]);
+      if (link && (k === 'A' || k === 'B')) {
+        const other = k === 'A' ? 'B' : 'A';
+        S[other][r] = Math.min(1, Math.max(0, S[other][r] - (v - S[k][r])));
+      }
+      S[k][r] = v;
+      if (r === 'trim') S[k].trimAuto = false;
+    }
+    /* Turning on a LINK key sets up the swap: the playing deck's band
+       goes to 100% and the other deck's to 0, so one drag mixes it across.
+       With both or neither playing, the MASTER deck keeps it. */
+    function engageLink(name) {
+      const { band, flag } = LINK_BANDS[name];
+      S.M[flag] = !S.M[flag];
+      if (!S.M[flag]) return;
+      const keep = S.A.playing !== S.B.playing ? (S.A.playing ? 'A' : 'B') : (S.B.master ? 'B' : 'A');
+      S[keep][band] = 1;
+      S[keep === 'A' ? 'B' : 'A'][band] = 0;
+    }
     const specOf = (id) => { const [k, r] = id.split('.'); return SPEC[r](k); };
 
     /* ---------- meters: a pretend signal, so the rungs move ---------- */
@@ -1711,23 +1745,28 @@
     /* ---------- drawing the controls ---------- */
     const f2 = (v) => +(+v).toFixed(2);
 
-    /* A deck key in either look. kind: sync · master · mt · hot · cue · lows */
+    /* A deck key in either look. kind: sync · master · mt · hot · cue · lows · hi · mids */
     function key(ctl, kind, x, y, lit, lines) {
       const w = kind === 'mt' ? KEY.mtW : KEY.w, h = KEY.h, cx = f2(x + w / 2);
       const off = { sync: 'st113', master: 'st112', cue: 'st112', mt: 'st111', lows: 'st111', hot: 'st114' }[kind];
-      const on = { sync: 'kWhite', master: 'kOrange', cue: 'kOrange', mt: 'kRed', lows: 'kRed' }[kind];
+      const on = { sync: 'kWhite', master: 'kOrange', cue: 'kOrange', mt: 'kRed', lows: 'kRed', hi: 'kBlue', mids: 'kOrange' }[kind];
+      /* LINK HI blue and LINK MIDS orange, outlined as drawn */
+      const outline = { hi: '#2258af', mids: '#935e00' }[kind];
       const body = lit
         ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" style="fill:url(#${on});stroke:#000;stroke-width:1.25px"/>`
-        : `<rect class="${off}" x="${x}" y="${y}" width="${w}" height="${h}" rx="5"/>`;
+        : outline
+          ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" style="stroke:${outline};stroke-width:1.25px"/>`
+          : `<rect class="${off}" x="${x}" y="${y}" width="${w}" height="${h}" rx="5"/>`;
       const hl = kind === 'mt'
         ? `<rect class="${lit ? 'st70' : 'st66'}" x="${f2(x + 1.14)}" y="${f2(y + 1.28)}" width="${f2(w - 2.28)}" height=".85"/>`
         : `<rect class="${lit ? 'st70' : 'st66'}" x="${f2(x + 1.47)}" y="${f2(y + 1.28)}" width="${f2(w - 2.95)}" height=".85"/>`;
       const led = lit && (kind === 'master' || kind === 'cue') ? `<circle class="st41" cx="${f2(x + 70.27)}" cy="${f2(y + 4.01)}" r="2"/>` : '';
       const textClass = {
         sync: lit ? 'st103' : 'st104', master: lit ? 'st103' : 'st100', cue: lit ? 'st103' : 'st100',
-        mt: lit ? 'st101' : 'st99', lows: 'st98', hot: 'st34'
+        mt: lit ? 'st101' : 'st99', lows: 'st98', hi: 'st98', mids: 'st98', hot: 'st34'
       }[kind];
-      const ink = kind === 'lows' && lit ? ' style="fill:#000"' : '';
+      const ink = ['lows', 'hi', 'mids'].includes(kind) && lit ? ' style="fill:#000"'
+        : kind === 'hi' ? ' style="fill:#276fff"' : kind === 'mids' ? ' style="fill:#e18400"' : '';
       const text = lines.length === 1
         ? `<text class="${textClass}" x="${cx}" y="${f2(y + 22.32)}" text-anchor="middle"${ink}>${lines[0]}</text>`
         : `<text class="${textClass}" x="${cx}" y="${f2(y + 16.31)}" text-anchor="middle"${ink}>${lines[0]}</text>
@@ -1747,20 +1786,20 @@
     }
 
     /* the chip's shell, highlight and two lines of text */
-    const shell = (x, y) => `<rect class="st94" x="${x}" y="${y}" width="90" height="50" rx="6"/>`;
-    const sheen = (x, y) => `<rect class="st62" x="${f2(x + 1.5)}" y="${f2(y + 1.5)}" width="87" height="1"/>`;
-    const words = (x, y, title, value, tc = 'st43', vc = 'st44') =>
-      `<text class="${tc}" x="${x + 45}" y="${y + 20}" text-anchor="middle">${title}</text>
-       <text class="${vc}" x="${x + 45}" y="${y + 41}" text-anchor="middle">${value}</text>`;
+    const shell = (x, y, w = 90) => `<rect class="st94" x="${x}" y="${y}" width="${w}" height="50" rx="6"/>`;
+    const sheen = (x, y, w = 90) => `<rect class="st62" x="${f2(x + 1.5)}" y="${f2(y + 1.5)}" width="${w - 3}" height="1"/>`;
+    const words = (x, y, title, value, tc = 'st43', vc = 'st44', w = 90) =>
+      `<text class="${tc}" x="${x + w / 2}" y="${y + 20}" text-anchor="middle">${title}</text>
+       <text class="${vc}" x="${x + w / 2}" y="${y + 41}" text-anchor="middle">${value}</text>`;
 
     /* EQ (grey) and PHONES (orange): filled from the foot */
-    function footChip(id, x, y, title, v, tone) {
+    function footChip(id, x, y, title, v, tone, w = 90) {
       const fh = f2(Math.min(48.75, 50 * v));
       const [fill, line] = tone === 'orange' ? ['st28', 'st7'] : ['st26', 'st2'];
-      return `<g data-ctl="chip:${id}">${shell(x, y)}
-        ${fh > 0 ? `<rect class="${fill}" x="${x + 1}" y="${f2(y + 50 - fh)}" width="88" height="${fh}"/>` : ''}
-        <rect class="${line}" x="${f2(x + 1.21)}" y="${f2(y + 1.25)}" width="87.5" height="47.5" rx="5"/>
-        ${sheen(x, y)}${words(x, y, title, readout(specOf(id), v))}</g>`;
+      return `<g data-ctl="chip:${id}">${shell(x, y, w)}
+        ${fh > 0 ? `<rect class="${fill}" x="${x + 1}" y="${f2(y + 50 - fh)}" width="${w - 2}" height="${fh}"/>` : ''}
+        <rect class="${line}" x="${f2(x + 1.21)}" y="${f2(y + 1.25)}" width="${w - 2.5}" height="47.5" rx="5"/>
+        ${sheen(x, y, w)}${words(x, y, title, readout(specOf(id), v), 'st43', 'st44', w)}</g>`;
     }
 
     /* FX (blue) and hand-set TRIM (green): a band from OFF/0 at the centre ticks */
@@ -1794,16 +1833,16 @@
 
     /* CUE/MST: split, the orange fill is the CUE share */
     function cueMixChip() {
-      const x = COL.A, y = ROW.foot, v = S.M.cueMix, cue = 100 - pct(v), mst = pct(v);
-      const fw = f2(88 * cue / 100);
-      return `<g data-ctl="chip:M.cueMix">${shell(x, y)}
+      const x = CUE_CHIPS.cueMix, y = CUE_ROW.chip, w = CUE_ROW.chipW, v = S.M.cueMix, cue = 100 - pct(v), mst = pct(v);
+      const fw = f2((w - 2) * cue / 100);
+      return `<g data-ctl="chip:M.cueMix">${shell(x, y, w)}
         ${fw > 0 ? `<rect class="st28" x="${x + 1}" y="${y}" width="${fw}" height="50"/>` : ''}
-        <rect class="st7" x="${f2(x + 1.21)}" y="${f2(y + 1.25)}" width="87.5" height="47.5" rx="5"/>
-        ${sheen(x, y)}
-        <text class="st43" x="${f2(x + 23.4)}" y="${y + 20}" text-anchor="middle">CUE</text>
-        <text class="st43" x="${f2(x + 68.9)}" y="${y + 20}" text-anchor="middle">MST</text>
-        <text class="st44" x="${f2(x + 23.4)}" y="${y + 41}" text-anchor="middle">${cue}</text>
-        <text class="st44" x="${f2(x + 68.9)}" y="${y + 41}" text-anchor="middle">${mst}</text></g>`;
+        <rect class="st7" x="${f2(x + 1.21)}" y="${f2(y + 1.25)}" width="${w - 2.5}" height="47.5" rx="5"/>
+        ${sheen(x, y, w)}
+        <text class="st43" x="${f2(x + w * 0.26)}" y="${y + 20}" text-anchor="middle">CUE</text>
+        <text class="st43" x="${f2(x + w * 0.765)}" y="${y + 20}" text-anchor="middle">MST</text>
+        <text class="st44" x="${f2(x + w * 0.26)}" y="${y + 41}" text-anchor="middle">${cue}</text>
+        <text class="st44" x="${f2(x + w * 0.765)}" y="${y + 41}" text-anchor="middle">${mst}</text></g>`;
     }
 
     function masterChip() {
@@ -1944,8 +1983,8 @@
         deckKeys('A') + deckKeys('B')
         + channel('A') + channel('B')
         + masterChip() + cueMixChip()
-        + footChip('M.phones', COL.B, ROW.foot, 'PHONES', S.M.phones, 'orange')
-        + key('lows', 'lows', LOWS.x, LOWS.y, S.M.lockLows, ['LOCK', 'LOWS'])
+        + footChip('M.phones', CUE_CHIPS.phones, CUE_ROW.chip, 'PHONES', S.M.phones, 'orange', CUE_ROW.chipW)
+        + Object.entries(LINK_BANDS).map(([name, l]) => key(`link:${name}`, name, LINKS[name], CUE_ROW.key, S.M[l.flag], l.lines)).join('')
         + levelFader('A') + levelFader('B') + tempoFader('A') + tempoFader('B')
         + crossfader()
         + transport('A') + transport('B') + loop('A') + loop('B') + beatJump('A') + beatJump('B');
@@ -1990,8 +2029,8 @@
     /* the chip's frame on the stage */
     function chipRect(id) {
       if (id === 'M.master') return { ...MASTER_CHIP };
-      if (id === 'M.cueMix') return { x: COL.A, y: ROW.foot, w: 90, h: 50 };
-      if (id === 'M.phones') return { x: COL.B, y: ROW.foot, w: 90, h: 50 };
+      if (id === 'M.cueMix') return { x: CUE_CHIPS.cueMix, y: CUE_ROW.chip, w: CUE_ROW.chipW, h: 50 };
+      if (id === 'M.phones') return { x: CUE_CHIPS.phones, y: CUE_ROW.chip, w: CUE_ROW.chipW, h: 50 };
       const [k, r] = id.split('.');
       return { x: COL[k], y: ROW[r], w: 90, h: 50 };
     }
@@ -2141,7 +2180,7 @@
         }
         case 'hot': break;                     // opens the hot cue sheet in the app
         case 'chcue': d.chCue = !d.chCue; break;
-        case 'lows': S.M.lockLows = !S.M.lockLows; break;
+        case 'link': engageLink(k); break;
         case 'tcue': d.tCue = !d.tCue; break;
         case 'play': d.playing = !d.playing; break;
         case 'loopn': d.loopOn = !d.loopOn; break;
@@ -2301,7 +2340,7 @@
         if (d.trimAuto) d.trim = d.auto;
       });
       [S.A.master, S.B.master] = [S.B.master, S.A.master];
-      S.M.lockLows = !S.M.lockLows;
+      S.M.linkLows = !S.M.linkLows;
       document.getElementById('swapBtn').classList.toggle('on');
       render();
     }

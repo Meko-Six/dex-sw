@@ -24,8 +24,13 @@ public enum FaderLaw {
         let db = db(position)
         return db == -.infinity ? 0 : pow(10, db / 20)
     }
-    /// LINK LOWS: the other deck's LOW moves the opposite way.
-    public static func linkedLow(_ otherStart: Double, delta: Double) -> Double { min(1, max(0, otherStart - delta)) }
+    /// A linked band (LINK HI · MIDS · LOWS): the other deck's moves the opposite way.
+    public static func linked(_ otherStart: Double, delta: Double) -> Double { min(1, max(0, otherStart - delta)) }
+    /// Which deck keeps a band at 100% when its LINK key goes on, the other going to 0:
+    /// the one playing, or the MASTER deck when both or neither are.
+    public static func linkKeeper(aPlaying: Bool, bPlaying: Bool, bIsMaster: Bool) -> String {
+        aPlaying != bPlaying ? (aPlaying ? "A" : "B") : (bIsMaster ? "B" : "A")
+    }
 }
 
 /// The three EQ kills.

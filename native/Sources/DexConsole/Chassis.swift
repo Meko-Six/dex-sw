@@ -94,8 +94,16 @@ enum Layout {
     static func keys(_ deck: String) -> (mt: CGFloat, sync: CGFloat, master: CGFloat, hot: CGFloat) {
         deck == "B" ? (1106.73, 820.73, 906.73, 1008.73) : (28.73, 114.73, 200.73, 298.73)
     }
-    static let channelCue = (a: CGFloat(332.73), b: CGFloat(784.5), y: CGFloat(686.99))
-    static let lockLows = CGPoint(x: 558.73, y: 686.99)
+    /// The cue row (`headphone cue buttons.svg`): CUE · CUE/MST · LINK HI · LINK MIDS ·
+    /// LINK LOWS · PHONES · CUE, with the drawing's own spacing, 307.11 pt in.
+    static let channelCue = (a: CGFloat(307.73), b: CGFloat(809.5), y: CGFloat(686.99))
+    /// The LINK keys by band, left to right.
+    static let links: [(band: String, x: CGFloat, lines: [String])] = [
+        ("high", 476.73, ["LINK", "HI"]), ("mid", 558.73, ["LINK", "MIDS"]), ("low", 640.73, ["LINK", "LOWS"])
+    ]
+    /// CUE/MST and PHONES, 78 × 50 on the cue row.
+    static let cueMixChip = CGRect(x: 393, y: 679, width: 78, height: 50)
+    static let phonesChip = CGRect(x: 722, y: 679, width: 78, height: 50)
 
     // The chips, 90 × 50, in a column each side of the meters.
     static let chip = CGSize(width: 90, height: 50)
@@ -242,6 +250,7 @@ private extension GraphicsContext {
 @MainActor private enum Draw {
     static let orangeStops: [(Double, UInt32)] = [(0, 0xCD9C04), (0.46, 0xD49210), (0.6, 0xDC8519), (0.74, 0xE87022), (0.88, 0xF05A27)]
     static let redStops: [(Double, UInt32)] = [(0, 0xFF7A5C), (0.32, 0xF8654A), (0.49, 0xF0553D), (0.67, 0xE64634), (0.81, 0xD93A2B), (0.95, 0xCC3024)]
+    static let blueStops: [(Double, UInt32)] = [(0, 0x6FA0FF), (0.46, 0x4F8BFF), (0.74, 0x357AFF), (0.95, 0x276FFF)]
     static let whiteStops: [(Double, UInt32)] = [(0, 0xFFFFFF), (0.46, 0xF3F3F3), (0.6, 0xE6E6E6), (0.74, 0xD2D2D2), (0.78, 0xD1D1D1)]
     static let autoStops: [(Double, UInt32)] = [(0, 0x8BE596), (0.32, 0x74DA82), (0.49, 0x62CF72), (0.67, 0x55C467), (0.81, 0x49BA60), (0.95, 0x3FAE56)]
     static let capStops: [(Double, UInt32)] = [
@@ -252,7 +261,10 @@ private extension GraphicsContext {
 
     // MARK: Keys
 
-    enum KeyKind { case sync, master, mt, hot, cue, lows }
+    enum KeyKind { case sync, master, mt, hot, cue, lows, hi, mids }
+
+    /// A LINK key's look by band: LOWS red, MIDS orange, HI blue.
+    static func linkKind(_ band: String) -> KeyKind { band == "high" ? .hi : band == "mid" ? .mids : .lows }
 
     /// A deck key in either look (`key()` in the mockup).
     static func key(_ c: GraphicsContext, _ kind: KeyKind, x: CGFloat, y: CGFloat, lit: Bool, lines: [String]) {
@@ -260,8 +272,9 @@ private extension GraphicsContext {
         let box = CGRect(x: x, y: y, width: w, height: h)
         if lit {
             switch kind {
-            case .master, .cue: c.radial(box, rx: 5, stops: orangeStops)
+            case .master, .cue, .mids: c.radial(box, rx: 5, stops: orangeStops)
             case .mt, .lows: c.radial(box, rx: 5, stops: redStops)
+            case .hi: c.radial(box, rx: 5, stops: blueStops)
             default: c.radial(box, rx: 5, stops: whiteStops)
             }
             c.rect(x, y, w, h, rx: 5, stroke: .black, width: 1.25)
@@ -271,6 +284,8 @@ private extension GraphicsContext {
             case .master, .cue: 0x995A00
             case .mt, .lows: 0xA03225
             case .hot: 0x1A4CAD
+            case .hi: 0x2258AF
+            case .mids: 0x935E00
             }
             c.rect(x, y, w, h, rx: 5, fill: .black, stroke: Ink.hex(line), width: 1.25)
         }
@@ -286,6 +301,8 @@ private extension GraphicsContext {
         case .master, .cue: (.demi(15), lit ? .black : Ink.orange)
         case .mt: (.condDemi(13.74), lit ? .black : Ink.hex(0xE94F2D))
         case .lows: (.demi(13.74), lit ? .black : Ink.hex(0xEC4A37))
+        case .hi: (.demi(13.74), lit ? .black : Ink.hex(0x276FFF))
+        case .mids: (.demi(13.74), lit ? .black : Ink.hex(0xE18400))
         case .hot: (.demi(15), Ink.blue)
         }
         if lines.count == 1 {
@@ -298,28 +315,29 @@ private extension GraphicsContext {
 
     // MARK: Chips
 
-    static func shell(_ c: GraphicsContext, _ x: CGFloat, _ y: CGFloat) {
-        c.rect(x, y, 90, 50, rx: 6, fill: .black, stroke: .black)
+    static func shell(_ c: GraphicsContext, _ x: CGFloat, _ y: CGFloat, width: CGFloat = 90) {
+        c.rect(x, y, width, 50, rx: 6, fill: .black, stroke: .black)
     }
-    static func sheen(_ c: GraphicsContext, _ x: CGFloat, _ y: CGFloat) {
-        c.rect(x + 1.5, y + 1.5, 87, 1, fill: .white, opacity: 0.06)
+    static func sheen(_ c: GraphicsContext, _ x: CGFloat, _ y: CGFloat, width: CGFloat = 90) {
+        c.rect(x + 1.5, y + 1.5, width - 3, 1, fill: .white, opacity: 0.06)
     }
-    static func words(_ c: GraphicsContext, _ x: CGFloat, _ y: CGFloat, _ title: String, _ value: String,
+    static func words(_ c: GraphicsContext, _ x: CGFloat, _ y: CGFloat, _ title: String, _ value: String, width: CGFloat = 90,
                       title titleColour: Color = Ink.hex(0xC6C7CC), value valueColour: Color = Ink.hex(0xEEF0F3)) {
-        c.text(title, .demi(15), titleColour, x: x + 45, y: y + 20)
-        c.text(value, .bold(19), valueColour, x: x + 45, y: y + 41)
+        c.text(title, .demi(15), titleColour, x: x + width / 2, y: y + 20)
+        c.text(value, .bold(19), valueColour, x: x + width / 2, y: y + 41)
     }
 
     /// EQ (grey) and PHONES (orange): filled from the foot.
-    static func footChip(_ c: GraphicsContext, _ x: CGFloat, _ y: CGFloat, _ title: String, value: Double, readout: String, orange: Bool) {
+    static func footChip(_ c: GraphicsContext, _ x: CGFloat, _ y: CGFloat, _ title: String, value: Double, readout: String, orange: Bool,
+                         width: CGFloat = 90) {
         let fill = min(48.75, 50 * value)
-        shell(c, x, y)
+        shell(c, x, y, width: width)
         if fill > 0 {
-            c.rect(x + 1, y + 50 - fill, 88, fill, fill: orange ? Ink.orange : Ink.hex(0xF2F1F3), opacity: orange ? 0.4 : 0.3)
+            c.rect(x + 1, y + 50 - fill, width - 2, fill, fill: orange ? Ink.orange : Ink.hex(0xF2F1F3), opacity: orange ? 0.4 : 0.3)
         }
-        c.rect(x + 1.21, y + 1.25, 87.5, 47.5, rx: 5, stroke: orange ? Ink.orange : Ink.hex(0xF2F1F3), opacity: 0.85)
-        sheen(c, x, y)
-        words(c, x, y, title, readout)
+        c.rect(x + 1.21, y + 1.25, width - 2.5, 47.5, rx: 5, stroke: orange ? Ink.orange : Ink.hex(0xF2F1F3), opacity: 0.85)
+        sheen(c, x, y, width: width)
+        words(c, x, y, title, readout, width: width)
     }
 
     /// FX (blue) and hand-set TRIM (green): a band from OFF or 0 at the centre ticks.
@@ -354,17 +372,17 @@ private extension GraphicsContext {
 
     /// CUE/MST: split in two, the orange the CUE share.
     static func cueMixChip(_ c: GraphicsContext, blend: Double) {
-        let x = Layout.column("A"), y = Layout.Row.foot.rawValue
+        let r = Layout.cueMixChip, x = r.minX, y = r.minY, w = r.width
         let mst = Int((min(1, max(0, blend)) * 100).rounded()), cue = 100 - mst
-        shell(c, x, y)
-        let width = 88 * CGFloat(cue) / 100
+        shell(c, x, y, width: w)
+        let width = (w - 2) * CGFloat(cue) / 100
         if width > 0 { c.rect(x + 1, y, width, 50, fill: Ink.orange, opacity: 0.4) }
-        c.rect(x + 1.21, y + 1.25, 87.5, 47.5, rx: 5, stroke: Ink.orange, opacity: 0.85)
-        sheen(c, x, y)
-        c.text("CUE", .demi(15), Ink.hex(0xC6C7CC), x: x + 23.4, y: y + 20)
-        c.text("MST", .demi(15), Ink.hex(0xC6C7CC), x: x + 68.9, y: y + 20)
-        c.text("\(cue)", .bold(19), Ink.hex(0xEEF0F3), x: x + 23.4, y: y + 41)
-        c.text("\(mst)", .bold(19), Ink.hex(0xEEF0F3), x: x + 68.9, y: y + 41)
+        c.rect(x + 1.21, y + 1.25, w - 2.5, 47.5, rx: 5, stroke: Ink.orange, opacity: 0.85)
+        sheen(c, x, y, width: w)
+        c.text("CUE", .demi(15), Ink.hex(0xC6C7CC), x: x + w * 0.26, y: y + 20)
+        c.text("MST", .demi(15), Ink.hex(0xC6C7CC), x: x + w * 0.765, y: y + 20)
+        c.text("\(cue)", .bold(19), Ink.hex(0xEEF0F3), x: x + w * 0.26, y: y + 41)
+        c.text("\(mst)", .bold(19), Ink.hex(0xEEF0F3), x: x + w * 0.765, y: y + 41)
     }
 
     static func masterChip(_ c: GraphicsContext, level: Double) {
@@ -465,9 +483,11 @@ private extension GraphicsContext {
         masterChip(c, level: bank.value(SliderID("M", .master)))
         cueMixChip(c, blend: bank.value(SliderID("M", .cueMix)))
         let phones = bank.value(SliderID("M", .phones))
-        footChip(c, Layout.column("B"), Layout.Row.foot.rawValue, "PHONES", value: phones,
-                 readout: SliderSpec.phones().readout(phones), orange: true)
-        key(c, .lows, x: Layout.lockLows.x, y: Layout.lockLows.y, lit: state.linkLows, lines: ["LOCK", "LOWS"])
+        footChip(c, Layout.phonesChip.minX, Layout.phonesChip.minY, "PHONES", value: phones,
+                 readout: SliderSpec.phones().readout(phones), orange: true, width: Layout.phonesChip.width)
+        for link in Layout.links {
+            key(c, linkKind(link.band), x: link.x, y: Layout.channelCue.y, lit: state.links.contains(link.band), lines: link.lines)
+        }
     }
 
     static func beatJump(_ c: GraphicsContext, deck: ConsoleState.Deck) {
@@ -763,11 +783,13 @@ private struct Controls: View {
             SliderTarget(bank: bank, id: SliderID("M", .master), folded: folded, deckName: nil)
                 .place(Layout.at(Layout.masterChip.minX, Layout.masterChip.minY, Layout.masterChip.width, Layout.masterChip.height))
             SliderTarget(bank: bank, id: SliderID("M", .cueMix), folded: folded, deckName: nil)
-                .place(Layout.chip("A", .foot))
+                .place(Layout.at(Layout.cueMixChip.minX, Layout.cueMixChip.minY, Layout.cueMixChip.width, Layout.cueMixChip.height))
             SliderTarget(bank: bank, id: SliderID("M", .phones), folded: folded, deckName: nil)
-                .place(Layout.chip("B", .foot))
-            tap("Lock lows", on: state.linkLows, Layout.at(Layout.lockLows.x, Layout.lockLows.y - 5, Layout.key.w, Layout.key.h + 10),
-                action: actions.toggleLinkLows)
+                .place(Layout.at(Layout.phonesChip.minX, Layout.phonesChip.minY, Layout.phonesChip.width, Layout.phonesChip.height))
+            ForEach(Layout.links, id: \.band) { link in
+                tap(link.lines.joined(separator: " ").capitalized, on: state.links.contains(link.band),
+                    Layout.at(link.x, Layout.channelCue.y - 5, Layout.key.w, Layout.key.h + 10)) { actions.toggleLink(link.band) }
+            }
         }
     }
 

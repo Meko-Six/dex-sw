@@ -13,10 +13,17 @@ final class MixerCurvesTests: XCTestCase {
         XCTAssertEqual(FaderLaw.gain(0.6), pow(10, -6.0 / 20), accuracy: 1e-12)
     }
 
-    func testLinkedLowMovesTheOtherWayAndClamps() {
-        XCTAssertEqual(FaderLaw.linkedLow(0.5, delta: 0.2), 0.3, accuracy: 1e-12)
-        XCTAssertEqual(FaderLaw.linkedLow(0.9, delta: -0.3), 1)
-        XCTAssertEqual(FaderLaw.linkedLow(0.1, delta: 0.3), 0)
+    func testALinkedBandMovesTheOtherWayAndClamps() {
+        XCTAssertEqual(FaderLaw.linked(0.5, delta: 0.2), 0.3, accuracy: 1e-12)
+        XCTAssertEqual(FaderLaw.linked(0.9, delta: -0.3), 1)
+        XCTAssertEqual(FaderLaw.linked(0.1, delta: 0.3), 0)
+    }
+
+    func testTheLinkKeepsThePlayingDecksBand() {
+        XCTAssertEqual(FaderLaw.linkKeeper(aPlaying: true, bPlaying: false, bIsMaster: true), "A", "The playing deck, even when B is master")
+        XCTAssertEqual(FaderLaw.linkKeeper(aPlaying: false, bPlaying: true, bIsMaster: false), "B")
+        XCTAssertEqual(FaderLaw.linkKeeper(aPlaying: true, bPlaying: true, bIsMaster: true), "B", "Both playing: the master")
+        XCTAssertEqual(FaderLaw.linkKeeper(aPlaying: false, bPlaying: false, bIsMaster: false), "A", "Neither playing: the master")
     }
 
     func testFilterSetting() {

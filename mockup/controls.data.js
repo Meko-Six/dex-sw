@@ -1065,11 +1065,11 @@ window.DEX_CONTROLS = {
     {
       "id": "alt.link",
       "group": "mixer",
-      "label": "LINK LOWS",
+      "label": "LINK HI · LINK MIDS · LINK LOWS",
       "kind": "toggle",
       "status": "live",
-      "does": "Couples the two LOW faders: drag either one and the other moves the same distance the opposite way. The bass swap in one gesture; unlink to ride them separately.",
-      "source": "src/renderer/ui/Mixer.tsx",
+      "does": "Three keys on the cue row, one per band. Turning one on sets up the swap: the playing deck's band goes to 100% and the other deck's to 0 (the MASTER deck keeps it when both or neither are playing). While on, the two decks' band is coupled: drag either one and the other moves the same distance the opposite way, so one gesture mixes the band across. Unlink to ride them separately.",
+      "source": "native/Sources/DexApp/ConsoleModel.swift",
       "n": 95
     },
     {

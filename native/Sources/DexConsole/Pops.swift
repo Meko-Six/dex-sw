@@ -169,10 +169,10 @@ struct BandPop: View {
             PopHead(title: "\(name) · both decks", help: .band, actions: actions) { actions.setMixPop(nil) }
             ForEach(state.decks, id: \.id) { deck in row(deck) }
             if band == "low" {
-                let colours: KeyColours = state.linkLows ? .lit(0xFF8A00) : .off
-                Button(action: actions.toggleLinkLows) {
+                let colours: KeyColours = state.links.contains("low") ? .lit(0xFF8A00) : .off
+                Button { actions.toggleLink("low") } label: {
                     VStack(spacing: 4) {
-                        Circle().fill(state.linkLows ? Palette.led : Color(hex: 0x43434A))
+                        Circle().fill(state.links.contains("low") ? Palette.led : Color(hex: 0x43434A))
                             .overlay(Circle().inset(by: 0.5).stroke(Color.black.opacity(0.7), lineWidth: 1)).frame(width: 5, height: 5)
                         Label("LINK LOWS", .cond(12, tracking: 0.96)).padding(.leading, 1.68).foregroundStyle(colours.legend).frame(height: 13.8)
                     }
