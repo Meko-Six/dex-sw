@@ -7,3 +7,6 @@ release/
 tests/fixtures/*.wav
 fixtures/
 accuracy/audio/
+
+# Local agent transcript artifacts — local only, never commit
+.cloud-attachments/
