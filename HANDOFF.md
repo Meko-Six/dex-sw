@@ -118,6 +118,22 @@ cue still quantises on graph time, so it stays in phase but can land a beat late
 was pressed on Bluetooth. Method and numbers: [EVIDENCE](docs/audio-audit/EVIDENCE.md) and
 [ENGINE-GATE3-RESULTS](docs/ENGINE-GATE3-RESULTS.md).
 
+**The playhead now moves on the press (15 November 2026).** The user compared Dex with Traktor on the
+iPad through the Bose and found Dex laggy. The review found the engine sound and three deliberate choices
+stacking up: the playhead held back by the speaker's reported delay (253 ms on the Bose), CUE and hot cues
+waiting for the beat, and a 10 ms lead-in on every start from stopped. First fix, built:
+`NativeDeck.matchesSpeaker`. Off (the console's default, `matchSpeaker` in UserDefaults), a delay over 50 ms
+(`shortDelay`) is left out of what's shown (`shownDelay`), so the playhead, lane, readouts and end of track
+follow the engine at once and the waveform runs ahead of a Bluetooth speaker's sound, as Traktor's does.
+Shorter delays are matched as before. A new hot cue and a loop are still taken from the beat heard
+(`heardNow`). On, everything is as it was; tests default to on.
+**The user tried it on the iPad with the Bose the same day: "a whole heap better".** They then checked Traktor
+and found it snaps CUE to the beat just as Dex does (a wider window before the beat, a narrow one after), and
+that Traktor's sound trails on the Bose too. Their decisions: **CUE's beat wait stays as it is; no more work
+on the Bluetooth delay; lining the picture up with a Bluetooth speaker was a mistake, so no control for
+`matchSpeaker` is wanted.** Left as options only, not asked for: dropping the 10 ms lead-in from stopped, a
+smaller buffer on the Mac, and a press-to-sound measurement on the real iPad (27 ms was the simulator).
+
 ### The lanes
 
 - **They scroll at a steady 60 frames a second on the Mac, and the user tried it with no

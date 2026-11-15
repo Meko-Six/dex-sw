@@ -52,6 +52,23 @@ public final class NativeDeck: ObservableObject {
     /// and anything captured from it land on the beat they heard. Both decks share it, so
     /// SYNC and scheduling stay on the engine's time.
     var outputDelay = 0.0
+    /// Whether the playhead waits for a slow speaker, so the waveform lines up with its sound.
+    /// Off, a delay too long to hide (Bluetooth) is left out of what's shown: the playhead moves
+    /// on the press and the sound follows, as on other DJ apps. A short delay is always matched,
+    /// since nobody can see it. The console turns this off unless the DJ asks for it.
+    public var matchesSpeaker = true
+    /// Delays up to this are matched whatever `matchesSpeaker` says: wired and built-in outputs.
+    static let shortDelay = 0.05
+    /// How far behind the engine the playhead is drawn. What's captured by ear (a new hot cue,
+    /// a loop) still uses `outputDelay`, the beat the DJ heard.
+    var shownDelay: Double {
+        matchesSpeaker || outputDelay <= Self.shortDelay ? outputDelay : link.core.engineDelaySeconds
+    }
+    /// Where the listener is in the track now: what a press made by ear is about.
+    private var heardNow: Double {
+        guard playing else { return position }
+        return min(duration, max(0, heardAt(audioNow() - outputDelay)))
+    }
     /// Where the deck is over output time; it lives on the deck's line to the engine.
     private var timeline: DeckTimeline {
         get { link.timeline }
@@ -378,7 +395,7 @@ public final class NativeDeck: ObservableObject {
     /// This is reusable by a future platter gesture; display units stay in UI.
     public func beginJog(at anchor: Double? = nil) {
         guard audioAvailable, !loading, file != nil else { return }
-        let target = anchor.flatMap { $0.isFinite ? $0 : nil } ?? jog.currentPosition ?? heardAt(audioNow() - outputDelay)
+        let target = anchor.flatMap { $0.isFinite ? $0 : nil } ?? jog.currentPosition ?? heardAt(audioNow() - shownDelay)
         transportRevision &+= 1
         jog.cancel()
         refreshPosition()
@@ -500,7 +517,9 @@ public final class NativeDeck: ObservableObject {
         if clear { hotCues[slot] = nil }
         else {
             guard let grid else { error = .noBPM(.hotCues); return }
-            guard let target = grid.cueTime(near: hotCues[slot] ?? position, duration: duration) else {
+            refreshPosition()
+            let here = heardNow
+            guard let target = grid.cueTime(near: hotCues[slot] ?? here, duration: duration) else {
                 error = .noBeatInTrack; return
             }
             if hotCues[slot] != nil {
@@ -509,8 +528,7 @@ public final class NativeDeck: ObservableObject {
                 locate(to: target, quantizedCue: true)
                 return
             }
-            refreshPosition()
-            hotCues[slot] = grid.cueTime(near: position, duration: duration)
+            hotCues[slot] = grid.cueTime(near: here, duration: duration)
         }
         error = nil
         saveMetadata()
@@ -581,7 +599,7 @@ public final class NativeDeck: ObservableObject {
             return
         }
         refreshPosition()
-        let region = LoopRegion(grid: grid, position: position, lengthBeats: loopBeats)
+        let region = LoopRegion(grid: grid, position: heardNow, lengthBeats: loopBeats)
         _ = prepareLoop(region)
     }
 
@@ -674,7 +692,7 @@ public final class NativeDeck: ObservableObject {
     /// nil unless that is what the deck is waiting for.
     var endHeardIn: Double? {
         guard playing, !timeline.soundRequested, !jog.active, link.ended, let end = timeline.stoppedSince else { return nil }
-        return end + outputDelay - audioNow()
+        return end + shownDelay - audioNow()
     }
     /// Brings the timeline up to date with the engine, and notices the end of the track.
     func serviceTransitions() {
@@ -693,7 +711,7 @@ public final class NativeDeck: ObservableObject {
             // The engine has played the last frame and the listener has now heard it: the
             // timeline, stopped at the end from then, has reached it a device's delay later.
             if playing, !timeline.soundRequested, !jog.active, link.ended,
-               timeline.unfoldedPosition(at: audioNow() - outputDelay) >= duration {
+               timeline.unfoldedPosition(at: audioNow() - shownDelay) >= duration {
                 playing = false; position = duration
             }
         }
@@ -781,7 +799,7 @@ public final class NativeDeck: ObservableObject {
             jump.loopIn = (loopBounds?.lowerBound ?? 0) * link.fileRate
             jump.loopOut = (loopBounds?.upperBound ?? 0) * link.fileRate
         }
-        position = replace ? min(duration, max(0, heardAt(now - outputDelay))) : target
+        position = replace ? min(duration, max(0, heardAt(now - shownDelay))) : target
         timeline.land(at: outputTime, position: target, rate: playRate, loop: loopBounds, start: !replace)
         playing = true
         link.play(jump)
@@ -790,13 +808,13 @@ public final class NativeDeck: ObservableObject {
     /// What will be heard this many seconds from now. It only reads, so a display
     /// can ask once a frame for the time of the frame it is drawing.
     public func heardPosition(ahead: Double) -> Double {
-        min(duration, max(0, heardAt(audioNow() + ahead - outputDelay)))
+        min(duration, max(0, heardAt(audioNow() + ahead - shownDelay)))
     }
 
     public func refreshPosition() {
         serviceTransitions()
         guard playing else { return }
-        position = min(duration, max(0, heardAt(audioNow() - outputDelay)))
+        position = min(duration, max(0, heardAt(audioNow() - shownDelay)))
     }
 
     func cancelOptionalWork(resumeJog: Bool = true) {

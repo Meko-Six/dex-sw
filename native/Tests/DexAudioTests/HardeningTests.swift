@@ -249,6 +249,53 @@ final class HardeningTests: XCTestCase {
         XCTAssertEqual(mixer.a.hotCues[0], grid.cueTime(near: heard, duration: mixer.a.duration))
     }
     @MainActor
+    func testThePlayheadMovesOnThePressWhenNotMatchingASlowSpeaker() async throws {
+        let root = try folder(); defer { try? FileManager.default.removeItem(at: root) }
+        let mixer = NativeMixer(); defer { mixer.shutdown() }
+        try await load(mixer, audio(root))
+        mixer.a.outputDelay = 0.25
+        mixer.a.matchesSpeaker = false
+        // A start shows within a tenth of a second, long before the speaker's quarter second.
+        mixer.a.togglePlay(); try render(mixer, seconds: 0.1)
+        mixer.a.refreshPosition()
+        XCTAssertGreaterThan(mixer.a.position, 0.05)
+        XCTAssertGreaterThan(mixer.a.heardPosition(ahead: 0), 0.05)
+        // So does a seek.
+        try render(mixer, seconds: 1)
+        mixer.a.seek(to: 2.5); try render(mixer, seconds: 0.1)
+        XCTAssertGreaterThanOrEqual(mixer.a.position, 2.5)
+        // Matching the speaker again puts the playhead back on what's heard.
+        try render(mixer, seconds: 0.5)
+        let shown = mixer.a.heardPosition(ahead: 0)
+        mixer.a.matchesSpeaker = true
+        XCTAssertEqual(mixer.a.heardPosition(ahead: 0), shown - 0.25 + mixer.core.engineDelaySeconds, accuracy: 0.01)
+    }
+    @MainActor
+    func testAShortDelayIsAlwaysMatched() async throws {
+        let root = try folder(); defer { try? FileManager.default.removeItem(at: root) }
+        let mixer = NativeMixer(); defer { mixer.shutdown() }
+        try await load(mixer, audio(root))
+        mixer.a.outputDelay = 0.016
+        mixer.a.togglePlay(); try render(mixer, seconds: 1)
+        let matched = mixer.a.heardPosition(ahead: 0)
+        mixer.a.matchesSpeaker = false
+        XCTAssertEqual(mixer.a.heardPosition(ahead: 0), matched, accuracy: 1e-9)
+    }
+    @MainActor
+    func testAHotCueStillLandsOnTheHeardBeatWhenThePlayheadRunsAhead() async throws {
+        let root = try folder(); defer { try? FileManager.default.removeItem(at: root) }
+        let mixer = NativeMixer(); defer { mixer.shutdown() }
+        try await load(mixer, audio(root))
+        let grid = try XCTUnwrap(mixer.a.grid)
+        mixer.a.outputDelay = 0.35 * grid.beatSeconds / 0.5
+        mixer.a.togglePlay(); try render(mixer, seconds: 3)
+        let heard = mixer.a.heardPosition(ahead: 0)
+        mixer.a.matchesSpeaker = false
+        XCTAssertGreaterThan(mixer.a.heardPosition(ahead: 0), heard + 0.2)
+        mixer.a.hotCue(0)
+        XCTAssertEqual(mixer.a.hotCues[0], grid.cueTime(near: heard, duration: mixer.a.duration))
+    }
+    @MainActor
     func testJogIgnoresTheOutputDelay() async throws {
         let root = try folder(); defer { try? FileManager.default.removeItem(at: root) }
         let mixer = NativeMixer(); defer { mixer.shutdown() }

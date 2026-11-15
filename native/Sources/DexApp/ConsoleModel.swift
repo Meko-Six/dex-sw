@@ -57,7 +57,9 @@ final class ConsoleModel: ObservableObject {
 
     init(mixer: NativeMixer, library: NativeLibrary) {
         self.mixer = mixer; self.library = library
-        for deck in decks { applyFaders(deck); deck.trimsOnLoad = true }
+        // The playhead moves on the press; waiting for a Bluetooth speaker is the DJ's choice.
+        let matchSpeaker = UserDefaults.standard.bool(forKey: Self.matchSpeakerKey)
+        for deck in decks { applyFaders(deck); deck.trimsOnLoad = true; deck.matchesSpeaker = matchSpeaker }
         Publishers.MergeMany(mixer.objectWillChange, mixer.a.objectWillChange, mixer.b.objectWillChange, library.objectWillChange)
             .sink { [weak self] _ in self?.queueRebuild() }
             .store(in: &changes)
@@ -111,6 +113,8 @@ final class ConsoleModel: ObservableObject {
     }
 
     private var decks: [NativeDeck] { [mixer.a, mixer.b] }
+    /// The setting that holds the playhead back to a slow speaker's sound. No control draws it yet.
+    static let matchSpeakerKey = "matchSpeaker"
     private func deck(_ id: String) -> NativeDeck { id == "B" ? mixer.b : mixer.a }
 
     /// The display clock only runs while the scene is active.
