@@ -52,7 +52,7 @@ Bose has to be paired again.
   the console ported.
 - **New UI is designed in the HTML mockup** (`mockup/xdj-mixer-alt.html`,
   `mockup/console.css`), then ported to SwiftUI. Electron has its own frozen copy of the
-  styles, so mockup changes don't reach it. Where the mockup is still ahead (ENERGY, a
+  styles, so mockup changes don't reach it. Where the mockup is still ahead (the grid sheet's deck-colour waveform and white lines, ENERGY, a
   working TAP, ↻ and ✕), the app has to catch up.
 - **The port is exact.** No deviation unless an improvement is raised and agreed first.
   The reference is the mockup (`npm run diff:native`, 42 screens). See
@@ -708,3 +708,4 @@ Dev servers (`.claude/launch.json`): Electron renderer on **5299**, mockup on
   [Set Your Volumes Like A Pro](docs/Set%20Your%20Volumes%20Like%20A%20Pro.md): notes on the gain-staging video.
 - [ANALYSIS-SUMMARY](docs/ANALYSIS-SUMMARY.md) / [ANALYSIS-RESEARCH](docs/ANALYSIS-RESEARCH.md) and [accuracy/](accuracy/README.md): BPM/grid analysis and the marked-song bench.
 - [IDEAS](docs/IDEAS.md): later goals.
+- [LIBRARY-STORAGE-OPTIONS](docs/LIBRARY-STORAGE-OPTIONS.md): where tracks are stored, and a shared cloud-drive library for Mac and iPad (future project, 15 Nov).

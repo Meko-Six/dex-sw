@@ -81,3 +81,23 @@ both decks' EQ, filter and level at the LOW popover's 300 pt travel and the
 waveform band kept on top. Compare it with the full console on a real bass
 swap. If MIDI hardware is ever added, the case gets stronger: the controller
 carries the mixer and the screen shows only what the hardware can't.
+
+## A shared library on a cloud drive (Mac and iPad)
+
+*Raised 2026-11-15. A future project; not started.* Full write-up:
+[LIBRARY-STORAGE-OPTIONS](LIBRARY-STORAGE-OPTIONS.md).
+
+Today Dex copies every track into its own private folder (Application Support on the
+Mac, the app's container on the iPad) and nothing is shared between devices. The idea:
+**the user picks a library folder on whatever cloud drive they use** (Google Drive,
+iCloud Drive, Dropbox, OneDrive), so the Mac and iPad open one library. It must not be
+iCloud-only.
+
+**Watch out for:** two devices editing at once (each device should write its own change
+file, merged on open); cloud-only placeholders (a "download for offline" step before a
+gig); playback always from a copy on the device; and Google Drive keeping folder access on
+the iPad, which is unverified.
+
+**Cheapest way to try it:** a feasibility test with Google Drive, iCloud Drive and Dropbox
+on the Mac and the real iPad: access after restart, writing, downloading a cloud-only
+track, and seeing the other device's changes.

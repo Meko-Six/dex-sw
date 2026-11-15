@@ -549,7 +549,7 @@ window.DEX_CONTROLS = {
       "label": "waveform · beat grid overlay",
       "kind": "gesture",
       "status": "live",
-      "does": "The track's waveform at full detail, with a line on every beat and a heavier line and bar number every four. Dragging moves the waveform and the lines stay still, setting the grid's offset; the result folds into one bar on release. A live playhead crosses it.",
+      "does": "The track's waveform at full detail in shades of the deck's colour (the whole signal darkest and outermost, MID in the deck colour, HIGH palest in the middle), with a white line on every beat and a heavier white line and bar number every four. Dragging moves the waveform and the lines stay still, setting the grid's offset; the result folds into one bar on release. A live playhead crosses it.",
       "note": "The window is fixed when the sheet opens so the view does not move during a drag; close and reopen to recentre it. Bar lines assume 4/4.",
       "source": "src/renderer/ui/GridSheet.tsx",
       "n": 44

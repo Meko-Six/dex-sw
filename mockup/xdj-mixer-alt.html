@@ -1800,8 +1800,42 @@
         return kick + hat + 0.05 * gridNoise(ms);
       }
 
-      /* One column per screen pixel, drawn at twice the stage's size: each
-         the loudest and quietest of the signal under it. */
+      /* The app's waveform crossovers (DexWaveform.c): a second-order section. */
+      function gridBiquad(rate, hz, high) {
+        const w = 2 * Math.PI * Math.min(hz, rate * 0.45) / rate;
+        const c = Math.cos(w), alpha = Math.sin(w) / Math.SQRT2, a0 = 1 + alpha;
+        const b0 = (high ? 1 + c : 1 - c) / 2 / a0;
+        const f = { b0, b1: (high ? -(1 + c) : 1 - c) / a0, b2: b0, a1: -2 * c / a0, a2: (1 - alpha) / a0, z1: 0, z2: 0 };
+        return (x) => { const y = f.b0 * x + f.z1; f.z1 = f.b1 * x - f.a1 * y + f.z2; f.z2 = f.b2 * x - f.a2 * y; return y; };
+      }
+
+      /* Per column: the signal's lowest and highest, and its MID (220 Hz to
+         3.5 kHz) and HIGH (above 3.5 kHz) envelopes, which rise at once and
+         fall over 4 ms, so every layer keeps the hit's exact start. */
+      function readGridColumns(audio, startMs, spanMs, count) {
+        const rate = 44100;
+        const hp220 = gridBiquad(rate, 220, 1), lp3500 = gridBiquad(rate, 3500, 0), hp3500 = gridBiquad(rate, 3500, 1);
+        const fall = Math.exp(-1 / (rate * 0.004));
+        const lo = new Float32Array(count), hi = new Float32Array(count), mid = new Float32Array(count), top = new Float32Array(count);
+        const first = Math.floor((startMs - 60) * rate / 1000), last = Math.ceil((startMs + spanMs) * rate / 1000);
+        let midEnv = 0, highEnv = 0;
+        for (let n = first; n < last; n++) {
+          const ms = n * 1000 / rate, x = ms < 0 ? 0 : gridSignal(audio, ms);
+          midEnv = Math.max(Math.abs(lp3500(hp220(x))), midEnv * fall);
+          highEnv = Math.max(Math.abs(hp3500(x)), highEnv * fall);
+          const column = Math.floor((ms - startMs) / spanMs * count);
+          if (column < 0 || column >= count) continue;
+          lo[column] = Math.min(lo[column], x); hi[column] = Math.max(hi[column], x);
+          mid[column] = Math.max(mid[column], midEnv); top[column] = Math.max(top[column], highEnv);
+        }
+        return { lo, hi, mid, top };
+      }
+
+      /* One column per screen pixel, drawn at twice the stage's size, in
+         shades of the deck's colour: the whole signal outermost and darkest,
+         its real lowest to highest; MID inside it in the deck colour; HIGH
+         palest in the middle. The beat lines over it are white. */
+      const GRID_WAVE_INK = { A: [0x27, 0x6f, 0xff], B: [0xff, 0x8a, 0x1f] };
       function paintGridWave(key) {
         const canvas = document.getElementById('gcanvas');
         if (!canvas) return;
@@ -1811,19 +1845,28 @@
         if (canvas.height !== height) canvas.height = height;
         const context = canvas.getContext('2d');
         context.clearRect(0, 0, columns, height);
-        context.fillStyle = '#dfe2e4';
-        const audio = AUDIO_GRID[key];
-        const startMs = gridWindow[key].startMs, msPerColumn = gridSpan() / columns;
+        const { lo, hi, mid, top } = readGridColumns(AUDIO_GRID[key], gridWindow[key].startMs, gridSpan(), columns);
         const middle = height / 2, reach = middle - 12;
-        for (let column = 0; column < columns; column++) {
-          let low = 0, high = 0;
-          for (let sample = 0; sample < 6; sample++) {
-            const value = gridSignal(audio, startMs + (column + sample / 6) * msPerColumn);
-            if (value < low) low = value;
-            if (value > high) high = value;
-          }
-          context.fillRect(column, middle - high * reach, 1, Math.max(1, (high - low) * reach));
-        }
+        const deck = GRID_WAVE_INK[key];
+        const shade = (to, t) => 'rgb(' + deck.map((v, i) => Math.round(v + (to[i] - v) * t)).join(',') + ')';
+        context.fillStyle = shade([6, 6, 7], 0.45);
+        context.beginPath();
+        context.moveTo(0, middle - hi[0] * reach);
+        for (let c = 1; c < columns; c++) context.lineTo(c, middle - hi[c] * reach);
+        for (let c = columns - 1; c >= 0; c--) context.lineTo(c, middle - lo[c] * reach);
+        context.closePath();
+        context.fill();
+        const layer = (values, gain, fill) => {
+          context.fillStyle = fill;
+          context.beginPath();
+          context.moveTo(0, middle);
+          for (let c = 0; c < columns; c++) context.lineTo(c, middle - Math.min(1, values[c] * gain) * reach);
+          for (let c = columns - 1; c >= 0; c--) context.lineTo(c, middle + Math.min(1, values[c] * gain) * reach);
+          context.closePath();
+          context.fill();
+        };
+        layer(mid, 1.2, shade(deck, 0));
+        layer(top, 0.9, shade([255, 255, 255], 0.72));
       }
 
       /* The whole track under the wave: where the window is, and a way to move it. */

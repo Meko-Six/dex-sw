@@ -1022,11 +1022,12 @@ html, body {
 .gwave.arming { cursor: crosshair; }
 .gwave canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .glines { position: absolute; inset: 0; pointer-events: none; }
-.gbeat { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255, 176, 32, .85); }
-.gbeat.bar { width: 2px; background: #ffb020; }
+/* White, so neither deck's colour in the waveform hides them. */
+.gbeat { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, .7); }
+.gbeat.bar { width: 2px; background: #fff; }
 .gbeat b {
   position: absolute; top: 3px; left: 4px; font: 700 12px/1 ui-monospace, Menlo, monospace;
-  color: var(--led); background: rgba(0, 0, 0, .62); padding: 2px 3px; border-radius: 3px;
+  color: #fff; background: rgba(0, 0, 0, .62); padding: 2px 3px; border-radius: 3px;
 }
 .gnow { position: absolute; top: 0; bottom: 0; width: 1px; background: #ff4a3d; }
 .gnow::before { content: ""; position: absolute; top: 0; left: -5px; border: 5px solid transparent; border-top-color: #ff4a3d; }
