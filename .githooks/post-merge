@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Runs after every merge and pull, including the fast-forward case that no
+# commit hook can intercept. It cannot undo what git already did, so it fails
+# loudly with the recovery command instead of letting the transcripts sit in
+# HEAD unnoticed until the next push.
+set -uo pipefail
+
+arrived=$(git ls-tree -r --name-only HEAD -- .cloud-attachments 2>/dev/null)
+[ -z "$arrived" ] && exit 0
+
+{
+  echo "post-merge: WARNING — agent transcripts arrived in HEAD:"
+  printf '%s\n' "$arrived" | sed 's/^/  /'
+  echo
+  echo "A pull or merge brought .cloud-attachments into history, and a"
+  echo "fast-forward cannot be blocked by a hook. Undo it now:"
+  echo "  git reset --hard ORIG_HEAD"
+} >&2
+exit 1
