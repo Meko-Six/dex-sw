@@ -71,14 +71,15 @@ final class StageTests: XCTestCase {
         }
     }
 
-    /// `icons/music.note.svg`'s path, by its bounds: the artwork inside the file's 15.01 × 24.75 viewBox.
+    /// `icons/music.note.svg`'s path, by its bounds (the browser's getBBox): the artwork fills the
+    /// file's 15.71 × 25.89 viewBox.
     func testTheNoteFillsItsBox() {
         let note = ConsoleGlyph.note
         let bounds = note.path(in: CGRect(origin: .zero, size: note.size)).boundingRect
-        XCTAssertEqual(bounds.minX, 0.28, accuracy: 0.01)
-        XCTAssertEqual(bounds.maxX, 14.71, accuracy: 0.01)
-        XCTAssertEqual(bounds.minY, 0.29, accuracy: 0.01)
-        XCTAssertEqual(bounds.maxY, 24.48, accuracy: 0.01)
+        XCTAssertEqual(bounds.minX, 0, accuracy: 0.01)
+        XCTAssertEqual(bounds.maxX, 15.71, accuracy: 0.01)
+        XCTAssertEqual(bounds.minY, 0.004, accuracy: 0.01)
+        XCTAssertEqual(bounds.maxY, 25.89, accuracy: 0.01)
     }
 
     func testSheetGlyphBoundsMatchTheSVGs() {

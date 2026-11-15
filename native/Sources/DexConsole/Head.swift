@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The header bar: wordmark, library progress, SYNC/MASTER chips, waveform
-/// mode, VOLUME, sample rate, cue output, TAP and shortcuts. Ports `Head` in
+/// mode, sample rate, cue output, TAP and shortcuts. Ports `Head` in
 /// `src/renderer/console/Band.tsx` and the `.head` rules in `console.css`.
 struct Head: View {
     let state: ConsoleState
@@ -15,7 +15,6 @@ struct Head: View {
             chips
             HeadButton(title: "3BAND", on: !state.energyEnabled) { if state.energyEnabled { actions.setEnergy(false) } }
             HeadButton(title: "ENERGY", on: state.energyEnabled, swatch: true) { actions.setEnergy(!state.energyEnabled) }
-            VolumeButton(on: state.volumeOpen, action: actions.toggleVolume)
             Chip(text: String(format: "%.1f kHz", state.sampleRate / 1000))
             HeadButton(title: state.splitCue ? "SPLIT CUE" : "4-CH CUE", on: !state.splitCue, action: actions.toggleSplitCue)
             HeadButton(title: "TAP", on: state.sheet == .tap) { actions.setSheet(state.sheet == .tap ? nil : .tap) }
@@ -104,24 +103,6 @@ private struct HeadButton: View {
     }
 }
 
-/// `.btn.vol-btn`: 88 pt minimum, 12 pt sides, tracked 0.16 em.
-private struct VolumeButton: View {
-    let on: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label("VOLUME", .cond(13, tracking: 2.08))
-                .foregroundStyle(on ? Color(hex: 0xFFAB40) : Color(hex: 0xE9E9EC))
-                .padding(.horizontal, 13)
-                .frame(minWidth: 88, minHeight: 24, maxHeight: 24)
-                .box(fill: on ? mix(0xFF8A00, 0.15, 0x151517) : Color(hex: 0x17171A),
-                     border: on ? mix(0xFF8A00, 0.58, 0x26262B) : Color(hex: 0x3B3B41), radius: 3)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 /// `.head .mini`: the 26 × 24 shortcuts key.
 private struct ShortcutsKey: View {
     let action: () -> Void
@@ -136,13 +117,19 @@ private struct ShortcutsKey: View {
     }
 }
 
-/// `.head-status`: a spinner, "ANALYSING 3 / 12", the track and a progress hairline.
+/// `.head-status`: a spinner, "ANALYSING 3 / 12" and the track, centred in a pill
+/// that is itself the progress bar, filling from the left behind the text.
 private struct StatusPill: View {
     let status: ConsoleState.LibraryStatus
 
     private var count: String? {
         guard let current = status.current, let total = status.total, total > 0 else { return nil }
         return " \(current) / \(total)"
+    }
+
+    private var progress: CGFloat? {
+        guard let current = status.current, let total = status.total, total > 0 else { return nil }
+        return min(1, max(0, CGFloat(current) / CGFloat(total)))
     }
 
     var body: some View {
@@ -161,17 +148,19 @@ private struct StatusPill: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 24)
-        .frame(maxWidth: 330, alignment: .leading)
+        .frame(minWidth: 260, maxWidth: 330)
         .fixedSize(horizontal: true, vertical: false)
-        .overlay(alignment: .bottomLeading) {
-            if let current = status.current, let total = status.total, total > 0 {
-                GeometryReader { geometry in
-                    Palette.led.frame(width: (geometry.size.width - 2) * CGFloat(current) / CGFloat(total), height: 2)
-                        .offset(x: 1, y: geometry.size.height - 3)
+        .background(alignment: .leading) {
+            ZStack(alignment: .leading) {
+                Color(hex: 0x101012)
+                if let progress {
+                    GeometryReader { geometry in
+                        Palette.led.opacity(0.38).frame(width: geometry.size.width * progress)
+                    }
                 }
             }
         }
-        .box(fill: Color(hex: 0x101012), border: Color(hex: 0x2C2C30), radius: 2)
+        .box(fill: .clear, border: Color(hex: 0x2C2C30), radius: 2)
         .clipShape(RoundedRectangle(cornerRadius: 2))
     }
 }

@@ -957,7 +957,7 @@ window.DEX_CONTROLS = {
       "label": "Track details (⋯)",
       "kind": "button",
       "status": "live",
-      "does": "At the end of each row: opens the track's details (artists, album, genre, BPM, key, length and release date where available), its playlists to switch on and off, re-analyse and remove.",
+      "does": "At the end of each row: opens the track's details, drawn from the user's design (mockup/song.info.svg): a row each for artists, album, genre, BPM, key, length and stars, the playlists as chips to switch on and off, and re-analyse and remove as icon keys under the cover.",
       "source": "native/Sources/DexConsole/Library.swift",
       "n": 84
     },
@@ -993,24 +993,14 @@ window.DEX_CONTROLS = {
       "n": 87
     },
     {
-      "id": "lib.grid",
-      "group": "library",
-      "label": "grid confidence",
-      "kind": "readout",
-      "status": "live",
-      "does": "How much the detector trusts the beat grid, colour-coded. Low confidence is the cue to open GRID and nudge.",
-      "source": "src/renderer/ui/LibrarySheet.tsx",
-      "n": 88
-    },
-    {
       "id": "lib.reanalyze",
       "group": "library",
       "label": "Re-analyse (in track details)",
       "kind": "button",
       "status": "live",
-      "does": "In track details, asks twice: runs the whole analysis again. The grid, its other readings and the key are replaced, hand-edited grids included; hot cues stay.",
+      "does": "In track details, the yellow ring under the cover, asks twice (the first tap fills the ring): runs the whole analysis again. The grid, its other readings and the key are replaced, hand-edited grids included; hot cues stay.",
       "source": "native/Sources/DexAudio/NativeLibrary.swift",
-      "n": 89
+      "n": 88
     },
     {
       "id": "lib.remove",
@@ -1018,9 +1008,9 @@ window.DEX_CONTROLS = {
       "label": "Remove from library (in track details)",
       "kind": "button",
       "status": "live",
-      "does": "In track details, red, asks twice: deletes the library's copy and cover and takes the track out of every playlist. The original file stays. Refused while a deck holds the track.",
+      "does": "In track details, the red ring with the bin under the cover, asks twice (the first tap fills the ring): deletes the library's copy and cover and takes the track out of every playlist. The original file stays. Refused while a deck holds the track.",
       "source": "native/Sources/DexAudio/NativeLibrary.swift",
-      "n": 90
+      "n": 89
     },
     {
       "id": "pads.bank",
@@ -1030,17 +1020,7 @@ window.DEX_CONTROLS = {
       "status": "planned",
       "does": "Two tabs over each deck's pads that swap the bank: LOOP shows the loop lengths, ½×, 2×, EXIT and ROLL; HOT CUE shows the four hot cues. Dex shows loop and hot cue pads side by side today.",
       "source": "src/renderer/ui/DeckPanel.tsx",
-      "n": 91
-    },
-    {
-      "id": "console.volume",
-      "group": "console",
-      "label": "VOLUME",
-      "kind": "button",
-      "status": "live",
-      "does": "Header button: a popover with the MASTER volume and CUE MIX faders.",
-      "source": "src/renderer/App.tsx",
-      "n": 92
+      "n": 90
     },
     {
       "id": "lib.key",
@@ -1050,7 +1030,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Camelot code (8A, 4B…) in the wheel's colour: minor keys on the pastel A ring, major on the saturated B ring. Keys are detected on import (\"Find keys\" backfills older tracks). Tap one to filter the list to that key plus its harmonic matches (±1 on the wheel and the relative major / minor), or switch the filter bar to that key only. Also on each deck card and in the deck panel.",
       "source": "src/renderer/ui/CamelotBadge.tsx",
-      "n": 93
+      "n": 91
     },
     {
       "id": "lib.sort",
@@ -1060,7 +1040,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Tap a column header — track, key, BPM, time or grid — to sort by it; tap again to reverse. Key sorts round the Camelot wheel (1A, 1B, 2A…), so harmonic neighbours sit together. Unsorted, the library runs by name and a playlist in its own order.",
       "source": "src/renderer/ui/LibrarySheet.tsx",
-      "n": 94
+      "n": 92
     },
     {
       "id": "tone.kill",
@@ -1070,7 +1050,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Under each band fader. Tap latches the kill; press and hold kills only while held (momentary). The fader keeps its position, so un-killing returns to the exact level. A real mute (band gain 0) in the isolator.",
       "source": "src/renderer/ui/Mixer.tsx",
-      "n": 95
+      "n": 93
     },
     {
       "id": "alt.trim",
@@ -1080,7 +1060,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Input gain before the EQ (so the headphones hear it), ±12 dB. AUTO aims for −11 LUFS in the main groove on load (ITU BS.1770 loudness, measured at import; older tracks are measured in the background). The popover opens clear of the meters so the −6 dBFS channel guide stays visible. The DJ can trim a hot track by hand. Dex remembers that trim per track; RESET, a double-tap or snapping within 0.25 dB returns to AUTO.",
       "source": "native/Sources/DexCore/Loudness.swift",
-      "n": 96
+      "n": 94
     },
     {
       "id": "alt.link",
@@ -1090,7 +1070,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Couples the two LOW faders: drag either one and the other moves the same distance the opposite way. The bass swap in one gesture; unlink to ride them separately.",
       "source": "src/renderer/ui/Mixer.tsx",
-      "n": 97
+      "n": 95
     },
     {
       "id": "alt.bandsheet",
@@ -1099,7 +1079,7 @@ window.DEX_CONTROLS = {
       "kind": "popover",
       "status": "planned",
       "does": "Tap a band name above its fader: that band for BOTH decks on 300 pt horizontal sliders, with both kills (and LINK for LOW). For long, slow rides. Not in the app yet.",
-      "n": 98
+      "n": 96
     },
     {
       "id": "lib.playlists",
@@ -1109,7 +1089,7 @@ window.DEX_CONTROLS = {
       "status": "live",
       "does": "Left of the list: All tracks, then each playlist with its count. + makes one, double-click renames, ✕ then Delete? removes it (tracks stay in the library). Drag rows onto a playlist to add them.",
       "source": "src/renderer/ui/LibrarySheet.tsx",
-      "n": 99
+      "n": 97
     },
     {
       "id": "lib.thisset",
@@ -1117,9 +1097,9 @@ window.DEX_CONTROLS = {
       "label": "This set",
       "kind": "button",
       "status": "partial",
-      "does": "Under All tracks: the tracks the crowd has heard this set (30 s on the master), in order, with the time each went out. Their music note turns orange everywhere until NEW SET. Native app only; Electron is frozen.",
+      "does": "Under All tracks: the tracks the crowd has heard this set (30 s on the master), in order, with the time each went out. Their music note dims to a see-through white everywhere until NEW SET. Native app only; Electron is frozen.",
       "source": "native/Sources/DexConsole/Library.swift",
-      "n": 100
+      "n": 98
     },
     {
       "id": "lib.pastset",
@@ -1129,7 +1109,7 @@ window.DEX_CONTROLS = {
       "status": "partial",
       "does": "Each earlier set by the day it started, with its count; opens it like This set. Native app only.",
       "source": "native/Sources/DexConsole/Library.swift",
-      "n": 101
+      "n": 99
     },
     {
       "id": "lib.newset",
@@ -1139,7 +1119,7 @@ window.DEX_CONTROLS = {
       "status": "partial",
       "does": "In This set: asks for a second tap, then clears the played marks and starts a new set; the old one joins Past sets. Native app only.",
       "source": "native/Sources/DexConsole/Library.swift",
-      "n": 102
+      "n": 100
     },
     {
       "id": "lib.saveset",
@@ -1149,7 +1129,7 @@ window.DEX_CONTROLS = {
       "status": "partial",
       "does": "In a set: makes a playlist of its tracks, each once, in the order played. Native app only.",
       "source": "native/Sources/DexConsole/Library.swift",
-      "n": 103
+      "n": 101
     },
     {
       "id": "lib.rating",
@@ -1157,9 +1137,9 @@ window.DEX_CONTROLS = {
       "label": "rating stars",
       "kind": "block",
       "status": "partial",
-      "does": "Five stars in each library row (RATING sorts most stars first) and in each deck's title bar; tap a star to rate, tap the top lit one to clear. Native app only.",
+      "does": "Five stars in each library row (RATING sorts most stars first) and in track details; tap a star to rate, tap the top lit one to clear. Not shown in the deck's title bar. Native app only.",
       "source": "native/Sources/DexConsole/Library.swift",
-      "n": 104
+      "n": 102
     },
     {
       "id": "lib.playlist",
@@ -1167,9 +1147,9 @@ window.DEX_CONTROLS = {
       "label": "Playlists (in track details)",
       "kind": "button",
       "status": "live",
-      "does": "In track details, click a playlist to add or take out the track. Create playlists with + in the library sidebar.",
+      "does": "In track details, the chips under the rows: click one to add or take out the track (blue when it is in). Create playlists with + in the library sidebar.",
       "source": "native/Sources/DexConsole/Library.swift",
-      "n": 105
+      "n": 103
     }
   ]
 }

@@ -59,7 +59,6 @@ struct SheetButton: View {
 struct SheetIconButton: View {
     enum Kind {
         case info, close
-        var glyph: ConsoleGlyph { self == .info ? .info : .close }
         var label: String { self == .info ? "Instructions" : "Close" }
     }
 
@@ -67,16 +66,39 @@ struct SheetIconButton: View {
     let action: () -> Void
 
     var body: some View {
+        switch kind {
+        case .close: ExitButton(action: action)
+        case .info: DiscButton(glyph: .info, glyphHeight: 21, label: kind.label, action: action)
+        }
+    }
+}
+
+/// `.icon-btn.close`: every exit key, from the user's drawing (`mockup/song.info.svg`).
+struct ExitButton: View {
+    var label = "Close"
+    let action: () -> Void
+
+    var body: some View { DiscButton(glyph: .close, glyphHeight: 25.7, label: label, action: action) }
+}
+
+/// `.icon-btn:is(.close, .info)`: the drawing's key, a 38 pt disc of #212426 at half strength,
+/// no ring, its glyph white at 85% (the X 17 pt across, the i 19 pt tall).
+struct DiscButton: View {
+    let glyph: ConsoleGlyph
+    let glyphHeight: CGFloat
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
         Button(action: action) {
-            kind.glyph.fill(Color.white.opacity(0.85))
-                .frame(width: 25, height: 25)
-                .frame(width: 40, height: 40)
-                .background(Circle().fill(Color(hex: 0x161917)))
-                .overlay(Circle().strokeBorder(Color(hex: 0x77777E), lineWidth: 2))
+            glyph.fill(Color.white.opacity(0.85))
+                .frame(width: glyphHeight, height: glyphHeight)
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Color(hex: 0x212426).opacity(0.5)))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(kind.label)
+        .accessibilityLabel(label)
     }
 }
 

@@ -24,6 +24,18 @@ final class ConsoleModel: ObservableObject {
     private(set) var pick = Pick.files
     enum Pick { case files, folder }
 
+    /// Where ADD FILES and ADD FOLDER last picked from, so the picker opens there next time.
+    private(set) var importDirectory: URL? = UserDefaults.standard.url(forKey: ConsoleModel.importDirectoryKey)
+    private static let importDirectoryKey = "lastImportDirectory"
+
+    /// Remember the folder holding what was just picked (for ADD FOLDER, the folder around it).
+    func rememberImport(_ urls: [URL]) {
+        guard let first = urls.first else { return }
+        let directory = first.deletingLastPathComponent()
+        importDirectory = directory
+        UserDefaults.standard.set(directory, forKey: Self.importDirectoryKey)
+    }
+
     private struct Faders { var level = 1.0; var eq = ConsoleState.Bands() }
     private var faders = ["A": Faders(), "B": Faders()]
     private var spanSec = 12.0
@@ -250,7 +262,6 @@ final class ConsoleModel: ObservableObject {
             art: loaded ? cover(deck) : nil, rate: deck.tempo, keyLock: deck.keyLock,
             camelot: loaded ? track?.key?.camelot : nil, hotCues: deck.hotCues)
         state.previewing = deck.previewing
-        state.rating = loaded ? track?.rating : nil
         state.played = loaded && deck.libraryTrackID.map { library.sets.played.contains($0.uuidString) } == true
         state.eq = faders[id]!.eq
         state.kills = ConsoleState.Kills(low: deck.kills.low, mid: deck.kills.mid, high: deck.kills.high)

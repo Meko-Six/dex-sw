@@ -43,7 +43,7 @@ private struct TrackWindow: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TitleBar(deck: deck, rate: { stars in deck.trackID.map { actions.library.rate($0, stars) } }) { actions.library.setOpen(true) }
+            TitleBar(deck: deck) { actions.library.setOpen(true) }
             HStack(spacing: 0) {
                 Cover(deck: deck, state: art) { actions.tapArt(deck.id) }
                     .frame(width: 98, height: 98).padding(.leading, 8)
@@ -69,8 +69,6 @@ private struct TrackWindow: View {
 /// `.ztitle`: deck letter, ♪, title and artist on the title-bar blue.
 private struct TitleBar: View {
     let deck: ConsoleState.Deck
-    /// Stars for the loaded track, rated while it plays.
-    let rate: (Int?) -> Void
     /// An empty deck's name opens the library.
     let browse: () -> Void
 
@@ -86,9 +84,6 @@ private struct TitleBar: View {
             Text(deck.loaded ? deck.artist : "").font(Face.ui(14).font).foregroundStyle(Color(hex: 0x8EA4B8))
                 .lineLimit(1).truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if deck.loaded, deck.trackID.flatMap(UUID.init(uuidString:)) != nil {
-                Stars(rating: deck.rating, size: 15, step: 17, unlit: Color(hex: 0x3D5670), rate: rate).frame(height: 23)
-            }
         }
         .padding(.trailing, 8)
         .frame(height: 23, alignment: .leading)
@@ -125,12 +120,19 @@ private struct Cover: View {
                 if !deck.hasCover {
                     NoteIcon(height: 30).foregroundStyle(Color.white.opacity(0.28)).frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                // letter-spacing and text-indent .22em centre the word on its letters.
-                Label(state == .blocked ? "PLAYING" : state == .loaded ? "LOADED" : "LOAD", .cond(8.5, tracking: 1.87)).padding(.leading, 1.87)
-                    .foregroundStyle(state == .armed ? Color.black : state == .blocked ? Color(hex: 0xFFB45E)
-                                     : state == .loaded ? Color(hex: 0x74747B) : Color(hex: 0xE9E9EC))
-                    .frame(maxWidth: .infinity).frame(height: 16.5)
-                    .background(state == .armed ? Palette.accent(deck.id) : Color.black.opacity(0.7))
+                if state == .blocked {
+                    // PLAYING covers the whole art, big enough to read at a glance.
+                    Label("PLAYING", .cond(19, tracking: 1.9)).padding(.leading, 1.9)
+                        .foregroundStyle(Color(hex: 0xFFB45E))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.black.opacity(0.78))
+                } else if state != .idle || !deck.playing {
+                    // letter-spacing and text-indent .22em centre the word on its letters.
+                    Label(state == .loaded ? "LOADED" : "LOAD", .cond(8.5, tracking: 1.87)).padding(.leading, 1.87)
+                        .foregroundStyle(state == .armed ? Color.black : state == .loaded ? Color(hex: 0x74747B) : Color(hex: 0xE9E9EC))
+                        .frame(maxWidth: .infinity).frame(height: 16.5)
+                        .background(state == .armed ? Palette.accent(deck.id) : Color.black.opacity(0.7))
+                }
             }
             .clipShape(RoundedRectangle(cornerRadius: 2))
             // `.zart.armed`: a 2 pt ring outside the cover.

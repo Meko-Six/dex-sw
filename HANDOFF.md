@@ -227,13 +227,15 @@ Mocked up first (`mockup/xdj-mixer-alt.html` + `console.css` for the library and
 
 - **Played in this set.** A track counts once the crowd has heard it for 30 s in all on one load:
   playing, not a CUE preview, LEVEL × its crossfader side at −12 dB or louder (`PlayCounter` in
-  `DexCore/SetHistory.swift`, counted once a second in `ConsoleModel`). Its music note turns orange
+  `DexCore/SetHistory.swift`, counted once a second in `ConsoleModel`). Its music note dims to white at 35% (was orange until 15 Nov)
   in the library and the deck's title bar. **This set** (sidebar) lists plays in order with the
   time; **New set** asks twice, then clears the marks; the old set stays under **Past sets**.
   **Save as playlist** makes a playlist of a set, each track once, in play order. Saved as
   `sets.json` (with a backup) beside the catalog.
-- **Ratings:** 1–5 stars, a RATING column (sortable, most stars first) and stars in each deck's
-  title bar; tap the top lit star to clear. Stored on the track (`LibraryTrack.rating`).
+- **Ratings: five stars (15 Nov; the medals of 14 Nov were dropped).** Five stars in the RATING column
+  (116 pt, sorts most stars first) and in track details; tap a star to rate, tap the top lit one to clear.
+  **No rating in the deck's title bar** (the user's call; `Deck.rating` is gone). Stored on the track
+  (`LibraryTrack.rating`, 1–5). The demo library carries the mockup's `RATINGS`.
 - **Platter lift:** scrubbing redraws that platter over the mixer with a shadow until the finger
   lifts. The platters are now their own PDF, `chassis-platters.pdf` (three PDFs from
   `build-stage-art.mjs`).
@@ -249,6 +251,39 @@ Mocked up first (`mockup/xdj-mixer-alt.html` + `console.css` for the library and
   simulator: a start from stopped is scheduled 27 ms after the press. The delay the user heard
   was Bluetooth (150–250 ms, not removable); cue on wired output. CUE's wait for the other
   deck's beat is deliberate and was kept (the user confirmed, 14 Nov).
+
+## Small UI requests — 14 November 2026
+
+Mockup first, then the app; not yet seen by the user in the app.
+
+- **New music note** (`icons/music.note.svg`, the user's drawing; replaced again on 15 Nov with a plain
+  note, no frame) everywhere; the old Pioneer-derived note is gone. A played track's note is white at 35%.
+- **Progress bars:** a library row being imported or analysed fills its whole bar blue with the label
+  and percent centred; the header's status pill fills orange behind its centred text.
+- **Deck cover:** LOAD is hidden while the deck plays; with the library open and a row picked, PLAYING
+  covers the whole cover in 19 pt type.
+- **Gone:** the header's VOLUME key (`console.volume`) and the library's GRID column (`lib.grid`); the
+  popover code stays for the snapshot demos.
+- **All tracks and This set** carry the playlists' blue count badge.
+- **ADD FILES / ADD FOLDER** open where the last pick came from (`lastImportDirectory` in UserDefaults).
+
+## Track details redesign and the exit key — 15 November 2026
+
+From the user's drawing, `mockup/song.info.svg` (636 × 400), mocked up then ported; not yet seen by the user in the app.
+
+- **Track details** is now the drawing at its own size: title and exit across the top; cover with
+  **re-analyse** (yellow ring) and **remove** (red ring with a bin) under it, icons only, each asking twice:
+  the first tap fills the ring, the second acts. A row each, with the user's icons (`icons/artist|album|genre|bpm|key|length|rating.svg`,
+  plus `reanalyse.svg` and `remove.svg` cut from the drawing): artists • remixer, album, genre • subgenre,
+  BPM, key (Camelot badge and key), length, stars (white, drawn as `StarShape`). Playlists are chips
+  underneath, blue when in; two rows show, more scroll. **Released is no longer shown** (not in the drawing).
+  Ported as `MoreSheet` / `RingKey` in `Library.swift`; the icons are `ConsoleGlyph` cases.
+- **Exit key everywhere** (`.icon-btn.close` / `ExitButton` in `Sheets.swift`): a 38 pt disc of #212426 at
+  50%, no ring, the X 17 pt across. Every sheet and popover close, the library's, and the alert's dismiss
+  (was a ✕ box). The **(i) key** now matches it (the user asked, same day): same disc, the i 19 pt tall (`DiscButton`).
+- Checked: snapshot renders against the mockup (positions measured against the drawing in the browser);
+  `swift test` and the iPad build pass. `.claude/launch.json` gained `mockup-root` (port 8766, the repo root),
+  since the mockup now loads `../icons/`.
 
 ## Stage two from the user's drawing — 14 November 2026
 

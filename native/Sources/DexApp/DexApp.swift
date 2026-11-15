@@ -42,8 +42,10 @@ struct RootView: View {
                           allowsMultipleSelection: model.pick != .folder) { result in
                 model.picking = nil
                 guard case .success(let urls) = result else { return }
+                model.rememberImport(urls)
                 if model.pick == .folder { urls.first.map(model.importFolder) } else { Task { await model.library.importFiles(urls) } }
             }
+            .fileDialogDefaultDirectory(model.importDirectory)
     }
 
     private var picking: Binding<Bool> {

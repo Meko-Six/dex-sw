@@ -873,7 +873,7 @@
       "label": "Track details (⋯)",
       "kind": "button",
       "status": "live",
-      "does": "At the end of each row: opens the track's details (artists, album, genre, BPM, key, length and release date where available), its playlists to switch on and off, re-analyse and remove.",
+      "does": "At the end of each row: opens the track's details, drawn from the user's design (mockup/song.info.svg): a row each for artists, album, genre, BPM, key, length and stars, the playlists as chips to switch on and off, and re-analyse and remove as icon keys under the cover.",
       "source": "native/Sources/DexConsole/Library.swift"
     },
     {
@@ -905,21 +905,12 @@
       "source": "src/renderer/ui/LibrarySheet.tsx"
     },
     {
-      "id": "lib.grid",
-      "group": "library",
-      "label": "grid confidence",
-      "kind": "readout",
-      "status": "live",
-      "does": "How much the detector trusts the beat grid, colour-coded. Low confidence is the cue to open GRID and nudge.",
-      "source": "src/renderer/ui/LibrarySheet.tsx"
-    },
-    {
       "id": "lib.reanalyze",
       "group": "library",
       "label": "Re-analyse (in track details)",
       "kind": "button",
       "status": "live",
-      "does": "In track details, asks twice: runs the whole analysis again. The grid, its other readings and the key are replaced, hand-edited grids included; hot cues stay.",
+      "does": "In track details, the yellow ring under the cover, asks twice (the first tap fills the ring): runs the whole analysis again. The grid, its other readings and the key are replaced, hand-edited grids included; hot cues stay.",
       "source": "native/Sources/DexAudio/NativeLibrary.swift"
     },
     {
@@ -928,7 +919,7 @@
       "label": "Remove from library (in track details)",
       "kind": "button",
       "status": "live",
-      "does": "In track details, red, asks twice: deletes the library's copy and cover and takes the track out of every playlist. The original file stays. Refused while a deck holds the track.",
+      "does": "In track details, the red ring with the bin under the cover, asks twice (the first tap fills the ring): deletes the library's copy and cover and takes the track out of every playlist. The original file stays. Refused while a deck holds the track.",
       "source": "native/Sources/DexAudio/NativeLibrary.swift"
     },
     {
@@ -939,15 +930,6 @@
       "status": "planned",
       "does": "Two tabs over each deck's pads that swap the bank: LOOP shows the loop lengths, ½×, 2×, EXIT and ROLL; HOT CUE shows the four hot cues. Dex shows loop and hot cue pads side by side today.",
       "source": "src/renderer/ui/DeckPanel.tsx"
-    },
-    {
-      "id": "console.volume",
-      "group": "console",
-      "label": "VOLUME",
-      "kind": "button",
-      "status": "live",
-      "does": "Header button: a popover with the MASTER volume and CUE MIX faders.",
-      "source": "src/renderer/App.tsx"
     },
     {
       "id": "lib.key",
@@ -1017,7 +999,7 @@
       "label": "This set",
       "kind": "button",
       "status": "partial",
-      "does": "Under All tracks: the tracks the crowd has heard this set (30 s on the master), in order, with the time each went out. Their music note turns orange everywhere until NEW SET. Native app only; Electron is frozen.",
+      "does": "Under All tracks: the tracks the crowd has heard this set (30 s on the master), in order, with the time each went out. Their music note dims to a see-through white everywhere until NEW SET. Native app only; Electron is frozen.",
       "source": "native/Sources/DexConsole/Library.swift"
     },
     {
@@ -1053,7 +1035,7 @@
       "label": "rating stars",
       "kind": "block",
       "status": "partial",
-      "does": "Five stars in each library row (RATING sorts most stars first) and in each deck's title bar; tap a star to rate, tap the top lit one to clear. Native app only.",
+      "does": "Five stars in each library row (RATING sorts most stars first) and in track details; tap a star to rate, tap the top lit one to clear. Not shown in the deck's title bar. Native app only.",
       "source": "native/Sources/DexConsole/Library.swift"
     },
     {
@@ -1062,7 +1044,7 @@
       "label": "Playlists (in track details)",
       "kind": "button",
       "status": "live",
-      "does": "In track details, click a playlist to add or take out the track. Create playlists with + in the library sidebar.",
+      "does": "In track details, the chips under the rows: click one to add or take out the track (blue when it is in). Create playlists with + in the library sidebar.",
       "source": "native/Sources/DexConsole/Library.swift"
     }
   ]

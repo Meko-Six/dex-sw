@@ -82,8 +82,7 @@ public struct ConsoleState: Equatable, Sendable {
         public var hotCues: [Double?]
         /// Previewing on CUE: PLAY shows ▶ even though the deck is sounding.
         public var previewing = false
-        /// The track's stars, 1 … 5, and whether the current set has played it.
-        public var rating: Int?
+        /// Whether the current set has played the track.
         public var played = false
         public var eq = Bands()
         public var kills = Kills()
@@ -486,7 +485,7 @@ extension ConsoleState {
                  durationSec: 384, position: 384 - 72.418, loop: Loop(startBeat: 688, lengthBeats: 8), wave: .demo(seed: 7),
                  title: "Everlight (Extended Mix)", artist: "Tiesto, Mathame", art: .split(0x2B4F7A, 0xD0703A),
                  keyLock: true, camelot: "8A", hotCues: [32.0, 104.7, 312.67, 261.5, nil, nil, nil, nil])
-                .with { $0.headphoneCue = true; $0.trimDb = -1.4; $0.autoTrimDb = -1.4 },
+                .with { $0.headphoneCue = true; $0.trimDb = -1.4; $0.autoTrimDb = -1.4; $0.played = true },
             Deck(id: "B", trackID: "demo-1", syncLocked: true, grid: Grid(bpm: 130, offsetMs: 247.3, confidence: 0.88),
                  durationSec: 418, position: 0.91, cuePoint: 0.9, wave: .demo(seed: 21),
                  title: "Ocean", artist: "Patrick Topping", art: .split(0x0F5E63, 0x9AD3C4),
@@ -527,12 +526,19 @@ extension ConsoleState {
             track.art = .split(art[index % art.count], art[index % art.count])
             let tags = demoTags[index]
             track.album = tags.0; track.genre = tags.1; track.subgenre = tags.2; track.remixer = tags.3; track.release = tags.4
+            // `RATINGS` in the mockup.
+            track.rating = [0: 5, 1: 4, 5: 4, 6: 5, 9: 3][index]
             return track
         }
-        return Library(tracks: tracks, playlists: [
+        var library = Library(tracks: tracks, playlists: [
             Library.Playlist(id: "warm", name: "Warm up", trackIDs: ["demo-5", "demo-2", "demo-6", "demo-3"]),
             Library.Playlist(id: "peak", name: "Peak time")
         ])
+        // `SETS` in the mockup: this set has played Delilah, Glue and Everlight.
+        library.sets = [Library.SetEntry(id: "set-now", day: "Sat 14 Nov", started: "Sat 14 Nov · 21:30", plays: [
+            .init(trackID: "demo-5", time: "21:31"), .init(trackID: "demo-6", time: "21:36"), .init(trackID: "demo-0", time: "21:40")
+        ])]
+        return library
     }()
 
     /// Album, genre, subgenre, remixer and release, as `DEMO_TAGS` in the mockup,

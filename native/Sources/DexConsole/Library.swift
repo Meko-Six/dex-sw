@@ -174,9 +174,9 @@ struct LibraryPane: View {
     private var side: some View {
         VStack(alignment: .leading, spacing: 3) {
             sideLabel("COLLECTION")
-            SideItem(icon: nil, name: "All tracks", count: library.tracks.count, on: playlist == nil && openSet == nil) { open(nil) }
+            SideItem(icon: nil, badge: true, name: "All tracks", count: library.tracks.count, on: playlist == nil && openSet == nil) { open(nil) }
             if let current = library.currentSet {
-                SideItem(icon: nil, iconColour: Palette.played, name: "This set", count: current.plays.count, on: isCurrentSet) { open(current.id) }
+                SideItem(icon: nil, iconColour: Palette.played, badge: true, name: "This set", count: current.plays.count, on: isCurrentSet) { open(current.id) }
             }
             let past = library.sets.dropLast().reversed()
             if !past.isEmpty {
@@ -418,18 +418,20 @@ struct LibraryPane: View {
                 Text(pending.title).font(Face.avenir(22).font).foregroundStyle(Palette.rowText)
                     .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading).padding(.trailing, 8)
                 columnCell(Self.metadataWidth) {
-                    HStack(spacing: 12) {
-                        Label(pending.label.uppercased(), .avenir(13, weight: .bold))
-                            .foregroundStyle(Palette.rowDim).frame(width: 100, alignment: .leading)
-                        GeometryReader { geometry in
-                            Capsule().fill(Color(hex: 0x5C6162))
-                                .overlay(alignment: .leading) {
-                                    Capsule().fill(Palette.blue).frame(width: geometry.size.width * pending.fraction)
-                                        .animation(snapshot || reduceMotion ? nil : .easeOut(duration: 0.2), value: pending.fraction)
-                                }
+                    // The whole bar is the progress: blue fills from the left behind the centred label.
+                    GeometryReader { geometry in
+                        Color(hex: 0x2A2E2F).overlay(alignment: .leading) {
+                            Palette.blue.frame(width: geometry.size.width * pending.fraction)
+                                .animation(snapshot || reduceMotion ? nil : .easeOut(duration: 0.2), value: pending.fraction)
                         }
-                        .frame(height: 4)
                     }
+                    .frame(height: 28)
+                    .overlay {
+                        Label(pending.label.uppercased() + (pending.fraction > 0 ? " \(Int((pending.fraction * 100).rounded()))%" : ""),
+                              .avenir(15, weight: .bold, tabular: true))
+                            .foregroundStyle(Palette.rowText)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 3))
                     .padding(.horizontal, 12)
                 }
             }
@@ -480,10 +482,6 @@ struct LibraryPane: View {
                             .frame(width: 62)
                         Label(keyShort(track.key), .avenir(18, weight: .demi)).foregroundStyle(dim).frame(maxWidth: .infinity)
                     }
-                }
-                columnCell(SortColumn.grid.width) {
-                    Label("\(Int((track.confidence * 100).rounded()))%" + (track.gridUncertain ? "?" : ""), number)
-                        .foregroundStyle(track.gridUncertain ? Color(hex: 0xFFB455) : dim)
                 }
                 columnCell(SortColumn.rating.width) {
                     Stars(rating: track.rating, size: 19, step: 21, unlit: selected ? Color.white.opacity(0.35) : Color(hex: 0x3B3F40)) {
@@ -548,11 +546,11 @@ public struct LibraryView: Sendable {
 }
 
 enum SortColumn: Int, CaseIterable {
-    case name, bpm, time, key, grid, rating
+    case name, bpm, time, key, rating
 
-    var title: String { ["TRACK", "BPM", "TIME", "KEY", "GRID", "RATING"][rawValue] }
+    var title: String { ["TRACK", "BPM", "TIME", "KEY", "RATING"][rawValue] }
     /// The title takes the remaining width after the other columns.
-    var width: CGFloat { [0, 71, 64, 103, 67, 116][rawValue] }
+    var width: CGFloat { [0, 71, 64, 103, 116][rawValue] }
 
     func compare(_ a: ConsoleState.Library.Track, _ b: ConsoleState.Library.Track) -> ComparisonResult {
         func order<T: Comparable>(_ x: T, _ y: T) -> ComparisonResult { x < y ? .orderedAscending : x > y ? .orderedDescending : .orderedSame }
@@ -561,7 +559,6 @@ enum SortColumn: Int, CaseIterable {
         case .key: return order(Camelot.rank(a.camelot), Camelot.rank(b.camelot))
         case .bpm: return order(a.bpm, b.bpm)
         case .time: return order(a.durationSec.rounded(.down), b.durationSec.rounded(.down))
-        case .grid: return order((a.confidence * 100).rounded(), (b.confidence * 100).rounded())
         // Most stars first.
         case .rating: return order(b.rating ?? 0, a.rating ?? 0)
         }
@@ -623,8 +620,10 @@ private struct SideItem<Accessory: View>: View {
     /// A glyph, or nil for the music note.
     let icon: String?
     var iconColour = Color(hex: 0x74747B)
-    /// A glyph item that is not a playlist: its count reads like All tracks'.
+    /// A glyph item that is not a playlist: its count reads plain, like a past set's.
     var plain = false
+    /// All tracks and This set: not playlists, but they carry the playlists' blue count badge.
+    var badge = false
     let name: String
     let count: Int
     let on: Bool
@@ -635,6 +634,7 @@ private struct SideItem<Accessory: View>: View {
 
     var body: some View {
         let isPlaylist = icon != nil && !plain
+        let blueCount = isPlaylist || badge
         HStack(spacing: 9) {
             Group {
                 if let icon { Text(icon).font(Face.avenir(16, weight: .regular).font) } else { NoteIcon(height: 18) }
@@ -647,7 +647,7 @@ private struct SideItem<Accessory: View>: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             accessory
-            if isPlaylist {
+            if blueCount {
                 Label(String(count), .avenir(16, weight: .bold, tabular: true)).foregroundStyle(Palette.text)
                     .padding(.horizontal, 4).frame(minWidth: 30).frame(height: 27)
                     .background(Palette.blue)
@@ -656,7 +656,7 @@ private struct SideItem<Accessory: View>: View {
             }
         }
         .foregroundStyle(on || isPlaylist ? Palette.text : Color(hex: 0xA0A0A6))
-        .padding(.leading, 11).padding(.trailing, isPlaylist ? 1 : 9)
+        .padding(.leading, 11).padding(.trailing, blueCount ? 1 : 9)
         .frame(minHeight: 40)
         .background(RoundedRectangle(cornerRadius: 3).fill(on ? Color(hex: 0x161617) : .clear))
         .overlay(alignment: .leading) { if on { Palette.blue.frame(width: 4).clipShape(RoundedRectangle(cornerRadius: 2)) } }
@@ -666,9 +666,11 @@ private struct SideItem<Accessory: View>: View {
 }
 
 extension SideItem where Accessory == EmptyView {
-    init(icon: String?, iconColour: Color = Color(hex: 0x74747B), plain: Bool = false, name: String, count: Int, on: Bool,
-         action: @escaping () -> Void) {
-        self.init(icon: icon, iconColour: iconColour, plain: plain, name: name, count: count, on: on, action: action) { EmptyView() }
+    init(icon: String?, iconColour: Color = Color(hex: 0x74747B), plain: Bool = false, badge: Bool = false, name: String, count: Int,
+         on: Bool, action: @escaping () -> Void) {
+        self.init(icon: icon, iconColour: iconColour, plain: plain, badge: badge, name: name, count: count, on: on, action: action) {
+            EmptyView()
+        }
     }
 }
 
@@ -865,8 +867,10 @@ actor RowCovers {
     }
 }
 
-/// MORE: what the file's tags and the analysis know, its playlists, re-analyse
-/// and remove. Removing asks twice, as deleting a playlist does.
+/// MORE, the track details: the user's drawing (`mockup/song.info.svg`, 636 × 400), placed at
+/// the drawing's own coordinates. The title and exit across the top; the cover with re-analyse and
+/// remove under it, icons only, each asking twice (the first tap fills its ring); a row each for
+/// the artists, album, genre, BPM, key, length and stars; then the playlists as chips.
 struct MoreSheet: View {
     let track: ConsoleState.Library.Track
     let more: ConsoleState.More
@@ -874,136 +878,162 @@ struct MoreSheet: View {
     let actions: ConsoleActions
     @Environment(\.consoleSnapshot) private var snapshot
 
-    /// `.more-fields`: Album, Genre, BPM, Key, Length, Released.
-    private static let columns: [CGFloat] = [306, 200, 111, 123, 107, 98]
-    /// Its label-grey, and the keys' and playlist buttons' fill.
-    private static let grey = Color(hex: 0x75757B), fill = Color(hex: 0x161917)
+    /// The chips' grey, their fill, and the text's white.
+    private static let grey = Color(hex: 0x75757C), fill = Color(hex: 0x151916), white = Color(hex: 0xF2F1F3)
+    /// `.more-rows`: where the rows start, their width and each row's height.
+    private static let rows = CGPoint(x: 185.85, y: 69.57), rowWidth: CGFloat = 434.31, rowHeight: CGFloat = 37.25
+    /// Where the chips start: everything above is placed by hand.
+    private static let chipsTop: CGFloat = 351.27
 
     private var library: ConsoleState.Library { state.library }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            RowArt(art: track.art, url: track.coverURL).frame(width: 148, height: 148).clipped()
-                .offset(x: 33, y: 23)
-            keys.frame(width: 780, alignment: .trailing).offset(x: 198, y: 23)
-            names.frame(width: 780, alignment: .leading).offset(x: 198, y: 80)
-            fields.offset(x: 33, y: 192)
-            playlists.frame(width: 945, alignment: .leading).offset(x: 33, y: 287)
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                Text(track.title).font(Face.avenir(23, weight: .demi).font).foregroundStyle(Self.white)
+                    .lineLimit(1).truncationMode(.tail)
+                    .frame(width: 583.9 - 12 - 28.72, height: 38, alignment: .leading)
+                    .offset(x: 28.72, y: 12.75)
+                ExitButton { actions.library.setMore(nil) }.offset(x: 583.9, y: 12.75)
+                RowArt(art: track.art, url: track.coverURL).frame(width: 150, height: 150).clipped()
+                    .offset(x: 16.24, y: 69.57)
+                keys
+                rowsView.offset(x: Self.rows.x, y: Self.rows.y)
+            }
+            .frame(width: 636, height: Self.chipsTop, alignment: .topLeading)
+            playlists.padding(.leading, 183.31).padding(.trailing, 16).padding(.bottom, 21)
         }
-        .frame(width: 1000, height: 352, alignment: .topLeading)
-        .box(fill: Color(hex: 0x030305), border: Palette.blue, radius: 4, width: 2)
+        .frame(width: 636, alignment: .topLeading)
+        .frame(minHeight: 400, alignment: .top)
+        .box(fill: Color(hex: 0x040405), border: Color(hex: 0x231F20), radius: 3, width: 2)
         .compositingGroup()
         .shadow(color: .black.opacity(0.8), radius: 45, y: 34)
         .contentShape(Rectangle())
         .onTapGesture {}
     }
 
-    private var keys: some View {
-        HStack(spacing: 20) {
-            if library.removes {
-                MoreKey(title: more.confirming ? "Tap again to remove" : "Remove from library", colour: Palette.red,
-                        fill: more.confirming ? mix(0xE8402F, 0.22, 0x111113) : Self.fill) {
-                    Text("X").font(Face.avenir(19, weight: .bold).font).fixedSize()
-                } action: {
-                    if more.confirming {
-                        actions.library.setMore(nil)
-                        actions.library.remove(track.id)
-                    } else {
-                        actions.library.setMore(ConsoleState.More(track: track.id, confirming: true))
-                    }
+    // MARK: Re-analyse and remove
+
+    @ViewBuilder private var keys: some View {
+        if library.reanalyzes {
+            RingKey(glyph: .reanalyse, colour: Color(hex: 0xD4E108), armed: more.reanalysing,
+                    label: more.reanalysing ? "Tap again to re-analyse" : "Re-analyse") {
+                if more.reanalysing {
+                    actions.library.setMore(nil)
+                    actions.library.reanalyze(track.id)
+                } else {
+                    actions.library.setMore(ConsoleState.More(track: track.id, reanalysing: true))
                 }
             }
-            if library.reanalyzes {
-                MoreKey(title: more.reanalysing ? "Tap again to re-analyse" : "Re-analyse", colour: Palette.outlineYellow,
-                        fill: more.reanalysing ? mix(0xDBE22D, 0.22, 0x111113) : Self.fill, leading: 10, spacing: 7) {
-                    Text("↻").font(.custom("HelveticaNeue", fixedSize: 28)).fixedSize().frame(width: 19, height: 16).offset(y: -2)
-                } action: {
-                    if more.reanalysing {
-                        actions.library.setMore(nil)
-                        actions.library.reanalyze(track.id)
-                    } else {
-                        actions.library.setMore(ConsoleState.More(track: track.id, reanalysing: true))
-                    }
+            .allowsHitTesting(!library.busy)
+            .offset(x: 35.14, y: 247.72)
+        }
+        if library.removes {
+            RingKey(glyph: .remove, colour: Color(hex: 0xEC1C24), armed: more.confirming,
+                    label: more.confirming ? "Tap again to remove" : "Remove from library") {
+                if more.confirming {
+                    actions.library.setMore(nil)
+                    actions.library.remove(track.id)
+                } else {
+                    actions.library.setMore(ConsoleState.More(track: track.id, confirming: true))
                 }
-                .allowsHitTesting(!library.busy)
             }
-            SheetIconButton(kind: .close) { actions.library.setMore(nil) }
+            .offset(x: 110.72, y: 247.72)
         }
     }
 
-    private var names: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Track").font(Face.avenir(17).font).foregroundStyle(Self.grey).frame(height: 20)
-            Text(track.title).font(Face.avenir(25, weight: .demi).font).foregroundStyle(Palette.rowText)
-                .lineLimit(1).truncationMode(.tail).frame(height: 34).padding(.top, 7)
-            (Text("Artists: ").foregroundColor(Self.grey) + Text(joined(track.artist, track.remixer)).foregroundColor(Palette.rowText))
-                .font(Face.avenir(17).font).lineLimit(1).truncationMode(.tail).frame(height: 20).padding(.top, 5)
+    // MARK: The rows
+
+    private var rowsView: some View {
+        VStack(spacing: 0) {
+            row(0, .artist, height: 28) { value(joined(track.artist, track.remixer)) }
+            row(1, .album, height: 26, faded: true) { value(track.album) }
+            row(2, .genre, height: 25) { value(joined(track.genre, track.subgenre)) }
+            row(3, .bpm, height: 23) { value(String(format: "%.1f", track.bpm)) }
+            row(4, .key, height: 23, faded: true) {
+                if let code = track.camelot {
+                    HStack(spacing: 10) {
+                        Label(code, .cond(21)).foregroundStyle(Color(hex: 0x0F0E14))
+                            .padding(.horizontal, 5).frame(minWidth: 44.07).frame(height: 27.44)
+                            .background(RoundedRectangle(cornerRadius: 2.3).fill(camelotColour(code) ?? Self.grey))
+                            .padding(.leading, 1.45)
+                        value(keyShort(track.key))
+                    }
+                }
+            }
+            row(5, .length, height: 26) { value(clock(track.durationSec)) }
+            row(6, .rating, height: 26) {
+                StarRow(rating: track.rating, step: 25, rate: { actions.library.rate(track.id, $0) }) { lit in
+                    if lit {
+                        StarShape().fill(Self.white).frame(width: 23, height: 21.9)
+                    } else {
+                        StarShape().stroke(Self.white, lineWidth: 1.2).frame(width: 23, height: 21.9)
+                    }
+                }
+                .frame(height: Self.rowHeight)
+                .padding(.leading, -2.75)
+            }
         }
+        .frame(width: Self.rowWidth)
     }
 
     private func joined(_ first: String, _ rest: String) -> String {
         first + (!first.isEmpty && !rest.isEmpty ? " • " : "") + rest
     }
 
-    private var fields: some View {
-        HStack(spacing: 0) {
-            field(0, "Album") { value(track.album) }
-            field(1, "Genre") { value(joined(track.genre, track.subgenre)) }
-            field(2, "BPM") { value(String(format: "%.1f", track.bpm)) }
-            field(3, "Key") {
-                if track.camelot != nil {
-                    HStack(spacing: 7) {
-                        Label(track.camelot ?? "", .cond(20)).foregroundStyle(Color(hex: 0x0B0913))
-                            .frame(minWidth: 36).frame(height: 22)
-                            .background(RoundedRectangle(cornerRadius: 2).fill(camelotColour(track.camelot) ?? Self.grey))
-                        value(keyShort(track.key))
-                    }
-                }
-            }
-            field(4, "Length") { value(clock(track.durationSec)) }
-            field(5, "Released") { value(track.release).fixedSize() }
-        }
-    }
-
     private func value(_ text: String) -> some View {
-        Text(text).font(Face.avenir(17).font).foregroundStyle(Palette.rowText).lineLimit(1).truncationMode(.tail)
+        Text(text).font(Face.avenir(21).font).foregroundStyle(Self.white).lineLimit(1).truncationMode(.tail)
     }
 
-    /// `.more-field`: a label over its value, ruled off from the one before.
-    private func field<Value: View>(_ index: Int, _ label: String, @ViewBuilder value: () -> Value) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(Face.avenir(17).font).foregroundStyle(Self.grey).frame(height: 18)
-            value().frame(height: 18)
+    /// `.more-row`: the icon centred in a 53.34-wide cell, then the value; the rows alternate greys.
+    private func row<Value: View>(_ index: Int, _ glyph: ConsoleGlyph, height: CGFloat, faded: Bool = false,
+                                  @ViewBuilder value: () -> Value) -> some View {
+        HStack(spacing: 0) {
+            glyph.fill(Palette.blue.opacity(faded ? 0.85 : 1))
+                .frame(width: height * glyph.size.width / glyph.size.height, height: height)
+                .frame(width: 53.34)
+            value().padding(.leading, -1.45)
+            Spacer(minLength: 0)
         }
-        .padding(.top, 1)
-        .padding(.leading, index == 0 ? 0 : index == 1 ? 13 : 12)
-        .padding(.trailing, index == 0 ? 12 : 0)
-        .frame(width: Self.columns[index], height: 49, alignment: .topLeading)
-        .overlay(alignment: .leading) { if index > 0 { Color(hex: 0x68686D).frame(width: 1) } }
+        .frame(width: Self.rowWidth, height: Self.rowHeight)
+        .background(index % 2 == 0 ? Color(hex: 0x202323) : Color(hex: 0x151916))
     }
 
-    private var playlists: some View {
-        HStack(alignment: .top, spacing: 26) {
-            Label("PLAYLISTS", .avenir(22, weight: .bold)).foregroundStyle(Self.grey).frame(height: 28)
-            if snapshot {
-                chips.frame(height: 64, alignment: .top)
-            } else {
-                ScrollView(.vertical, showsIndicators: false) { chips }.frame(height: 64, alignment: .top)
-            }
+    // MARK: Playlists
+
+    /// `.more-lists`: as tall as its rows of chips, up to two (64 pt); more scroll.
+    @ViewBuilder private var playlists: some View {
+        let height = min(64, chipsHeight)
+        if snapshot || chipsHeight <= 64 {
+            chips.frame(height: height, alignment: .top)
+        } else {
+            ScrollView(.vertical, showsIndicators: false) { chips }.frame(height: height)
         }
+    }
+
+    /// The chips' rows, wrapped as `ChipFlow` wraps them in the 436.69 pt beside the cover.
+    private var chipsHeight: CGFloat {
+        let face = Face.cond(18.6, weight: .demi), room: CGFloat = 636 - 183.31 - 16
+        var x: CGFloat = 0, rows = library.playlists.isEmpty ? 0 : 1
+        for entry in library.playlists {
+            let width = max(75.9, face.width(of: entry.name.uppercased()) + 17)
+            if x > 0, x + width > room { x = 0; rows += 1 }
+            x += width + 13.5
+        }
+        return CGFloat(rows) * 27.8 + CGFloat(max(0, rows - 1)) * 8
     }
 
     private var chips: some View {
-        ChipFlow {
+        ChipFlow(spacing: 13.5) {
             ForEach(library.playlists) { entry in
                 let member = entry.trackIDs.contains(track.id)
                 Button {
                     if member { actions.library.removeFromPlaylist(entry.id, track.id) } else { actions.library.addToPlaylist(entry.id, track.id) }
                 } label: {
-                    Label(entry.name.uppercased(), .cond(19, tracking: 0.19, weight: .medium))
+                    Label(entry.name.uppercased(), .cond(18.6, weight: .demi))
                         .foregroundStyle(member ? Palette.blue : Self.grey)
-                        .padding(.horizontal, 10).frame(height: 28)
-                        .box(fill: Self.fill, border: member ? Palette.blue : Self.grey, radius: 3, width: 2)
+                        .padding(.horizontal, 8.5).frame(minWidth: 75.9).frame(height: 27.8)
+                        .box(fill: Self.fill, border: member ? Palette.blue : Self.grey, radius: 3, width: 1.6)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -1012,35 +1042,33 @@ struct MoreSheet: View {
     }
 }
 
-/// `.more-actions .btn`: an outlined key, 36 high, with an optional glyph.
-private struct MoreKey<Glyph: View>: View {
-    let title: String
+/// `.more-actions button`: a ring 39.8 across with its icon at 85%; armed, the ring fills
+/// and the icon goes dark.
+private struct RingKey: View {
+    let glyph: ConsoleGlyph
     let colour: Color
-    let fill: Color
-    var leading: CGFloat = 15
-    var spacing: CGFloat = 6
-    @ViewBuilder let glyph: Glyph
+    let armed: Bool
+    let label: String
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: spacing) {
-                glyph
-                Label(title.uppercased(), .cond(18, tracking: 0.18, weight: .demi)).frame(height: 18)
-            }
-            .foregroundStyle(colour)
-            .offset(y: -1)
-            .padding(.leading, leading).padding(.trailing, 15)
-            .frame(height: 36)
-            .box(fill: fill, border: colour, radius: 4, width: 2)
-            .contentShape(Rectangle())
+            glyph.fill(armed ? Color(hex: 0x040405) : colour.opacity(0.85))
+                .frame(width: glyph.size.width, height: glyph.size.height)
+                .frame(width: 39.8, height: 39.8)
+                .background(Circle().fill(armed ? colour : .clear))
+                .overlay(Circle().inset(by: 1.05).stroke(colour, lineWidth: 2.1))
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
-/// `.more-lists > div`: buttons left to right, wrapping, 12 apart and 8 between rows.
+/// `.more-lists`: buttons left to right, wrapping, `spacing` apart and 8 between rows.
 private struct ChipFlow: SwiftUI.Layout {
+    var spacing: CGFloat = 12
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? .infinity
         return CGSize(width: proposal.width ?? 0, height: arrange(subviews, width: width).height)
@@ -1059,14 +1087,14 @@ private struct ChipFlow: SwiftUI.Layout {
             let size = subview.sizeThatFits(.unspecified)
             if x > 0, x + size.width > width { x = 0; y += row + 8; row = 0 }
             spots.append(CGPoint(x: x, y: y))
-            x += size.width + 12
+            x += size.width + spacing
             row = max(row, size.height)
         }
         return (spots, y + row)
     }
 }
 
-/// `.lib-stars` / `.zstars`: five stars. Tap one to rate; tap the top lit star again to clear.
+/// `.lib-stars`: five stars. Tap one to rate; tap the top lit star again to clear.
 struct Stars: View {
     let rating: Int?
     let size: CGFloat
@@ -1076,11 +1104,25 @@ struct Stars: View {
     let rate: (Int?) -> Void
 
     var body: some View {
+        StarRow(rating: rating, step: step, rate: rate) { lit in
+            Text("★").font(.system(size: size)).foregroundStyle(lit ? Palette.star : unlit)
+        }
+    }
+}
+
+/// Five tap targets `step` wide, each drawn by `star(lit)`, read out as one rating.
+struct StarRow<Star: View>: View {
+    let rating: Int?
+    let step: CGFloat
+    let rate: (Int?) -> Void
+    @ViewBuilder let star: (Bool) -> Star
+
+    var body: some View {
         let lit = rating ?? 0
         HStack(spacing: 0) {
-            ForEach(1...5, id: \.self) { star in
-                Button { rate(star == lit ? nil : star) } label: {
-                    Text("★").font(.system(size: size)).foregroundStyle(star <= lit ? Palette.star : unlit)
+            ForEach(1...5, id: \.self) { index in
+                Button { rate(index == lit ? nil : index) } label: {
+                    star(index <= lit)
                         .frame(width: step).frame(maxHeight: .infinity)
                         .contentShape(Rectangle())
                 }
@@ -1097,5 +1139,22 @@ struct Stars: View {
             @unknown default: break
             }
         }
+    }
+}
+
+/// `.more-stars polygon`: the drawing's five-pointed star, 23 across, filled when lit.
+struct StarShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        // The mockup's points: radii 12.1 and 4.83 about (12.1, 12.1), in a 23 × 21.9 box from x 0.6.
+        let scale = min(rect.width / 23, rect.height / 21.9)
+        var path = Path()
+        for n in 0..<10 {
+            let radius: CGFloat = n % 2 == 1 ? 4.83 : 12.1, angle = CGFloat.pi * CGFloat(n) / 5
+            let point = CGPoint(x: rect.midX + (12.1 + radius * sin(angle) - 0.6 - 11.5) * scale,
+                                y: rect.midY + (12.1 - radius * cos(angle) - 10.95) * scale)
+            if n == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        path.closeSubpath()
+        return path
     }
 }

@@ -14,6 +14,18 @@
       "port": 8765
     },
     {
+      "name": "mockup-root",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8766",
+        "--directory",
+        "."
+      ],
+      "port": 8766
+    },
+    {
       "name": "renderer",
       "runtimeExecutable": "zsh",
       "runtimeArgs": [

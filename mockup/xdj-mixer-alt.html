@@ -645,7 +645,7 @@
         return `${save}${sync}<span class="chip master">MASTER A</span>`;
       }
 
-      /* ---------- header: wordmark, status chips, volume ---------- */
+      /* ---------- header: wordmark, status chips, cue output ---------- */
       function renderHead() {
         return `
           <div class="head">
@@ -656,7 +656,6 @@
             </span>
             <button class="btn head-btn bands-btn ${energyEnabled ? '' : 'on'}" data-ctl="console.threeband" aria-pressed="${!energyEnabled}" onclick="energyEnabled = false; render()" title="Frequency bands: blue bass, orange mids, white highs. Equal brightness throughout the track.">3BAND</button>
             <button class="btn head-btn energy-btn ${energyEnabled ? 'on' : ''}" data-ctl="console.energy" aria-pressed="${energyEnabled}" onclick="energyEnabled = !energyEnabled; render()" title="Estimated musical intensity: blue → cyan → amber → red. Same scale for both decks. Toggle intensity or three frequency bands."><i aria-hidden="true"></i>ENERGY</button>
-            <button class="btn vol-btn ${volOpen ? 'on' : ''}" data-ctl="console.volume" onclick="toggleVol()">VOLUME</button>
             <span class="chip" data-ctl="console.samplerate">48.0 kHz</span>
             <button class="btn head-btn ${splitCue ? '' : 'on'}" data-ctl="console.splitcue" onclick="splitCue = !splitCue; render()" title="Split cue: master left, cue right. 4-channel: master 1/2, cue 3/4.">${splitCue ? 'SPLIT CUE' : '4-CH CUE'}</button>
             <button class="btn head-btn ${TAP_SCREENS.includes(screen) ? 'on' : ''}" data-ctl="console.tap" onclick="setScreen('tap')" title="Read the tempo of an external input">TAP</button>
@@ -933,10 +932,9 @@
                 <span class="note${isPlayed(deckTrack(d)) ? ' played' : ''}">${NOTE_ICON}</span>
                 <span class="zname">${title}</span>
                 <span class="zartist">${artist}</span>
-                ${deckTrack(d) >= 0 ? starsHtml(deckTrack(d), 'zstars') : ''}
               </div>
               <button class="zart ${artState(d)}${hasCover(d) ? ' cover' : ''}" data-ctl="deck.load" onclick="tapArt('${d.letter}')" title="Load a track onto deck ${d.letter}"
-                style="--art:${hasCover(d) ? COVER_ART : `linear-gradient(135deg, ${d.art[0]} 0 55%, ${d.art[1]} 55% 100%)`}"><i>${NOTE_ICON}</i><b>${ART_LABEL[artState(d)]}</b></button>
+                style="--art:${hasCover(d) ? COVER_ART : `linear-gradient(135deg, ${d.art[0]} 0 55%, ${d.art[1]} 55% 100%)`}"><i>${NOTE_ICON}</i>${artState(d) || d.state !== 'playing' ? `<b>${ART_LABEL[artState(d)]}</b>` : ''}</button>
               <div class="zbody">
                 ${songReadouts({
                   elapsed: elapsed.padStart(5, '0'), total: total.padStart(5, '0'), whole, ms: ms || '000',
@@ -959,8 +957,9 @@
       }
 
       /* With the library open and a track picked, the album art is the load
-         target: lit in the deck colour when it will load, PLAYING when the
-         deck has to pause first, LOADED when the track is already on it. */
+         target: lit in the deck colour when it will load, PLAYING over the
+         whole cover when the deck has to pause first, LOADED when the track is
+         already on it. Outside that, LOAD shows only while the deck isn't playing. */
       const ART_LABEL = { '': 'LOAD', armed: 'LOAD', blocked: 'PLAYING', loaded: 'LOADED' };
       function artState(d) {
         const sel = libOpen && libView.selected != null ? LIBRARY[libView.selected] : null;
@@ -1524,7 +1523,6 @@
           key: (t) => camelotRank(t.camelot),
           bpm: (t) => Number(t.bpm),
           dur: (t) => t.dur.split(':').reduce((m, x) => m * 60 + Number(x), 0),
-          grid: (t) => parseFloat(t.grid),
           rating: (t) => -(RATINGS[LIBRARY.indexOf(t)] || 0)
         }[libView.sort];
         return rows.sort((x, y) => {
@@ -1560,7 +1558,7 @@
       const decksOf = (t) => [...t.on];
       const isOnAir = (t) => decksOf(t).some((deck) => DECKS[deck].state === 'playing');
       /* icons/music.note.svg */
-      const NOTE_ICON = '<svg viewBox="0 0 15.01 24.75" aria-hidden="true"><path d="M9.06,19.71c-.01,1.12-.28,1.7-1,2.55-.28.33-.56.65-.91.92-1.18.91-2.49,1.42-4,1.27-.7-.07-1.38-.39-1.92-.81-1.15-.9-1.2-2.51-.44-3.8.27-.46.64-.83,1.03-1.21,1.16-1.16,3.06-1.84,4.66-1.5.41.09.77.23,1.18.37l.06-.91.06-8.37.05-5.64.05-1.99c.09-.19.41-.33.59-.29.8.19.59,1.02,1.03,2.01.32.7.76,1.29,1.27,1.85l1.56,1.73c2.06,2.27,3.04,5.14,1.89,8.1-.29.74-.65,1.42-1.3,1.89-.21.1-.65-.13-.66-.36.12-.47.33-.88.48-1.34.29-.87.44-1.75.32-2.67-.2-1.49-.94-2.87-2.11-3.81-.54-.43-1.14-.71-1.79-1.01l-.05,7.32-.06,5.72Z"/></svg>';
+      const NOTE_ICON = '<svg viewBox="0 0 15.71 25.89" aria-hidden="true"><path d="M15.71,5.85V1.01c0-.68-.54-1.12-1.21-.98l-6.61,1.43c-.82.19-1.27.62-1.27,1.35v14.34c.08.63-.22,1.04-.78,1.15l-2.05.42c-2.58.55-3.79,1.85-3.79,3.82s1.52,3.35,3.66,3.35c1.89,0,4.72-1.4,4.72-5.15v-11.79c0-.69.14-.82.75-.95l5.89-1.3C15.44,6.6,15.71,6.28,15.71,5.85Z"/></svg>';
       const MORE_ICON = '<svg viewBox="0 0 18 4" aria-hidden="true"><circle cx="2" cy="2" r="2"/><circle cx="9" cy="2" r="2"/><circle cx="16" cy="2" r="2"/></svg>';
       /* The note, or the decks holding the track: white when loaded, a green arrow when playing. */
       function rowMarkHtml(t) {
@@ -1586,9 +1584,8 @@
                 <span class="lib-mark">${NOTE_ICON}</span>
                 <div class="lib-name">${title}</div>
                 <div class="lib-import">
-                  <span>${label}</span>
                   <div class="lib-import-bar" role="progressbar" aria-label="${title}, ${label}" aria-valuenow="${progress}">
-                    <i style="width:${progress}%"></i>
+                    <i style="width:${progress}%"></i><span>${label}${progress ? ` ${progress}%` : ''}</span>
                   </div>
                 </div>
               </div>`).join('') + rows.map((row) => {
@@ -1604,29 +1601,27 @@
                   <span class="lib-key" data-ctl="lib.key" onclick="event.stopPropagation(); ${t.camelot === '—' ? '' : `filterKey('${t.camelot}')`}" ${t.camelot === '—' ? '' : `title="Show ${t.camelot} and its harmonic matches"`}>${camelotBadge(t.camelot, libView.key === t.camelot ? 'sel' : '')}</span>
                   <span class="lib-note">${keyShort(t.key)}</span>
                 </div>
-                ${libGridHtml(i)}
                 ${starsHtml(i, 'lib-stars')}
                 <button class="lib-more" data-ctl="lib.more" onclick="event.stopPropagation(); openMore(${i})" aria-label="Track details for ${escapeHtml(titleOf(t))}" title="Track details, playlists and re-analyse">${MORE_ICON}</button>
               </div>`;
         }).join('');
       }
 
-      /* Five stars: tap one to rate, tap the lit top star again to clear. */
-      function starsHtml(i, cls) {
+      /* Five stars: tap one to rate, tap the lit top star again to clear. The library row
+         draws them as text; track details draws its own (STAR_SVG), white as in the drawing. */
+      function starsHtml(i, cls, glyph = () => STAR) {
         const n = RATINGS[i] || 0;
         return `<span class="${cls}" data-ctl="lib.rating" role="radiogroup" aria-label="Rating">${[1, 2, 3, 4, 5].map((k) =>
           `<button class="${k <= n ? 'on' : ''}" role="radio" aria-checked="${k === n}" aria-label="${k} star${k > 1 ? 's' : ''}"
-            onclick="event.stopPropagation(); rate(${i}, ${k})">${STAR}</button>`).join('')}</span>`;
+            onclick="event.stopPropagation(); rate(${i}, ${k})">${glyph(k <= n)}</button>`).join('')}</span>`;
       }
       function rate(i, k) { if (RATINGS[i] === k) delete RATINGS[i]; else RATINGS[i] = k; render(); }
-
-      /* Flagged tracks read amber with a ? and name the other tempos in the tooltip. */
-      function libGridHtml(i) {
-        const t = LIBRARY[i];
-        if (!gridUnsure(i)) return `<span class="lib-grid" data-ctl="lib.grid">${t.grid}</span>`;
-        const alts = gridAltsOf(i).map((alt) => alt.bpm.toFixed(2)).join(' or ');
-        return `<span class="lib-grid unsure" data-ctl="lib.grid" title="Tempo uncertain: it may be ${alts}. Open the beat grid to choose.">${t.grid}?</span>`;
-      }
+      /* A five-pointed star 23 across, as the drawing's: filled when lit, an outline when not. */
+      const STAR_POINTS = Array.from({ length: 10 }, (_, n) => {
+        const r = n % 2 ? 4.83 : 12.1, a = Math.PI * n / 5;
+        return `${(12.1 + r * Math.sin(a)).toFixed(2)},${(12.1 - r * Math.cos(a)).toFixed(2)}`;
+      }).join(' ');
+      const STAR_SVG = (lit) => `<svg viewBox="0.6 0 23 21.9" aria-hidden="true"><polygon class="${lit ? 'lit' : ''}" points="${STAR_POINTS}"/></svg>`;
 
       function libFilterHtml() {
         if (!libView.key) return '<span>All keys</span>';
@@ -1753,8 +1748,8 @@
           <div class="lib-body">
             <nav class="lib-side" data-ctl="lib.playlists">
               <span class="lib-side-label">COLLECTION</span>
-              <button class="lib-side-item ${list ? '' : 'on'}" onclick="setPlaylist('all')"><i>${NOTE_ICON}</i><span>All tracks</span><em>${screen === 'firstrun' ? 0 : LIBRARY.length}</em></button>
-              <button class="lib-side-item set ${set === currentSet() ? 'on' : ''}" data-ctl="lib.thisset" onclick="setPlaylist('${currentSet().id}')"><i>${NOTE_ICON}</i><span>This set</span><em>${screen === 'firstrun' ? 0 : currentSet().plays.length}</em></button>
+              <button class="lib-side-item counted ${list ? '' : 'on'}" onclick="setPlaylist('all')"><i>${NOTE_ICON}</i><span>All tracks</span><em class="lib-playlist-count">${screen === 'firstrun' ? 0 : LIBRARY.length}</em></button>
+              <button class="lib-side-item set counted ${set === currentSet() ? 'on' : ''}" data-ctl="lib.thisset" onclick="setPlaylist('${currentSet().id}')"><i>${NOTE_ICON}</i><span>This set</span><em class="lib-playlist-count">${screen === 'firstrun' ? 0 : currentSet().plays.length}</em></button>
               ${SETS.length > 1 && screen !== 'firstrun' ? `<span class="lib-side-label">PAST SETS</span>${SETS.slice(0, -1).reverse().map((x) =>
                 `<button class="lib-side-item ${set === x ? 'on' : ''}" data-ctl="lib.pastset" onclick="setPlaylist('${x.id}')" title="Set started ${x.started}"><i>◷</i><span>${x.started.split(' · ')[0]}</span><em>${x.plays.length}</em></button>`).join('')}` : ''}
               <div class="lib-side-head"><span class="lib-side-label">PLAYLISTS</span><span class="lib-actions"><button onclick="newPlaylist()" title="New playlist">+</button></span></div>
@@ -1763,7 +1758,7 @@
             <div class="lib-main">
               <div class="lib-filter" id="libFilter">${libFilterHtml()}</div>
               <div class="lib-cols" data-ctl="lib.sort">
-                ${[['name', 'track'], ['bpm', 'bpm'], ['dur', set ? 'played' : 'time'], ['key', 'key'], ['grid', 'grid'], ['rating', 'rating']].map(([col, label]) =>
+                ${[['name', 'track'], ['bpm', 'bpm'], ['dur', set ? 'played' : 'time'], ['key', 'key'], ['rating', 'rating']].map(([col, label]) =>
                   `<button class="${libView.sort === col ? 'on' + (libView.dir < 0 ? ' desc' : '') : ''}" onclick="sortLibrary('${col}')">${label}</button>`).join('')}
                 <span></span>
               </div>
@@ -2142,7 +2137,7 @@
         }
       };
       const infoBtn = (topic) => `<button class="btn icon-btn info" data-ctl="help.${topic}" onclick="event.stopPropagation(); openHelp('${topic}')" title="${HELP[topic].title}" aria-label="${HELP[topic].title}"><img src="../icons/info.svg" alt=""></button>`;
-      const closeBtn = (action, control) => `<button class="btn icon-btn done"${control ? ` data-ctl="${control}"` : ''} onclick="${action}" title="Close" aria-label="Close"><img src="../icons/close.svg" alt=""></button>`;
+      const closeBtn = (action, control) => `<button class="btn icon-btn close"${control ? ` data-ctl="${control}"` : ''} onclick="${action}" title="Close" aria-label="Close"><img src="../icons/close.svg" alt=""></button>`;
       function renderHelp() {
         const h = HELP[help];
         return `
@@ -2359,7 +2354,7 @@
         return `<div class="alert" role="alert" data-ctl="console.error">
             <b>CAN'T LOAD</b>
             <span>"Bicep — Glue" isn't on disk any more. Add the file again to play it.</span>
-            <button class="mini" onclick="setScreen('console')" title="Dismiss">✕</button>
+            ${closeBtn("setScreen('console')")}
           </div>`;
       }
 
@@ -2404,11 +2399,22 @@
         { release: '2023-07-21' },
         { album: 'Sample Sessions', genre: 'UK Garage', remixer: 'Demo Remixer', release: '2012-10-08' }
       ];
-      function shortDate(iso) {
-        if (!iso) return '';
-        const [y, m, d] = iso.split('-').map(Number);
-        return new Date(y, m - 1, d).toLocaleDateString(undefined, { dateStyle: 'short' });
-      }
+      /* Track details' icons: icons/*.svg, the user's drawing. */
+      const INFO_ICONS = {
+        artist: '<svg viewBox="0 0 19.92 19.92" aria-hidden="true"><path d="M9.95,19.91c5.51,0,9.97-4.45,9.97-9.96S15.46,0,9.95,0,0,4.45,0,9.95,4.46,19.91,9.95,19.91ZM9.95,18.26c-4.58,0-8.29-3.72-8.29-8.31S5.37,1.65,9.95,1.65s8.31,3.72,8.31,8.3S14.54,18.26,9.95,18.26ZM16.64,16.39l-.03-.11c-.49-1.43-3.07-3.01-6.66-3.01s-6.15,1.58-6.64,3.01l-.03.11c1.76,1.74,4.78,2.75,6.68,2.75S14.86,18.14,16.64,16.39ZM9.95,11.62c1.88.02,3.36-1.58,3.36-3.68,0-1.98-1.48-3.61-3.36-3.61s-3.35,1.63-3.34,3.61C6.62,10.04,8.08,11.6,9.95,11.62Z"/></svg>',
+        album: '<svg viewBox="0 0 17.12 22.66" aria-hidden="true"><path d="M13.05,1.25H4.06c.04-.8.54-1.25,1.36-1.25h6.26C12.51,0,13.01.45,13.05,1.25Z"/><path d="M15.05,4.04c-.32-.05-.65-.07-1-.07H3.06c-.35,0-.68.02-1,.07.1-.93.73-1.46,1.77-1.46h9.45C14.31,2.58,14.94,3.11,15.05,4.04Z"/><path d="M17.12,8.57v11.06c0,2.01-1.03,3.03-3.07,3.03H3.06c-2.04,0-3.06-1.01-3.06-3.03v-11.06c0-2.02,1.02-3.02,3.06-3.02h10.99C16.09,5.55,17.12,6.56,17.12,8.57ZM12.74,10.33v-2.58c0-.36-.29-.59-.65-.52l-3.51.76c-.44.1-.68.33-.68.72v7.63c.04.34-.12.55-.41.61l-1.09.23c-1.38.29-2.02.98-2.02,2.03s.81,1.78,1.95,1.78c1,0,2.51-.74,2.51-2.74v-6.27c0-.37.07-.44.4-.51l3.13-.69C12.6,10.73,12.74,10.56,12.74,10.33Z"/></svg>',
+        genre: '<svg viewBox="0 0 20.76 23.24" aria-hidden="true"><path d="M1.24,22.01c1.62,1.62,3.53,1.64,5.13.03,1.18-1.17,2.42-3.96,3.33-5.04l2.08,2.08c.77.78,1.68.78,2.42.03l1.27-1.27c.74-.75.74-1.64-.04-2.41l-7.62-7.63c-.77-.78-1.67-.79-2.42-.03l-1.26,1.27c-.74.73-.75,1.64.02,2.42l2.08,2.07c-1.07.92-3.86,2.15-5.04,3.34C-.41,18.47-.4,20.38,1.24,22.01ZM5.48,9.9l.8-.77c.25-.26.52-.26.78,0l7.06,7.05c.24.24.24.52-.02.78l-.76.78c-.26.27-.55.27-.81.01l-2.33-2.34c-.36-.37-.82-.33-1.24.07-.77.75-2.09,3.96-3.65,5.51-.94.94-2.07.94-3.04-.02-.96-.97-.97-2.11-.03-3.05,1.56-1.54,4.78-2.88,5.52-3.65.39-.41.44-.89.08-1.24l-2.36-2.33C5.24,10.44,5.24,10.16,5.48,9.9ZM3.76,20.7c.66,0,1.2-.54,1.2-1.21s-.54-1.2-1.2-1.2-1.21.54-1.21,1.2S3.09,20.7,3.76,20.7ZM15.32,16.4l4.64-4.64c1.08-1.08,1.06-2.38-.04-3.49L12.25.59c-1.03-1.03-2.8-.62-3.16.97-.9,3.94-.94,4.41-2.45,6.51l1.13,1.11c1.71-2.24,1.83-3.32,2.77-6.81.13-.5.54-.63.87-.3l7.31,7.3c.45.45.45.99.03,1.42l-4.52,4.52L15.32,16.4ZM13.78,10.83c.51.51,3.37-1.07,4.35-2.3l-2.14-2.14c-.19,1.73-1.09,2.97-2.18,4.07C13.68,10.58,13.7,10.75,13.78,10.83Z"/></svg>',
+        bpm: '<svg viewBox="0 0 24 20.17" aria-hidden="true"><path d="M21.91,20.17H2.09c-1.15,0-2.09-.94-2.09-2.09V2.09C0,.94.94,0,2.09,0h19.82c1.15,0,2.09.94,2.09,2.09v15.99C24,19.23,23.06,20.17,21.91,20.17ZM4.92,2.79h-2.58v14.59h2.69c1.7,0,2.59-1.21,2.59-3.46v-1.19c0-1.54-.36-2.62-1.27-3.1v-.04c.76-.48,1.1-1.42,1.1-2.92v-.52C7.45,3.9,6.69,2.79,4.92,2.79ZM4.87,4.88c.61,0,.87.46.87,1.5v.81c0,1.17-.39,1.54-1.02,1.54h-.67v-3.85H4.87ZM4.81,10.81c.78,0,1.1.42,1.1,1.78v1.27c0,1.08-.31,1.43-.88,1.43h-.98v-4.48H4.81ZM11.16,2.79h-2.51v14.59h1.7v-5.48h.81c1.71,0,2.55-1.27,2.55-3.61v-1.89C13.71,4.07,12.87,2.79,11.16,2.79ZM11.16,4.88c.55,0,.84.33.84,1.37v2.19c0,1.04-.29,1.37-.84,1.37h-.81v-4.93H11.16ZM16.86,2.79h-2.37v14.59h1.49V7.07h.03l1.24,10.31h1.62l1.14-10.46h.04v10.46h1.61V2.79h-2.38l-1.14,10.36h-.03L16.86,2.79Z"/></svg>',
+        key: '<svg viewBox="0 0 24 20.17" aria-hidden="true"><path d="M21.91,0H2.09C.94,0,0,.94,0,2.09v15.99c0,1.15.94,2.09,2.09,2.09h19.82c1.15,0,2.09-.94,2.09-2.09V2.09C24,.94,23.06,0,21.91,0ZM9.39,13.45v3.67s-.8,0-.8,0v-3.49s-2.87.73-2.87.73v3.48s-.81,0-.81,0l.02-3.3-1.57.39v-2.17s1.56-.38,1.56-.38v-3.99s-1.56.36-1.56.36v-2.15s1.56-.37,1.56-.37v-3.68s.8.01.8.01v3.48s2.87-.74,2.87-.74V1.8s.8,0,.8,0v3.32s1.56-.38,1.56-.38v2.16s-1.55.39-1.55.39v3.98s1.55-.37,1.55-.37l.01,2.15L9.39,13.45ZM20.66,14.32c-.71.56-1.48,1.02-2.37,1.41-1.58.74-2.88,1.64-4.44,2.64V1.98s1.27,0,1.27,0v9.47c.93-.45,1.83-.78,2.9-.88,1.38-.12,2.82.33,3.43,1.36C21.97,12.81,21.41,13.68,20.66,14.32ZM18.7,12.92c-.09,1.22-2.14,2.66-3.56,3.6v-3.93c.35-.51,1.12-.95,1.86-.99C17.93,11.56,18.75,12.19,18.7,12.92ZM8.58,7.47v3.99s-2.86.72-2.86.72v-3.98S8.58,7.47,8.58,7.47Z"/></svg>',
+        length: '<svg viewBox="0 0 19.92 19.92" aria-hidden="true"><path d="M9.95,19.91c5.51,0,9.97-4.45,9.97-9.96S15.46,0,9.97,0c-.52,0-.77.31-.77.81v3.11c0,.43.29.77.71.77s.72-.34.72-.77V1.69c4.04.31,7.63,3.68,7.63,8.26s-3.72,8.31-8.31,8.31S1.66,14.54,1.66,9.97c0-2.09.76-3.96,1.99-5.39.29-.38.3-.87-.03-1.21-.33-.35-.87-.31-1.22.12C.91,5.23,0,7.49,0,9.95,0,15.46,4.46,19.91,9.95,19.91Z"/><path d="M9.95,11.53c.88,0,1.58-.7,1.58-1.58,0-.52-.25-.99-.67-1.28l-4.88-3.46c-.48-.34-.98.16-.66.65l3.25,4.87C8.89,11.2,9.38,11.53,9.95,11.53Z"/></svg>',
+        rating: '<svg viewBox="0 0 21.68 20.72" aria-hidden="true"><path d="M4.15,20.54c.42.31.91.2,1.52-.23l5.17-3.8,5.17,3.8c.6.43,1.1.54,1.52.23.4-.3.48-.81.23-1.51l-2.03-6.08,5.21-3.73c.61-.43.86-.89.69-1.37-.15-.48-.61-.71-1.36-.7l-6.4.04-1.94-6.1c-.23-.72-.58-1.09-1.09-1.09s-.85.37-1.09,1.09l-1.94,6.1-6.4-.04c-.75,0-1.2.22-1.36.7-.16.48.09.94.69,1.37l5.21,3.73-2.03,6.08C3.67,19.73,3.75,20.24,4.15,20.54ZM5.56,18.62s-.01-.04,0-.1l1.95-5.58c.13-.38.05-.68-.29-.92l-4.86-3.36s-.06-.04-.05-.07c.02-.04.04-.04.09-.04l5.91.11c.4.01.66-.15.78-.55l1.69-5.66c.02-.05.03-.07.06-.07s.04.02.06.07l1.69,5.66c.12.4.39.56.79.55l5.9-.11c.05,0,.07,0,.09.04,0,.03,0,.04-.05.07l-4.86,3.36c-.34.24-.42.54-.28.92l1.94,5.58c.01.06.02.07,0,.1-.02.02-.05,0-.09-.02l-4.7-3.59c-.31-.24-.66-.24-.98,0l-4.69,3.59S5.59,18.64,5.56,18.62Z"/></svg>',
+        reanalyse: '<svg viewBox="42.74 257.25 24.61 20.71" aria-hidden="true"><path d="M61.89,272.42c-.25,0-.62.08-.98.48-1.5,1.66-3.64,2.61-5.87,2.61-3.59,0-6.73-2.44-7.63-5.87h.89c.64,0,.9-.32,1-.51.17-.33.11-.74-.17-1.14l-2.18-3.11c-.23-.33-.54-.52-.88-.52s-.65.19-.88.51l-2.18,3.11c-.29.4-.35.83-.18,1.16.09.18.35.5,1,.5h1.06c.96,4.84,5.18,8.32,10.15,8.32,2.94,0,5.75-1.25,7.71-3.43.25-.29.37-.64.33-1-.03-.35-.22-.67-.5-.88C62.37,272.5,62.13,272.42,61.89,272.42Z"/><path d="M67.25,266.08c-.09-.18-.35-.5-.99-.5h-1.06c-.96-4.84-5.18-8.33-10.16-8.33-2.95,0-5.75,1.25-7.7,3.43-.26.29-.38.64-.35.99.04.35.22.67.51.9.22.15.46.23.7.23s.61-.09.97-.48c1.51-1.66,3.64-2.61,5.87-2.61,3.59,0,6.73,2.44,7.64,5.87h-.9c-.64,0-.9.31-.99.5-.18.33-.11.75.17,1.15l2.18,3.11c.23.33.54.51.88.51s.65-.18.88-.51l2.18-3.1C67.36,266.84,67.43,266.42,67.25,266.08Z"/></svg>',
+        remove: '<svg viewBox="120.59 255.15 20.06 23.08" aria-hidden="true"><path d="M133.69,274.89c-.4,0-.66-.25-.65-.61l.32-11.08c.01-.38.28-.61.65-.61s.65.24.64.61l-.32,11.08C134.32,274.66,134.06,274.89,133.69,274.89ZM130.62,274.89c-.4,0-.67-.24-.67-.61v-11.08c0-.36.27-.61.67-.61s.66.25.66.61v11.08C131.28,274.65,131.01,274.89,130.62,274.89ZM127.54,274.9c-.37,0-.64-.24-.65-.61l-.31-11.09c-.01-.36.25-.61.64-.61.38,0,.64.25.65.61l.31,11.08C128.19,274.65,127.93,274.9,127.54,274.9ZM135.16,259.89h-1.64v-2.21c0-.6-.42-.98-1.04-.98h-3.71c-.62,0-1.03.38-1.03.98v2.21h-1.66v-2.32c0-1.49.98-2.42,2.58-2.42h3.94c1.58,0,2.56.93,2.56,2.42V259.89ZM139.88,260.71h-18.53c-.43,0-.76-.35-.76-.77s.35-.78.76-.78h18.53c.4,0,.77.34.77.78S140.28,260.71,139.88,260.71ZM135.36,278.23h-9.5c-1.48,0-2.48-.96-2.55-2.45l-.72-15.25h1.66l.69,15.08c.03.63.47,1.06,1.09,1.06h9.19c.59,0,1.04-.45,1.07-1.06l.73-15.08h1.63l-.74,15.27C137.84,277.28,136.86,278.23,135.36,278.23Z"/></svg>'
+      };
+      /* Track details, from the user's drawing (mockup/song.info.svg, 636 × 400): the title and
+         exit across the top, the cover with re-analyse and remove under it, a row each for the
+         artists, album, genre, BPM, key, length and stars, then the playlists as chips. Re-analyse
+         and remove are icons only and ask twice: the first tap fills the ring. */
       function renderMore() {
         const i = libView.moreFor;
         const t = libTrack(i);
@@ -2417,34 +2423,31 @@
         const confirm = screen === 'trackremove' || libView.moreConfirm;
         const again = screen === 'trackagain' || libView.moreAgain;
         const joined = (first, rest) => (first || '') + (first && rest ? ' • ' : '') + (rest || '');
-        const field = (label, value) => `<div class="more-field"><span>${label}</span><b>${value}</b></div>`;
+        const row = (icon, label, value) => `<div class="more-row ${icon}"><i title="${label}">${INFO_ICONS[icon]}</i><b>${value}</b></div>`;
         return `
           <div class="gsheet more" data-ctl="lib.more">
-            <div class="more-top">
-              <span class="more-art" style="--art:${ROW_ART[i % ROW_ART.length]}"></span>
-              <div class="more-actions">
-                <button class="btn more-remove ${confirm ? 'confirm' : ''}" data-ctl="lib.remove" onclick="removeTrack()" title="Take this track out of the library"><i>X</i>${confirm ? 'Tap again to remove' : 'Remove from library'}</button>
-                <button class="btn more-again ${again ? 'confirm' : ''}" data-ctl="lib.reanalyze" onclick="reanalyseTrack()" title="Run the analysis on this track again"><i>↻</i>${again ? 'Tap again to re-analyse' : 'Re-analyse'}</button>
-                ${closeBtn('openMore(null)')}
-              </div>
-              <div class="more-title">
-                <span>Track</span>
-                <b>${titleOf(t)}</b>
-                <p><span>Artists:</span> ${joined(names.length > 1 ? names[0] : '', tags.remixer)}</p>
-              </div>
+            <div class="more-head">
+              <h2>${titleOf(t)}</h2>
+              ${closeBtn('openMore(null)')}
             </div>
-            <div class="more-fields">
-              ${field('Album', tags.album || '')}
-              ${field('Genre', joined(tags.genre, tags.subgenre))}
-              ${field('BPM', t.bpm)}
-              ${field('Key', t.camelot === '—' ? '' : `${camelotBadge(t.camelot)}${keyShort(t.key)}`)}
-              ${field('Length', t.dur)}
-              ${field('Released', shortDate(tags.release))}
+            <span class="more-art" style="--art:${ROW_ART[i % ROW_ART.length]}"></span>
+            <div class="more-actions">
+              <button class="more-again ${again ? 'confirm' : ''}" data-ctl="lib.reanalyze" onclick="reanalyseTrack()"
+                title="${again ? 'Tap again to re-analyse' : 'Re-analyse: run the analysis on this track again'}" aria-label="${again ? 'Tap again to re-analyse' : 'Re-analyse'}">${INFO_ICONS.reanalyse}</button>
+              <button class="more-remove ${confirm ? 'confirm' : ''}" data-ctl="lib.remove" onclick="removeTrack()"
+                title="${confirm ? 'Tap again to remove' : 'Remove from library'}" aria-label="${confirm ? 'Tap again to remove' : 'Remove from library'}">${INFO_ICONS.remove}</button>
             </div>
-            <div class="more-lists" data-ctl="lib.playlist">
-              <h3>Playlists</h3>
-              <div>${PLAYLISTS.map((p) => `<button class="${p.tracks.includes(i) ? 'on' : ''}" onclick="togglePlaylistTrack('${p.id}', ${i})">${p.name}</button>`).join('')}</div>
+            <div class="more-rows">
+              ${row('artist', 'Artists', joined(names.length > 1 ? names[0] : '', tags.remixer))}
+              ${row('album', 'Album', tags.album || '')}
+              ${row('genre', 'Genre', joined(tags.genre, tags.subgenre))}
+              ${row('bpm', 'BPM', t.bpm)}
+              ${row('key', 'Key', t.camelot === '—' ? '' : `${camelotBadge(t.camelot)}${keyShort(t.key)}`)}
+              ${row('length', 'Length', t.dur)}
+              ${row('rating', 'Rating', starsHtml(i, 'more-stars', STAR_SVG))}
             </div>
+            <div class="more-lists" data-ctl="lib.playlist">${PLAYLISTS.map((p) =>
+              `<button class="${p.tracks.includes(i) ? 'on' : ''}" onclick="togglePlaylistTrack('${p.id}', ${i})">${p.name}</button>`).join('')}</div>
           </div>`;
       }
 

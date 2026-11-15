@@ -123,17 +123,12 @@ html, body {
 .head .mini { width: 26px; height: 24px; font-size: 16px; }
 .head .chip { padding: 3px 6px; }
 .head-chips { display: flex; align-items: center; gap: 5px; }
-.vol-btn { min-width: 88px; min-height: 24px; font-size: 13px; letter-spacing: .16em; }
 .head-btn { min-height: 24px; padding: 0 9px; font-size: 13px; letter-spacing: .14em; }
 .energy-btn { display: inline-flex; align-items: center; gap: 6px; }
 .energy-btn i { display: inline-block; width: 28px; height: 5px; border-radius: 2px; background: linear-gradient(90deg, #457ce6, #2bccd0, #f1c448, #ff5746); opacity: .45; }
 .energy-btn.on i { opacity: 1; }
 .energy-reading { font-style: normal; }
 .head-btn.on { color: #ffab40; border-color: color-mix(in srgb, var(--led) 58%, #26262b); }
-.vol-btn.on {
-  background: color-mix(in srgb, var(--led) 15%, #151517); color: #ffab40;
-  border-color: color-mix(in srgb, var(--led) 58%, #26262b);
-}
 
 /* ---------- the screen: two full-width zoom lanes ---------- */
 .screen {
@@ -257,7 +252,11 @@ html, body {
 .zart:hover b { color: var(--accent); }
 .zart.armed { box-shadow: 0 0 0 2px var(--accent); }
 .zart.armed b { background: var(--accent); color: #000; }
-.zart.blocked b { color: #ffb45e; }
+/* PLAYING covers the whole art, big enough to read at a glance. */
+.zart.blocked b {
+  top: 0; display: grid; place-items: center; padding: 0; background: rgba(0, 0, 0, .78);
+  font-size: 19px; letter-spacing: .1em; text-indent: .1em; color: #ffb45e;
+}
 .zart.loaded b { color: var(--dim); }
 .zbody { display: grid; grid-template-rows: 50px minmax(0, 1fr); min-width: 0; padding: 2px 8px 2px 10px; }
 .zreads { position: relative; min-width: 0; }
@@ -792,7 +791,9 @@ html, body {
 .lib-side-item i svg { display: block; height: 18px; margin: 0 auto; fill: currentColor; }
 .lib-side-item em { font: 700 14px/1 var(--font-avenir); color: var(--dim); }
 .lib-side-item.playlist { padding-right: 0; color: var(--text); }
-.lib-side-item .lib-playlist-count {
+/* All tracks and This set carry the playlists' blue count badge. */
+.lib-side-item.counted { padding-right: 0; }
+.lib-side-item em.lib-playlist-count, .lib-side-item .lib-playlist-count {
   flex: none; display: inline-grid; place-items: center; min-width: 30px; height: 27px; padding: 0 4px;
   background: var(--blue); color: var(--text); font-size: 16px; font-variant-numeric: tabular-nums;
 }
@@ -801,10 +802,10 @@ html, body {
 .lib-filter { flex: none; display: flex; align-items: flex-start; gap: 8px; padding-top: 7px; font-size: 14px; color: var(--muted); min-height: 40px; }
 .lib-filter:has(.seg) { align-items: center; padding-top: 0; }
 .lib-filter .seg button { min-height: 28px; padding: 4px 10px; font-size: 14px; }
-.lib-cols, .lib-row { display: grid; grid-template-columns: 68px 45px minmax(0, 1fr) 71px 64px 103px 67px 116px 51px; align-items: center; }
+.lib-cols, .lib-row { display: grid; grid-template-columns: 68px 45px minmax(0, 1fr) 71px 64px 103px 116px 51px; align-items: center; }
 .lib-cols { flex: none; height: 26px; font: 700 14px/1 var(--font-avenir); text-transform: uppercase; color: #74747b; }
 .lib-cols > :first-child { grid-column: 1 / 4; padding-left: 7px; text-align: left; }
-.lib-cols > :nth-child(n+2), .lib-row > :is(.lib-bpm, .lib-dur, .lib-tonality, .lib-grid, .lib-stars, .lib-more, .lib-import) {
+.lib-cols > :nth-child(n+2), .lib-row > :is(.lib-bpm, .lib-dur, .lib-tonality, .lib-stars, .lib-more, .lib-import) {
   height: 100%; border-left: 1px solid var(--lib-divider);
 }
 .lib-cols button {
@@ -823,25 +824,24 @@ html, body {
 .lib-row.selected .lib-name { font-weight: 600; }
 .lib-row.pending { cursor: default; }
 .lib-row.pending .lib-mark { color: var(--row-dim); }
-.lib-import { grid-column: 4 / -1; display: flex; align-items: center; gap: 12px; padding: 0 12px; }
-.lib-import > span { width: 100px; font: 700 13px/1 var(--font-avenir); text-transform: uppercase; color: var(--row-dim); }
-.lib-import-bar { flex: 1; height: 4px; background: #5c6162; border-radius: 2px; overflow: hidden; }
-.lib-import-bar i { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+.lib-import { grid-column: 4 / -1; display: flex; align-items: center; padding: 0 12px; }
+/* The whole bar is the progress: it fills blue from the left behind the centred label. */
+.lib-import-bar { position: relative; flex: 1; height: 28px; display: grid; place-items: center; background: #2a2e2f; border-radius: 3px; overflow: hidden; }
+.lib-import-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--blue); }
+.lib-import-bar span { position: relative; font: 700 15px/1 var(--font-avenir); text-transform: uppercase; color: #f2f4f3; font-variant-numeric: tabular-nums; }
 .lib-art { height: 100%; background: var(--art) center / cover; }
 .lib-mark { display: flex; align-items: center; justify-content: center; gap: 2px; color: var(--row-fg); }
 .lib-mark svg { display: block; height: 25px; fill: currentColor; }
-/* Played in this set: the note turns orange, until NEW SET. */
-.lib-mark.played, .ztitle .note.played, .lib-side-item.set i { color: #e18400; }
+/* Played in this set: the note dims to a see-through white, until NEW SET. */
+.lib-mark.played, .ztitle .note.played, .lib-side-item.set i { color: rgba(255, 255, 255, .35); }
 /* The DJ's stars: lit yellow, unlit dim. */
-.lib-stars, .zstars { display: flex; align-items: center; justify-content: center; }
-.lib-stars button, .zstars button {
+.lib-stars { display: flex; align-items: center; justify-content: center; }
+.lib-stars button {
   appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer;
   width: 21px; height: 100%; font: 400 19px/1 var(--font-ui); color: #3b3f40;
 }
-.lib-stars button.on, .zstars button.on { color: #dbe22d; }
+.lib-stars button.on { color: #dbe22d; }
 .lib-row.selected .lib-stars button:not(.on) { color: rgba(255, 255, 255, .35); }
-.zstars { flex: none; align-self: stretch; margin-left: auto; }
-.zstars button { width: 17px; font-size: 15px; color: #3d5670; }
 .lib-head .btn.newset.armed { border-color: #ff5a4f; color: #ff5a4f; }
 .lib-deck { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 2px; background: #f5f5f6; color: #0b0913; font: 700 20px/1 var(--font-avenir); }
 .lib-deck.playing { width: 30px; padding-right: 5px; box-sizing: border-box; background: #80c342; clip-path: polygon(0 0, 72% 0, 100% 50%, 72% 100%, 0 100%); }
@@ -850,11 +850,10 @@ html, body {
 .lib-mark.both .lib-deck.playing { padding-right: 4px; }
 .lib-name { min-width: 0; padding-right: 8px; font: 500 22px/1 var(--font-avenir); color: var(--row-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-name small { margin-left: 10px; font-size: 16px; color: var(--row-dim); }
-.lib-bpm, .lib-dur, .lib-note, .lib-grid { display: grid; place-items: center; font: 600 19px/1 var(--font-avenir); color: var(--row-dim); font-variant-numeric: tabular-nums; }
+.lib-bpm, .lib-dur, .lib-note { display: grid; place-items: center; font: 600 19px/1 var(--font-avenir); color: var(--row-dim); font-variant-numeric: tabular-nums; }
 .lib-bpm { font-size: 21px; font-weight: 500; color: var(--row-fg); }
 .lib-tonality { display: grid; grid-template-columns: 62px minmax(0, 1fr); align-items: center; }
 .lib-note { font-size: 18px; }
-.lib-grid.unsure { color: #ffb455; }
 .lib-more {
   appearance: none; display: grid; place-items: center; width: 100%; border: 0; background: transparent;
   color: var(--row-fg); cursor: pointer;
@@ -862,37 +861,52 @@ html, body {
 .lib-more svg { width: 18px; height: 4px; fill: currentColor; }
 .lib-more:hover { background: rgba(255, 255, 255, .08); }
 /* MORE: a Beatport track line, its playlists, re-analyse and remove. */
-.gsheet.more { position: relative; display: block; width: 1000px; height: 352px; padding: 21px 20px 0 31px; border: 2px solid var(--blue); background: #030305; font-family: var(--font-avenir); color: #f2f4f3; }
-.more-top { position: relative; height: 148px; padding-left: 165px; }
-.more-art { position: absolute; left: 0; top: 0; width: 148px; height: 148px; background: var(--art) center / cover; }
-.more-actions { display: flex; justify-content: flex-end; align-items: center; gap: 20px; }
-.more-actions .btn:where(:not(.icon-btn)) { min-height: 36px; height: 36px; padding: 0 13px; display: flex; align-items: center; gap: 6px; border-radius: 4px; background: #161917; font: 600 18px/1 var(--font-cond); letter-spacing: .01em; }
-.more-actions .btn i { font: 700 19px/1 var(--font-avenir); font-style: normal; }
-.more-actions .more-again { padding-left: 8px; gap: 7px; border: 2px solid #dbe22d; color: #dbe22d; }
-.more-actions .more-again i { width: 19px; margin-top: -4px; font: 400 28px/1 var(--font-ui); text-align: center; }
-.more-actions .more-again:hover { border-color: #eef24a; color: #eef24a; }
-.more-actions .more-again.confirm { background: color-mix(in srgb, #dbe22d 22%, #111113); }
-.more-actions .more-remove { border: 2px solid var(--red); color: var(--red); }
-.more-actions .more-remove:hover { border-color: #ff5a4a; color: #ff5a4a; }
-.more-actions .more-remove.confirm { background: color-mix(in srgb, var(--red) 22%, #111113); }
-.more-title { position: absolute; left: 165px; right: 0; top: 58px; display: flex; flex-direction: column; font: 500 17px/20px var(--font-avenir); color: #75757b; }
-.more-title b { margin-top: 6px; font: 600 25px/34px var(--font-avenir); color: #f2f4f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.more-title p { margin: 6px 0 0; color: #f2f4f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.more-title p span { color: #75757b; }
-.more-fields { display: grid; grid-template-columns: 306px 200px 111px 123px 107px 98px; margin-top: 21px; }
-.more-field { min-width: 0; height: 49px; padding: 2px 0 0 11px; border-left: 1px solid #68686d; display: flex; flex-direction: column; gap: 8px; font: 500 17px/18px var(--font-avenir); }
-.more-field:first-child { padding-left: 0; padding-right: 12px; border-left: 0; }
-.more-field:nth-child(2) { padding-left: 12px; }
-.more-field > span { color: #75757b; }
-.more-field b { display: flex; align-items: center; gap: 7px; height: 18px; font-weight: 500; color: #f2f4f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.more-field .cam { flex: none; min-width: 36px; height: 22px; padding: 0 3px; border: 0; border-radius: 2px; font: 700 20px/1 var(--font-cond); cursor: default; }
-.more-field b:has(.cam), .more-field:last-child b { overflow: visible; }
-.more-lists { display: flex; align-items: flex-start; gap: 28px; margin-top: 46px; }
-.more-lists h3 { flex: none; margin: 0; font: 700 22px/28px var(--font-avenir); color: #75757b; text-transform: uppercase; }
-.more-lists > div { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px 12px; max-height: 64px; overflow: auto; }
-.more-lists button { flex: none; height: 28px; padding: 0 8px; border: 2px solid #75757b; border-radius: 3px; background: #161917; color: #75757b; font: 500 19px/1 var(--font-cond); letter-spacing: .01em; text-transform: uppercase; cursor: pointer; }
-.more-lists button:hover { border-color: #f2f4f3; color: #f2f4f3; }
-.more-lists button.on { border-color: var(--blue); color: var(--blue); }
+/* Track details: the user's drawing (mockup/song.info.svg) at its own size, 636 × 400.
+   Positions are the drawing's less its 2 px border. */
+.gsheet.more {
+  position: relative; display: block; box-sizing: border-box; width: 636px; min-height: 400px; padding: 0 0 19px; border: 2px solid #231f20; border-radius: 3px;
+  background: #040405; font-family: var(--font-avenir); color: #f2f1f3;
+}
+.more-head { display: flex; align-items: center; gap: 12px; height: 59.5px; padding: 0 12px 0 26.7px; }
+.more-head h2 { flex: 1; min-width: 0; margin: 0; font: 600 23px/1 var(--font-avenir); color: #f2f1f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.more-art { position: absolute; left: 14.24px; top: 67.57px; width: 150px; height: 150px; background: var(--art) center / cover; }
+/* Re-analyse and remove: a ring and its icon, nothing else. The first tap fills the ring. */
+.more-actions { position: absolute; left: 0; top: 245.72px; }
+.more-actions button {
+  appearance: none; position: absolute; top: 0; display: grid; place-items: center; width: 39.8px; height: 39.8px; padding: 0;
+  border: 2.1px solid var(--ring); border-radius: 50%; background: transparent; color: var(--ring); cursor: pointer;
+}
+.more-actions button svg { fill: currentColor; fill-opacity: .85; }
+.more-actions button.confirm { background: var(--ring); color: #040405; }
+.more-actions button.confirm svg { fill-opacity: 1; }
+.more-again { --ring: #d4e108; left: 33.14px; }
+.more-again svg { width: 24.61px; height: 20.71px; }
+.more-remove { --ring: #ec1c24; left: 108.72px; }
+.more-remove svg { width: 20.06px; height: 23.08px; }
+/* The rows: 434 × 37.25 each, a lighter and a darker grey in turn, an icon in the blue then the value. */
+.more-rows { position: absolute; left: 183.85px; top: 67.57px; width: 434.31px; }
+.more-row { display: flex; align-items: center; height: 37.25px; background: #202323; }
+.more-row:nth-child(even) { background: #151916; }
+.more-row i { flex: none; display: grid; place-items: center; width: 53.34px; height: 100%; color: #276fff; }
+.more-row i svg { display: block; fill: currentColor; }
+.more-row.album i svg, .more-row.key i svg { fill-opacity: .85; }
+.more-row.artist svg { height: 28px; } .more-row.album svg { height: 26px; } .more-row.genre svg { height: 25px; }
+.more-row.bpm svg, .more-row.key svg { height: 23px; } .more-row.length svg, .more-row.rating i svg { height: 26px; }
+.more-row b { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; margin-left: -1.5px; font: 500 21px/1 var(--font-avenir); color: #f2f1f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.more-row .cam { flex: none; min-width: 44px; height: 27.4px; margin-left: 1.5px; padding: 0 5px; border: 0; border-radius: 2.3px; font: 700 21px/1 var(--font-cond); color: #0f0e14; cursor: default; }
+.more-stars { display: flex; height: 37.25px; margin-left: -2.7px; }
+.more-stars button { appearance: none; display: grid; place-items: center; width: 25px; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.more-stars svg { width: 23px; height: 21.9px; }
+.more-stars polygon { fill: none; stroke: #f2f1f3; stroke-width: 1.2; stroke-linejoin: miter; }
+.more-stars polygon.lit { fill: #f2f1f3; stroke: none; }
+/* Playlists: chips under the rows, blue when the track is in that playlist. */
+.more-lists { display: flex; flex-wrap: wrap; gap: 8px 13.5px; max-height: 64px; overflow: auto; margin: 289.77px 16px 0 181.31px; }
+.more-lists button {
+  flex: none; min-width: 75.9px; height: 27.8px; padding: 0 8.5px; border: 1.6px solid #75757c; border-radius: 3px; background: #151916;
+  color: #75757c; font: 600 18.6px/1 var(--font-cond); text-transform: uppercase; cursor: pointer;
+}
+.more-lists button:hover { border-color: #f2f1f3; color: #f2f1f3; }
+.more-lists button.on { border-color: #276fff; color: #276fff; }
 .lib-actions { position: relative; display: flex; justify-content: flex-end; gap: 2px; }
 .lib-actions button { appearance: none; width: 34px; height: 34px; border: 0; border-radius: 3px; background: transparent; color: var(--muted); font-size: 20px; cursor: pointer; }
 .lib-actions button:hover, .lib-actions button.on { color: var(--text); background: rgba(255, 255, 255, .08); }
@@ -1028,9 +1042,10 @@ html, body {
    ================================================================ */
 
 /* ---------- analysing: a status key in the header, with progress ---------- */
+/* The whole pill is the progress bar: it fills from the left behind the centred text. */
 .head-status {
-  position: relative; overflow: hidden; display: flex; align-items: center; gap: 7px;
-  min-width: 0; max-width: 330px; height: 24px; padding: 0 9px; border-radius: 2px;
+  position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 7px;
+  min-width: 260px; max-width: 330px; height: 24px; padding: 0 9px; border-radius: 2px;
   border: 1px solid #2c2c30; background: #101012; white-space: nowrap;
   font: 700 12px/1 var(--font-cond); letter-spacing: .08em; color: var(--silk);
 }
@@ -1039,7 +1054,7 @@ html, body {
   border: 2px solid rgba(255, 138, 0, .25); border-top-color: var(--led); animation: spin .8s linear infinite;
 }
 .head-status b { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 500 14px/1 var(--font-ui); letter-spacing: 0; color: var(--text); }
-.head-status em { position: absolute; left: 0; bottom: 0; height: 2px; width: var(--p, 0%); background: var(--led); }
+.head-status em { position: absolute; z-index: -1; left: 0; top: 0; bottom: 0; width: var(--p, 0%); background: rgba(255, 138, 0, .38); }
 
 /* ---------- errors: one line under the header, red like a lit KILL ---------- */
 .alert {
@@ -1050,7 +1065,6 @@ html, body {
 }
 .alert b { flex: none; font: 700 14px/1 var(--font-cond); letter-spacing: .08em; color: #ff8a7a; }
 .alert span { min-width: 0; font-size: 16px; line-height: 1.3; color: var(--text); }
-.alert .mini { flex: none; width: 36px; height: 34px; font-size: 18px; }
 
 /* ---------- empty decks: the window keeps its shape, the readouts go dark ---------- */
 .zcard { position: relative; }
@@ -1160,6 +1174,12 @@ kbd + kbd { margin-left: 4px; }
 .btn.icon-btn:hover { border-color: #a0a0a6; }
 .btn.icon-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .icon-btn img { display: block; width: auto; height: 25px; pointer-events: none; }
+/* Exit and (i): the drawing's key (mockup/song.info.svg), a 38 px disc of #212426 at half strength,
+   no ring; the X at 17 px, the i at 19 px. */
+.btn.icon-btn:is(.close, .info) { width: 38px; height: 38px; min-height: 38px; border: 0; background: rgba(33, 36, 38, .5); }
+.btn.icon-btn:is(.close, .info):hover { background: rgba(33, 36, 38, .85); }
+.btn.icon-btn.close img { height: 25.7px; }
+.btn.icon-btn.info img { height: 21px; }
 :is(.mixpop h4, .volpop h3, .gsheet-head) .icon-btn { margin-left: auto; }
 :is(.mixpop h4, .volpop h3, .gsheet-head) .icon-btn + .icon-btn { margin-left: 0; }
 

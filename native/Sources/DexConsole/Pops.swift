@@ -292,20 +292,14 @@ struct AlertBar: View {
 
     var body: some View {
         let title = Face.cond(14, tracking: 1.12)
-        // max-width 780 less the padding, the title, the gaps and ✕.
-        let room = 780 - 2 - 13 - 7 - title.width(of: alert.title.uppercased()) - 10 - (alert.dismissable ? 46 : 0)
+        // max-width 780 less the padding, the title, the gaps and the exit key.
+        let room = 780 - 2 - 13 - 7 - title.width(of: alert.title.uppercased()) - 10 - (alert.dismissable ? 48 : 0)
         HStack(spacing: 10) {
             Label(alert.title.uppercased(), title).foregroundStyle(Color(hex: 0xFF8A7A)).frame(height: 14)
             let natural = LineBreaker(runs: [Para.Run(alert.message, .ui(16))]).natural
             Para(alert.message, .ui(16), lineHeight: 1.3).foregroundStyle(Palette.text).frame(width: min(natural, room), alignment: .leading)
             if alert.dismissable {
-                Button(action: dismiss) {
-                    Label("✕", .cond(18, weight: .regular)).foregroundStyle(Color(hex: 0xCDCDD3))
-                        .frame(width: 36, height: 34)
-                        .box(fill: Color(hex: 0x151517), border: .white.opacity(0.13), radius: 3)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Dismiss")
+                ExitButton(label: "Dismiss", action: dismiss)
             }
         }
         .padding(EdgeInsets(top: 7, leading: 13, bottom: 7, trailing: 7))
