@@ -4,9 +4,14 @@
 # .cloud-attachments/ holds imported conversation logs: local artifacts that
 # must never enter history. .gitignore stops a plain `git add -A`; this catches
 # the explicit/forced adds that ignore rules and text-matching permission rules
-# miss. pre-merge-commit runs this same file, because git never runs
-# pre-commit for merge commits.
+# miss.
+#
+# pre-merge-commit runs this file with --no-husky: husky does not run its own
+# pre-commit on merge commits, so neither do we.
 set -uo pipefail
+
+no_husky=0
+[ "${1:-}" = "--no-husky" ] && no_husky=1
 
 # ACMR: a deletion (D) must pass, that is how the directory gets untracked.
 staged=$(git diff --cached --name-only --diff-filter=ACMR -- .cloud-attachments)
@@ -25,12 +30,14 @@ fi
 # Chain to husky when the repo uses it. core.hooksPath points at .githooks, so
 # husky's own pre-commit (lint-staged and friends) would otherwise never run:
 # adding husky would silently drop those checks rather than add them.
-husky="$(dirname "$0")/../.husky/pre-commit"
-if [ -f "$husky" ]; then
-  if [ -x "$husky" ]; then
-    "$husky" || exit $?
-  else
-    sh "$husky" || exit $?
+if [ "$no_husky" = "0" ]; then
+  husky="$(dirname "$0")/../.husky/pre-commit"
+  if [ -f "$husky" ]; then
+    if [ -x "$husky" ]; then
+      "$husky" || exit $?
+    else
+      sh "$husky" || exit $?
+    fi
   fi
 fi
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # git never runs pre-commit for merge commits, and a non-ff `git pull` is a
-# merge. Delegate so there is one definition of the rule.
+# merge. Delegate the transcript check, but pass --no-husky: husky does not hook
+# merge commits itself, and running lint-staged on a merge would check files the
+# author never touched.
 #
 # On failure git does not abort the merge: it leaves MERGE_HEAD in place. The
 # message from pre-commit says so, and `git merge --abort` clears it.
 set -uo pipefail
 
-exec "$(dirname "$0")/pre-commit"
+exec "$(dirname "$0")/pre-commit" --no-husky
